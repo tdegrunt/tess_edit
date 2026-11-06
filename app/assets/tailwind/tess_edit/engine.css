@@ -1,0 +1,10 @@
+/* TessEdit builds its interface with Tailwind classes in JavaScript.
+ *
+ * tailwindcss-rails (4.3 or later) finds this file and generates
+ * app/assets/builds/tailwind/tess_edit.css in the host app, which imports it by
+ * its installed path. The host app adds to app/assets/tailwind/application.css:
+ *
+ *   @import "../builds/tailwind/tess_edit";
+ *
+ * Paths here are relative to this file, so they work wherever the gem is installed. */
+@source "../../../javascript/tess_edit";

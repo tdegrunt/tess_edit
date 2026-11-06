@@ -1,0 +1,16 @@
+{
+  "name": "tess_edit-vendor",
+  "private": true,
+  "type": "module",
+  "description": "Builds the single-file ESM bundles in vendor/javascript. Run: cd script/vendor && npm install && node build.mjs",
+  "dependencies": {
+    "@tiptap/core": "^3.32.3",
+    "@tiptap/extension-text-align": "^3.32.3",
+    "@tiptap/extension-text-style": "^3.32.3",
+    "@tiptap/pm": "^3.32.3",
+    "@tiptap/starter-kit": "^3.32.3",
+    "cheerio": "^1.2.0",
+    "esbuild": "^0.25.0",
+    "mjml-browser": "^5.4.1"
+  }
+}

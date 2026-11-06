@@ -1,0 +1,9 @@
+{
+  "name": "tess_edit-dev",
+  "private": true,
+  "type": "module",
+  "description": "Development scripts only; the gem ships its JavaScript through importmap.",
+  "scripts": {
+    "test": "node --import ./test/javascript/register.mjs --test 'test/javascript/**/*_test.js'"
+  }
+}

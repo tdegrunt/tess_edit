@@ -1,0 +1,16 @@
+<% content_for :title, "TessEdit demo" %>
+
+<%= form_with url: demo_path, method: :post, class: "flex h-screen flex-col gap-3 p-4" do |form| %>
+  <div class="flex items-center gap-3">
+    <h1 class="text-lg font-semibold text-gray-900">TessEdit</h1>
+    <p class="text-sm text-gray-500">Drag blocks onto the canvas, select them to change their settings, double-click text to edit it.</p>
+    <%= form.submit "Submit form", class: "ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %>
+  </div>
+
+  <%# ?panels=left or ?panels=right sets the default panel layout %>
+  <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>">
+    <%= hidden_field_tag :json, nil, data: { tess_edit_target: "jsonInput" } %>
+    <%= hidden_field_tag :mjml, nil, data: { tess_edit_target: "mjmlInput" } %>
+    <%= hidden_field_tag :html, nil, data: { tess_edit_target: "htmlInput" } %>
+  </div>
+<% end %>

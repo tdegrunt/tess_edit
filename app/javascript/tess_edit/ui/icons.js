@@ -1,0 +1,62 @@
+// Small inline SVG icons (24×24, stroke based) so the editor needs no icon font.
+
+const paths = {
+  page: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  section: '<rect x="3" y="6" width="18" height="12" rx="2"/>',
+  wrapper: '<rect x="2" y="3" width="20" height="18" rx="2"/><rect x="5" y="7" width="14" height="4" rx="1"/><rect x="5" y="13" width="14" height="4" rx="1"/>',
+  column: '<rect x="8" y="3" width="8" height="18" rx="2"/>',
+  hero: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 10h10M9 14h6"/>',
+  text: '<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
+  heading: '<path d="M6 4v16M18 4v16M6 12h12"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
+  button: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M9 12h6"/>',
+  divider: '<path d="M3 12h18"/><path d="M8 7h8M8 17h8" opacity=".4"/>',
+  spacer: '<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>',
+  social: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/>',
+  navbar: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 7h0M10 7h0"/>',
+  code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
+  loop: '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>',
+  condition: '<path d="M6 3v6a6 6 0 0 0 6 6h6M6 21v-6M15 12l3 3-3 3"/>',
+  "cols-1": '<rect x="3" y="6" width="18" height="12" rx="1.5"/>',
+  "cols-2": '<rect x="3" y="6" width="8" height="12" rx="1.5"/><rect x="13" y="6" width="8" height="12" rx="1.5"/>',
+  "cols-3": '<rect x="2" y="6" width="5.5" height="12" rx="1"/><rect x="9.25" y="6" width="5.5" height="12" rx="1"/><rect x="16.5" y="6" width="5.5" height="12" rx="1"/>',
+  "cols-4": '<rect x="2" y="6" width="4" height="12" rx="1"/><rect x="7.33" y="6" width="4" height="12" rx="1"/><rect x="12.66" y="6" width="4" height="12" rx="1"/><rect x="18" y="6" width="4" height="12" rx="1"/>',
+  "cols-12": '<rect x="3" y="6" width="5.5" height="12" rx="1.5"/><rect x="10.5" y="6" width="10.5" height="12" rx="1.5"/>',
+  "cols-21": '<rect x="3" y="6" width="10.5" height="12" rx="1.5"/><rect x="15.5" y="6" width="5.5" height="12" rx="1.5"/>',
+  "panels-left": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/><path d="M5.5 8h2M5.5 11h2" opacity=".6"/>',
+  "panels-split": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16"/>',
+  "panels-right": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/><path d="M16.5 8h2M16.5 11h2" opacity=".6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  move: '<path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  parent: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/>',
+  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/>',
+  desktop: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  mobile: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  export: '<path d="M12 3v12M7 8l5-5 5 5M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  bold: '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>',
+  italic: '<path d="M14 5h-4M14 19h-4M14 5l-4 14"/>',
+  underline: '<path d="M7 4v7a5 5 0 0 0 10 0V4M5 20h14"/>',
+  strike: '<path d="M5 12h14M16 6a4 3 0 0 0-8 1c0 4 8 3 8 7a4 3 0 0 1-8 1"/>',
+  link: '<path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/>',
+  unlink: '<path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1M3 3l18 18"/>',
+  "align-left": '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
+  "align-center": '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+  "align-right": '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
+  "list-bullet": '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  "list-ordered": '<path d="M10 6h10M10 12h10M10 18h10M4 4h1v4M4 14h2l-2 3h2"/>',
+  clear: '<path d="M5 6h12M11 6l-3 13M15 15l5 5M20 15l-5 5"/>'
+}
+
+export function icon(name, className = "w-4 h-4") {
+  // Custom blocks may pass their own SVG markup instead of a name.
+  const body = name?.trim().startsWith("<") ? name : paths[name] || paths.section
+  return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+}
