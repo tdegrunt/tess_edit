@@ -3,7 +3,6 @@ import assert from "node:assert/strict"
 import { accepted, createDocument, createFromPalette, insert, itemType, normalize } from "tess_edit/core/document"
 import { categories, getBlock, isContainer, paletteItems, registerBlock, registerCategory } from "tess_edit/core/registry"
 import { toMjml } from "tess_edit/export/mjml"
-import { compile } from "tess_edit/export/compile"
 
 registerCategory({ key: "shop", label: "Shop", order: 40 })
 registerBlock({
@@ -41,14 +40,13 @@ test("its roles decide where it may go, including inside Liquid blocks", () => {
   assert.ok(!accepted(doc, section.id).includes("product"))
 })
 
-test("it renders through its own hook, in the editor and on export", async () => {
+test("it renders through its own hook, in the editor and on export", () => {
   const doc = createDocument()
   const section = insert(doc, doc.id, 0, createFromPalette("section-1"))
   const product = insert(doc, section.children[0].id, 0, createFromPalette("product"))
   const mjml = toMjml(doc)
   assert.match(mjml, /<mj-text padding="10px 25px"><strong>A product<\/strong> \{\{ products\['ABC-1'\]\.price \| money \}\}<\/mj-text>/)
   assert.match(toMjml(doc, { editor: true }), new RegExp(`css-class="tess-${product.id}"`))
-  assert.deepEqual((await compile(mjml)).errors, [])
   assert.equal(normalize(JSON.stringify(doc)).children[0].children[0].children[0].type, "product")
 })
 

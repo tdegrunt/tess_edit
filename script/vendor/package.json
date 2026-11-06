@@ -9,8 +9,6 @@
     "@tiptap/extension-text-style": "^3.32.3",
     "@tiptap/pm": "^3.32.3",
     "@tiptap/starter-kit": "^3.32.3",
-    "cheerio": "^1.2.0",
-    "esbuild": "^0.25.0",
-    "mjml-browser": "^5.4.1"
+    "esbuild": "^0.25.0"
   }
 }

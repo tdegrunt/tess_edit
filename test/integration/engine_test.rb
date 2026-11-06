@@ -7,13 +7,10 @@ class EngineTest < ActionDispatch::IntegrationTest
     assert imports.key?("tess_edit")
     assert imports.key?("tess_edit/controllers/editor_controller")
     assert imports.key?("tess_edit/vendor/tiptap")
-    assert imports.key?("tess_edit/vendor/mjml-browser")
   end
 
-  test "the vendored bundles are served" do
+  test "the vendored bundle is served" do
     get ActionController::Base.helpers.asset_path("tess_edit/tiptap.js")
-    assert_response :success
-    get ActionController::Base.helpers.asset_path("tess_edit/mjml-browser.js")
     assert_response :success
   end
 

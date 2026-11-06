@@ -1,6 +1,6 @@
 // Snapshot tests: the MJML each block exports, compared to files in
-// test/javascript/snapshots. The sample's compiled HTML is kept in
-// test/fixtures/files/sample.html, which the Rails Liquid test renders.
+// test/javascript/snapshots. The Rails tests compile these files with MRML
+// (test/compile_test.rb) and render the sample with Liquid.
 //
 // After an intended change in output, regenerate and review the diff:
 //
@@ -16,11 +16,9 @@ import { createFromPalette } from "tess_edit/core/document"
 import { paletteItems } from "tess_edit/core/registry"
 import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
-import { compile } from "tess_edit/export/compile"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const snapshots = path.join(here, "snapshots")
-const fixtures = path.join(here, "../fixtures/files")
 const update = !!process.env.UPDATE_SNAPSHOTS
 
 function matchFile(file, actual) {
@@ -59,26 +57,13 @@ function documentWith(key) {
 }
 
 for (const item of paletteItems()) {
-  test(`MJML for ${item.label}`, async () => {
+  test(`MJML for ${item.label}`, () => {
     const doc = documentWith(item.key)
     matchFile(path.join(snapshots, `${item.key}.mjml`), toMjml(doc))
     matchFile(path.join(snapshots, "editor", `${item.key}.mjml`), toMjml(doc, { editor: true }))
-    const { errors } = await compile(toMjml(doc))
-    assert.deepEqual(errors, [])
   })
 }
 
-test("MJML and HTML for the sample", async () => {
-  const doc = stableIds(starterDocument())
-  const mjml = toMjml(doc)
-  matchFile(path.join(snapshots, "sample.mjml"), mjml)
-  const { html, errors } = await compile(mjml)
-  assert.deepEqual(errors, [])
-  matchFile(path.join(fixtures, "sample.html"), html)
-})
-
-test("compiling is deterministic", async () => {
-  const mjml = toMjml(stableIds(starterDocument()))
-  const [a, b] = await Promise.all([compile(mjml), compile(mjml)])
-  assert.equal(a.html, b.html)
+test("MJML for the sample", () => {
+  matchFile(path.join(snapshots, "sample.mjml"), toMjml(stableIds(starterDocument())))
 })

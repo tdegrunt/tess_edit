@@ -21,7 +21,14 @@ The interface follows familiar layout: blocks and a layers tree on the left, the
 gem "tess_edit", github: "tdegrunt/tess_edit"
 ```
 
-The engine adds its pins to your import map. Register the controller with your Stimulus application:
+The engine adds its pins to your import map. Mount it for the compile endpoint (see [Compiling](#compiling)):
+
+```ruby
+# config/routes.rb
+mount TessEdit::Engine => "/tess_edit"
+```
+
+Register the controller with your Stimulus application:
 
 ```js
 // app/javascript/application.js
@@ -61,11 +68,11 @@ Give the controller an element with a height and, optionally, hidden inputs to k
 </div>
 ```
 
-The editor loads the document from the `jsonInput` (or from `data-tess-edit-document-value`). With neither, it starts with a sample email; set `data-tess-edit-sample-value="false"` to start with an empty page.
+The editor loads the document from the `jsonInput` (or from `data-tess-edit-document-value`). With neither, it starts with a sample email; set `data-tess-edit-sample-value="false"` to start with an empty email.
 
 `data-tess-edit-panels-value` sets the default panel layout: `split` (Blocks and Layers on the left, Inspect on the right, the default), `left` or `right` (Blocks, Layers and Inspect as tabs in one sidebar on that side). People can switch with the buttons in the top bar; their choice is remembered in the browser. When the editor is narrower than 1000px, it puts all panels on the left so the canvas keeps its room, and goes back to the chosen layout when it is wide enough again.
 
-Every change updates the inputs and dispatches `tess-edit:change` with `{ json, mjml, html, document }` in `event.detail`. The controller instance is available as `element.tessEdit`, with `getDocument()`, `setDocument(json)` and `export()`.
+Every change updates the inputs and dispatches `tess-edit:change` with `{ json, mjml, html, errors, document }` in `event.detail`. When the MJML can't be compiled, `html` is empty and `errors` says why; the editor shows the reason under the canvas. The controller instance is available as `element.tessEdit`, with `getDocument()`, `setDocument(json)` and `export()`.
 
 ### What gets stored
 
@@ -73,15 +80,32 @@ Every change updates the inputs and dispatches `tess-edit:change` with `{ json, 
 |---|---|
 | `json` | The block tree. The source of truth; load it back into the editor. |
 | `mjml` | MJML generated from the JSON. Loops and conditions are `<mj-raw>{% ... %}</mj-raw>`. |
-| `html` | The MJML compiled to HTML in the browser, with Liquid left in place. |
+| `html` | The MJML compiled to HTML on the server, with Liquid left in place. |
 
-Render the HTML with Liquid when sending. Liquid inside HTML attributes, such as a button link of `{{ order.url }}`, has its double quotes changed to single quotes, which Liquid treats the same.
+Render the HTML with Liquid when sending. A host app can also store only the JSON or MJML and compile on its own with `TessEdit.compile(mjml)`.
+
+### Compiling
+
+The editor turns the JSON into MJML in the browser and has the server compile the MJML to HTML, with [MRML](https://github.com/jdrouet/mrml) (the `mrml` gem, precompiled, no Node or Rust needed). The canvas, the preview and the `html` input all come from the same compiler the host app uses when it sends:
+
+```ruby
+result = TessEdit.compile(mjml)
+result.html   # nil when the MJML can't be parsed
+result.errors # [] or the reasons
+```
+
+The editor posts to `/tess_edit/compile`, debounced, with the page's CSRF token (`csrf_meta_tags`). Mounted elsewhere, give the editor the path with `data-tess-edit-compile-url-value`. The endpoint's controller inherits from `ActionController::Base`; make it inherit from one of your controllers so it sits behind the same sign-in and authorization:
+
+```ruby
+# config/initializers/tess_edit.rb
+TessEdit.parent_controller = "Admin::BaseController"
+``` Liquid inside HTML attributes, such as a button link of `{{ order.url }}`, has its double quotes changed to single quotes, which Liquid treats the same.
 
 ### The document format
 
 ```json
 {
-  "version": 1, "id": "b1x2y3z", "type": "page",
+  "version": 1, "id": "b1x2y3z", "type": "root",
   "attributes": { "width": "600px", "background-color": "#f3f4f6" },
   "data": { "subject": "...", "preheader": "...", "fontFamily": "..." },
   "children": [
@@ -94,7 +118,7 @@ Render the HTML with Liquid when sending. Liquid inside HTML attributes, such as
 }
 ```
 
-`attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a PDF renderer, can walk it.
+The top node is the `root` block, which renders the `<mjml>` document with the subject, preview text and theme. Documents from before its rename, with `"type": "page"`, still load. `attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a PDF renderer, can walk it.
 
 ### Blocks and custom blocks
 
@@ -124,7 +148,7 @@ registerBlock({
 registerTessEdit(application)
 ```
 
-Roles say where a block may go: `body` (in the page or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks, so a later renderer (PDF) adds a hook per block next to `mjml`. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
+Roles say where a block may go: `body` (in the root or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks, so a later renderer (PDF) adds a hook per block next to `mjml`. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
 
 ## Development
 
@@ -138,11 +162,11 @@ Tests:
 
 ```bash
 npm test               # JavaScript: document model, export, MJML snapshots (Node 22+)
-bin/rails test         # Rails: engine, import map, Liquid rendering of the compiled HTML
+bin/rails test         # Rails: engine, compile endpoint, MRML and Liquid rendering of the snapshots
 bin/rails test:system  # The editor in Chrome, through Selenium
 ```
 
-`npm test` compares the MJML of every block, and of the sample email, with the files in `test/javascript/snapshots`. It also keeps `test/fixtures/files/sample.html`, the compiled sample that the Rails test renders with Liquid. After an intended change in output, regenerate them and review the diff:
+`npm test` compares the MJML of every block, and of the sample email, with the files in `test/javascript/snapshots`. The Rails tests compile those files with MRML and render the sample with Liquid. After an intended change in output, regenerate them and review the diff:
 
 ```bash
 UPDATE_SNAPSHOTS=1 npm test
@@ -150,7 +174,7 @@ UPDATE_SNAPSHOTS=1 npm test
 
 System tests use a local headless Chrome. With `SELENIUM_URL` set, such as `http://selenium:4444/` in a devcontainer, they use that Selenium server instead and serve the app on this machine's address (or `CAPYBARA_APP_HOST`). `HEADLESS=0` shows the browser.
 
-Tiptap and mjml-browser are vendored as single ES module bundles in `vendor/javascript/tess_edit`. To update them:
+Tiptap is vendored as a single ES module bundle in `vendor/javascript/tess_edit`. To update it:
 
 ```bash
 cd script/vendor && npm install && node build.mjs
@@ -158,4 +182,4 @@ cd script/vendor && npm install && node build.mjs
 
 ## License
 
-MIT. The vendored Tiptap and MJML are MIT licensed too.
+MIT. The vendored Tiptap is MIT licensed too; MRML, through the `mrml` gem, is MIT licensed.

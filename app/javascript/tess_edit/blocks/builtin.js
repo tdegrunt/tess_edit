@@ -1,7 +1,7 @@
 // The built-in blocks, registered by core/registry.js in this order. The
 // order is also the order of tiles in the Blocks panel.
 
-import page from "tess_edit/blocks/page"
+import root from "tess_edit/blocks/root"
 import wrapper from "tess_edit/blocks/wrapper"
 import section from "tess_edit/blocks/section"
 import column from "tess_edit/blocks/column"
@@ -23,4 +23,4 @@ export const builtinCategories = [
   { key: "liquid", label: "Liquid", order: 30 }
 ]
 
-export const builtinBlocks = [page, section, column, wrapper, hero, text, image, button, divider, spacer, social, navbar, raw, loop, condition]
+export const builtinBlocks = [root, section, column, wrapper, hero, text, image, button, divider, spacer, social, navbar, raw, loop, condition]

@@ -31,7 +31,7 @@ export function createNode(type, overrides = {}) {
 }
 
 export function createDocument() {
-  return { version: VERSION, ...createNode("page") }
+  return { version: VERSION, ...createNode("root") }
 }
 
 // Calls fn(node, parent, index, depth) for every node, depth first.
@@ -79,7 +79,7 @@ export function acceptedRoles(doc, parentId) {
   const accepts = getBlock(hit.node.type)?.accepts
   if (accepts !== "inherit") return accepts || []
   const owner = ancestors(doc, parentId).find((node) => getBlock(node.type)?.accepts !== "inherit")
-  return (owner ? getBlock(owner.type).accepts : getBlock("page").accepts).filter((role) => role !== "column")
+  return (owner ? getBlock(owner.type).accepts : getBlock("root").accepts).filter((role) => role !== "column")
 }
 
 // The block types that may be placed directly inside the node with `parentId`.
@@ -165,7 +165,9 @@ export function getValue(node, key) {
 // Light validation of a document read from storage or an import.
 export function normalize(input) {
   const doc = typeof input === "string" ? JSON.parse(input) : clone(input)
-  if (!doc || doc.type !== "page") throw new Error("Not an tess_edit document: the root must be a page")
+  // The root block was called "page" before; such documents still load.
+  if (doc?.type === "page") doc.type = "root"
+  if (!doc || doc.type !== "root") throw new Error("Not a TessEdit document: the top node must be the root block")
   walk(doc, (node) => {
     if (!getBlock(node.type)) throw new Error(`Unknown block type: ${node.type}`)
     node.id ||= uid()

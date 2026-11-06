@@ -39,7 +39,7 @@ export function registerBlock(definition) {
   if (!type || typeof type !== "string") throw new Error("A block needs a type")
   if (!name) throw new Error(`Block ${type} needs a name`)
   if (typeof render?.mjml !== "function") throw new Error(`Block ${type} needs render.mjml(node, ctx)`)
-  if (type !== "page" && !(definition.roles || []).length) throw new Error(`Block ${type} needs roles, e.g. ["content"]`)
+  if (type !== "root" && !(definition.roles || []).length) throw new Error(`Block ${type} needs roles, e.g. ["content"]`)
 
   const palette = (definition.palette ?? (definition.category ? [{ key: type, label: name, icon: definition.icon, category: definition.category }] : [])).map((item) => ({
     icon: definition.icon,

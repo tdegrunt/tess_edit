@@ -14,7 +14,8 @@
 //   context             where the node sits: "body" (mj-body, mj-wrapper),
 //                       "section" (mj-section) or "column" (mj-column, mj-hero)
 //   attrs(a, extra)     ` name="value"` pairs, empty values left out
-//   cssClass(node)      { "css-class": "tess-<id>" } in the editor, {} otherwise
+//   cssClass(node)      { "css-class": "tess-<id> <the block's own css-class>" }
+//                       in the editor, {} otherwise
 //   element(tag, node, inner?)  <tag> with the node's attributes and class;
 //                       self-closing without inner
 //   container(tag, node)        <tag> around the node's rendered children
@@ -56,8 +57,11 @@ class Renderer {
     this.editor = !!options.editor
   }
 
+  // The marker class goes first, before the block's own css-class, so the
+  // canvas finds blocks by the start of the class attribute.
   cssClass(node) {
-    return this.editor ? { "css-class": `tess-${node.id}` } : {}
+    if (!this.editor) return {}
+    return { "css-class": [`tess-${node.id}`, node.attributes?.["css-class"]].filter(Boolean).join(" ") }
   }
 
   children(node, context) {

@@ -5,7 +5,6 @@ import { createFromPalette } from "tess_edit/core/document"
 import { starterDocument } from "tess_edit/core/starter"
 import { escapeAttribute, escapeText, richTextToHtml } from "tess_edit/export/richtext"
 import { toMjml } from "tess_edit/export/mjml"
-import { compile } from "tess_edit/export/compile"
 import { formatSpacing, parseSpacing, withUnit } from "tess_edit/ui/inspector"
 
 const paragraph = (text) => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] })
@@ -55,27 +54,12 @@ test("editor MJML marks blocks and shows placeholders, without Liquid tags", () 
   assert.doesNotMatch(mjml, /\{%/)
 })
 
-test("the sample compiles to HTML with its Liquid intact", async () => {
-  const { html, errors } = await compile(toMjml(starterDocument()))
-  assert.deepEqual(errors, [])
-  for (const tag of ["{% for line in order.lines %}", "{% endfor %}", "{% if customer.orders_count == 1 %}", "{% endif %}", "{{ line.total | money }}", 'href="{{ order.url }}"']) {
-    assert.ok(html.includes(tag), `missing ${tag}`)
-  }
-})
-
-test("every block compiles without MJML errors, in both modes", async () => {
+test("editor MJML keeps a block's own css-class after its marker", () => {
   const doc = createDocument()
-  const wrapper = insert(doc, doc.id, 0, createFromPalette("wrapper"))
-  insert(doc, doc.id, 1, createFromPalette("hero"))
-  const column = wrapper.children[0].children[0]
-  for (const key of ["text", "heading", "image", "button", "divider", "spacer", "social", "navbar", "raw", "loop", "condition"]) {
-    insert(doc, column.id, column.children.length, createFromPalette(key))
-  }
-  insert(doc, doc.id, 2, createFromPalette("raw"))
-  for (const editor of [false, true]) {
-    const { errors } = await compile(toMjml(doc, { editor }))
-    assert.deepEqual(errors, [], `editor: ${editor}`)
-  }
+  const section = insert(doc, doc.id, 0, createFromPalette("section-1"))
+  section.attributes["css-class"] = "outer"
+  assert.match(toMjml(doc, { editor: true }), new RegExp(`css-class="tess-${section.id} outer"`))
+  assert.match(toMjml(doc), /css-class="outer"/)
 })
 
 test("spacing and unit helpers", () => {

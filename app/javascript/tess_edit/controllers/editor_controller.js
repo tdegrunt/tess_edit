@@ -8,10 +8,13 @@
 //             top bar is remembered per browser. Below NARROW_WIDTH the editor
 //             puts all panels on the left, whatever the choice, to leave room
 //             for the canvas.
+//   compileUrl  the endpoint that compiles MJML to HTML (default /tess_edit/compile,
+//               the engine mounted at /tess_edit)
 // Targets (all optional, usually hidden inputs in a form):
 //   jsonInput, mjmlInput, htmlInput  kept up to date with every change
 // Events:
-//   tess-edit:change  detail: { json, mjml, html, document }
+//   tess-edit:change  detail: { json, mjml, html, errors, document }; html is
+//                     empty when the MJML could not be compiled, with errors saying why
 
 import { Controller } from "@hotwired/stimulus"
 import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, getValue, insert, itemType, move, normalize, remove, setValue } from "tess_edit/core/document"
@@ -19,7 +22,7 @@ import { History } from "tess_edit/core/history"
 import { getBlock, paletteItems } from "tess_edit/core/registry"
 import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
-import { compile } from "tess_edit/export/compile"
+import { COMPILE_URL, compile } from "tess_edit/export/compile"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
 import { Inspector } from "tess_edit/ui/inspector"
@@ -36,7 +39,7 @@ const PANELS_KEY = "tess_edit:panels"
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" } }
+  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL } }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
@@ -50,7 +53,7 @@ export default class extends Controller {
     this.leftTab = "blocks"
     this.panels = [this.storedPanels(), this.panelsValue].find((value) => PANELS.includes(value)) || "split"
     this.narrow = false
-    this.renderToken = 0
+    this.requests = {}
 
     this.scheduleCanvas = debounce(() => this.renderCanvas(), 60)
     this.scheduleOutputs = debounce(() => this.writeOutputs(), 300)
@@ -64,6 +67,7 @@ export default class extends Controller {
   disconnect() {
     this.scheduleCanvas.cancel()
     this.scheduleOutputs.cancel()
+    Object.values(this.requests).forEach((request) => request.abort())
     this.textEditing?.stop()
     this.closeMenu()
     this.resizeObserver?.disconnect()
@@ -102,8 +106,8 @@ export default class extends Controller {
 
   async export() {
     const mjml = toMjml(this.doc)
-    const { html, errors } = await compile(mjml)
-    return { json: JSON.stringify(this.doc), mjml, html, errors }
+    const { html, errors } = await compile(mjml, { url: this.compileUrlValue })
+    return { json: JSON.stringify(this.doc), mjml, html: html || "", errors }
   }
 
   // --- layout -------------------------------------------------------------------
@@ -127,7 +131,8 @@ export default class extends Controller {
       this.topBar,
       this.body
     )
-    this.main = h("main", { class: "relative flex-1 min-w-0 bg-gray-100", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap)
+    this.errorBar = h("div", { class: "hidden absolute inset-x-3 bottom-3 z-20 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-sm", role: "alert" })
+    this.main = h("main", { class: "relative flex-1 min-w-0 bg-gray-100", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar)
     this.arrangePanels()
     this.element.append(this.root)
 
@@ -312,23 +317,39 @@ export default class extends Controller {
 
   // --- rendering --------------------------------------------------------------
 
+  // Compiles on the server. A newer request on the same channel aborts the
+  // older one, which then resolves to null.
+  async compileMjml(mjml, channel) {
+    this.requests[channel]?.abort()
+    const request = (this.requests[channel] = new AbortController())
+    const result = await compile(mjml, { url: this.compileUrlValue, signal: request.signal })
+    return request.signal.aborted ? null : result
+  }
+
   async renderCanvas() {
     if (this.editingId) return
-    const token = ++this.renderToken
-    const { html, errors } = await compile(toMjml(this.doc, { editor: this.mode === "edit" }))
-    if (token !== this.renderToken || this.editingId) return
-    if (errors.length) console.warn("TessEdit: MJML warnings", errors)
-    this.canvas.write(html, this.mode)
+    const result = await this.compileMjml(toMjml(this.doc, { editor: this.mode === "edit" }), "canvas")
+    if (!result || this.editingId) return
+    this.showErrors(result.errors)
+    // Without HTML the canvas keeps the last email that compiled.
+    if (result.html !== null) this.canvas.write(result.html, this.mode)
+  }
+
+  showErrors(errors) {
+    this.errorBar.textContent = errors.length ? `The email could not be compiled: ${errors.join("; ")}` : ""
+    this.errorBar.classList.toggle("hidden", !errors.length)
   }
 
   async writeOutputs() {
     const json = JSON.stringify(this.doc)
     const mjml = toMjml(this.doc)
-    const { html } = await compile(mjml)
+    const result = await this.compileMjml(mjml, "outputs")
+    if (!result) return
+    const html = result.html || ""
     if (this.hasJsonInputTarget) this.jsonInputTarget.value = json
     if (this.hasMjmlInputTarget) this.mjmlInputTarget.value = mjml
     if (this.hasHtmlInputTarget) this.htmlInputTarget.value = html
-    this.dispatch("change", { detail: { json, mjml, html, document: this.doc } })
+    this.dispatch("change", { detail: { json, mjml, html, errors: result.errors, document: this.doc } })
   }
 
   // Applies a change to the document as one undo step.
@@ -605,7 +626,7 @@ export default class extends Controller {
       apply.classList.toggle("hidden", key !== "json")
       status.className = "text-xs text-gray-500"
       status.textContent =
-        key === "json" ? "The document. Edit and load it, or paste one in." : key === "mjml" ? "Liquid loops and conditions are in <mj-raw> tags." : `Liquid is left in place for rendering at send time.${errors.length ? ` MJML reported ${errors.length} warning(s).` : ""}`
+        key === "json" ? "The document. Edit and load it, or paste one in." : key === "mjml" ? "Liquid loops and conditions are in <mj-raw> tags." : errors.length ? `The MJML could not be compiled: ${errors.join("; ")}` : "Liquid is left in place for rendering at send time."
       tabs.replaceChildren(
         ...["json", "mjml", "html"].map((name) =>
           h("button", { type: "button", class: `rounded-md px-3 py-1.5 text-xs font-medium ${name === tab ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`, onclick: () => show(name) }, name.toUpperCase())

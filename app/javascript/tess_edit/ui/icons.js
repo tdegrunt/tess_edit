@@ -1,7 +1,7 @@
 // Small inline SVG icons (24×24, stroke based) so the editor needs no icon font.
 
 const paths = {
-  page: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  root: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
   section: '<rect x="3" y="6" width="18" height="12" rx="2"/>',
   wrapper: '<rect x="2" y="3" width="20" height="18" rx="2"/><rect x="5" y="7" width="14" height="4" rx="1"/><rect x="5" y="13" width="14" height="4" rx="1"/>',
   column: '<rect x="8" y="3" width="8" height="18" rx="2"/>',

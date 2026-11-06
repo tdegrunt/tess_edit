@@ -2,9 +2,9 @@
 // email's subject, preview text and theme in <mj-head>.
 
 export default {
-  type: "page",
-  name: "Page",
-  icon: "page",
+  type: "root",
+  name: "Root",
+  icon: "root",
   roles: [],
   accepts: ["body", "wrapper"],
   defaults: () => ({

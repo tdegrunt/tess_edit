@@ -60,7 +60,7 @@ export class Tree {
         style: `padding-left:${depth * 14 + 4}px`,
         role: "treeitem",
         "aria-selected": selected ? "true" : "false",
-        draggable: node.type !== "page",
+        draggable: node.type !== "root",
         dataset: { id: node.id },
         onclick: () => this.editor.select(node.id),
         ondragstart: (event) => {

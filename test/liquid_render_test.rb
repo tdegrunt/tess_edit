@@ -1,9 +1,9 @@
 require "test_helper"
 require "liquid"
 
-# test/fixtures/files/sample.html is the sample document compiled by the
-# editor (kept up to date by test/javascript/snapshot_test.js). A host app
-# renders this HTML with Liquid when it sends the email.
+# The sample document's MJML (kept up to date by test/javascript/snapshot_test.js),
+# compiled as the editor does, then rendered with Liquid as a host app does
+# when it sends the email.
 class LiquidRenderTest < ActiveSupport::TestCase
   module MoneyFilter
     def money(value)
@@ -12,9 +12,13 @@ class LiquidRenderTest < ActiveSupport::TestCase
   end
 
   def render(assigns)
-    template = Liquid::Template.parse(file_fixture("sample.html").read, error_mode: :strict)
+    template = Liquid::Template.parse(compiled_sample, error_mode: :strict)
     html = template.render!(assigns, filters: [MoneyFilter], strict_variables: true, strict_filters: true)
     [html, Nokogiri::HTML(html)]
+  end
+
+  def compiled_sample
+    @compiled_sample ||= TessEdit.compile(File.read(File.expand_path("javascript/snapshots/sample.mjml", __dir__))).html
   end
 
   def assigns(orders_count: 1)

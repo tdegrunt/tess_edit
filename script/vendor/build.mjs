@@ -15,10 +15,6 @@ const bundles = {
       'export { TextAlign } from "@tiptap/extension-text-align"',
       'export { TextStyle, Color, FontSize, FontFamily } from "@tiptap/extension-text-style"'
     ].join("\n")
-  },
-  "mjml-browser.js": {
-    banner: `mjml-browser ${version("mjml-browser")} (MIT)`,
-    contents: 'import mjml2html from "mjml-browser"\nexport default mjml2html'
   }
 }
 

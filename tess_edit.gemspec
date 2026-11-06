@@ -20,4 +20,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rails", ">= 7.1"
   spec.add_dependency "importmap-rails", ">= 2"
   spec.add_dependency "stimulus-rails"
+  spec.add_dependency "mrml", "~> 1.10"
 end

@@ -10,7 +10,7 @@ class EditorTest < ApplicationSystemTestCase
     eventually do
       assert_includes output("html"), "{% for line in order.lines %}"
       assert_includes output("mjml"), "<mj-raw>{% if customer.orders_count == 1 %}</mj-raw>"
-      assert_equal "page", document_json["type"]
+      assert_equal "root", document_json["type"]
     end
     assert_no_match(/tess-/, output("html"))
   end
@@ -133,6 +133,28 @@ class EditorTest < ApplicationSystemTestCase
     within_canvas { assert_text "NEW NAME" }
   end
 
+  test "MJML that can't be compiled shows why and keeps the last email on the canvas" do
+    # Puts an HTML block with this HTML at the end of the email, replacing the one added before.
+    set_raw_html = ->(html) do
+      execute_script(<<~JS, html)
+        const editor = document.querySelector("[data-controller='tess-edit']").tessEdit
+        const doc = editor.getDocument()
+        doc.children = doc.children.filter((node) => node.id !== "broken")
+        doc.children.push({ id: "broken", type: "raw", attributes: {}, data: { html: arguments[0] }, children: [] })
+        editor.setDocument(doc)
+      JS
+    end
+
+    set_raw_html.call("<div>not closed")
+    assert_selector "[role=alert]", text: "The email could not be compiled"
+    within_canvas { assert_text "Thanks for your order" }
+    eventually { assert_equal "", output("html") }
+
+    set_raw_html.call("<div>Closed now</div>")
+    assert_no_selector "[role=alert]"
+    within_canvas { assert_text "Closed now" }
+  end
+
   test "combining the panels on one side" do
     assert_selector ".tess-edit aside", count: 2
     find("[title='All panels on the left']").click
@@ -192,7 +214,7 @@ class EditorTest < ApplicationSystemTestCase
     visit "/?panels=right"
     assert_selector ".tess-edit main + aside"
     click_on "Inspect"
-    assert_selector ".tess-edit h2", text: "General"
+    assert_selector ".tess-edit h2", text: "Root"
   end
 
   private

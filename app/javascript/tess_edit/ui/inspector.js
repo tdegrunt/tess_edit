@@ -43,7 +43,7 @@ export class Inspector {
     const definition = getBlock(node.type)
 
     const actions =
-      node.type === "page"
+      node.type === "root"
         ? []
         : [
           ["parent", "Select parent", () => this.editor.selectParent()],
@@ -57,7 +57,7 @@ export class Inspector {
       "div",
       { class: "flex items-center gap-2 px-4 h-12 border-b border-gray-200 shrink-0" },
       h("span", { class: "text-gray-400", html: icon(definition.icon, "w-4 h-4") }),
-      h("h2", { class: "font-semibold text-gray-900 truncate" }, node.type === "page" ? "General" : label(node)),
+      h("h2", { class: "font-semibold text-gray-900 truncate" }, label(node)),
       h("div", { class: "ml-auto flex items-center gap-0.5" }, actions)
     )
 
