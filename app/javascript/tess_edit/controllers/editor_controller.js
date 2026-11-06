@@ -10,6 +10,9 @@
 //             for the canvas.
 //   compileUrl  the endpoint that compiles MJML to HTML (default /tess_edit/compile,
 //               the engine mounted at /tess_edit)
+//   lock        JSON: only the insides of some blocks and some root fields can
+//               change, e.g. {"except": ["content"], "fields": ["data.subject"]}
+//               (see core/lock.js)
 // Targets (all optional, usually hidden inputs in a form):
 //   jsonInput, mjmlInput, htmlInput  kept up to date with every change
 // Events:
@@ -17,8 +20,9 @@
 //                     empty when the MJML could not be compiled, with errors saying why
 
 import { Controller } from "@hotwired/stimulus"
-import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, getValue, insert, itemType, move, normalize, remove, setValue } from "tess_edit/core/document"
+import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, getValue, insert, itemType, move, normalize, remove, setValue, walk } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
+import { canEditField, canFill, isFree, parseLock } from "tess_edit/core/lock"
 import { getBlock, paletteItems } from "tess_edit/core/registry"
 import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
@@ -39,10 +43,11 @@ const PANELS_KEY = "tess_edit:panels"
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL } }
+  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, lock: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
+    this.lock = parseLock(this.lockValue)
     this.history = new History()
     this.doc = this.loadInitial()
     this.selectedId = this.doc.id
@@ -108,6 +113,25 @@ export default class extends Controller {
     const mjml = toMjml(this.doc)
     const { html, errors } = await compile(mjml, { url: this.compileUrlValue })
     return { json: JSON.stringify(this.doc), mjml, html: html || "", errors }
+  }
+
+  // --- locking ------------------------------------------------------------------
+
+  isFree(id) {
+    return id !== this.doc.id && isFree(this.doc, this.lock, id)
+  }
+
+  canFill(parentId) {
+    return canFill(this.doc, this.lock, parentId)
+  }
+
+  canEditField(id, key) {
+    return canEditField(this.doc, this.lock, id, key)
+  }
+
+  // The block types that may be added to the node: none when it is locked.
+  accepted(parentId) {
+    return this.canFill(parentId) ? accepted(this.doc, parentId) : []
   }
 
   // --- layout -------------------------------------------------------------------
@@ -386,11 +410,13 @@ export default class extends Controller {
   }
 
   setValue(id, key, value, { coalesce = true } = {}) {
+    if (!this.canEditField(id, key)) return
     if (this.editingId) this.stopEditing()
     this.commit((doc) => setValue(doc, id, key, value), { coalesce: coalesce ? `${id}:${key}` : null, skipInspector: true })
   }
 
   duplicate(id) {
+    if (!this.isFree(id)) return
     let copy
     this.commit((doc) => (copy = duplicate(doc, id)))
     if (copy) this.select(copy.id)
@@ -398,7 +424,7 @@ export default class extends Controller {
 
   remove(id) {
     const hit = find(this.doc, id)
-    if (!hit?.parent) return
+    if (!hit?.parent || !this.isFree(id)) return
     this.stopEditing()
     this.commit((doc) => remove(doc, id))
     const siblings = hit.parent.children
@@ -408,7 +434,7 @@ export default class extends Controller {
   startEditing(id) {
     const hit = find(this.doc, id)
     const key = hit && getBlock(hit.node.type)?.richText
-    if (!key || this.mode !== "edit") return
+    if (!key || this.mode !== "edit" || !this.isFree(id)) return
     if (this.editingId === id) return
     this.stopEditing()
     this.select(id)
@@ -457,6 +483,7 @@ export default class extends Controller {
   // --- adding and moving blocks ------------------------------------------------
 
   startDrag(drag) {
+    if (drag.kind === "move" && !this.isFree(drag.id)) return
     this.closeMenu()
     if (this.editingId) this.stopEditing()
     this.drag = drag
@@ -470,7 +497,7 @@ export default class extends Controller {
   }
 
   drop(drag, parentId, index) {
-    if (!drag) return
+    if (!drag || !this.canFill(parentId) || (drag.kind === "move" && !this.isFree(drag.id))) return
     if (drag.kind === "new") {
       const node = createFromPalette(drag.key)
       this.commit((doc) => insert(doc, parentId, index, node))
@@ -482,6 +509,7 @@ export default class extends Controller {
   }
 
   insertAt(key, parentId, index) {
+    if (!this.canFill(parentId)) return
     const node = createFromPalette(key)
     this.commit((doc) => insert(doc, parentId, index, node))
     this.select(node.id)
@@ -489,15 +517,24 @@ export default class extends Controller {
   }
 
   // Clicking a tile: add inside the selection when it fits, otherwise after the
-  // nearest ancestor that fits, otherwise at the end of the page.
+  // nearest ancestor that fits, otherwise at the end of the root, or with a
+  // lock, at the end of the first unlocked block it fits in.
   addFromPalette(key) {
     const type = itemType(key)
     const chain = [find(this.doc, this.selectedId)?.node || this.doc, ...ancestors(this.doc, this.selectedId)]
-    if (accepted(this.doc, chain[0].id).includes(type)) return this.insertAt(key, chain[0].id, chain[0].children.length)
+    if (this.accepted(chain[0].id).includes(type)) return this.insertAt(key, chain[0].id, chain[0].children.length)
     for (let i = 0; i < chain.length - 1; i++) {
-      if (accepted(this.doc, chain[i + 1].id).includes(type)) return this.insertAt(key, chain[i + 1].id, chain[i + 1].children.indexOf(chain[i]) + 1)
+      if (this.accepted(chain[i + 1].id).includes(type)) return this.insertAt(key, chain[i + 1].id, chain[i + 1].children.indexOf(chain[i]) + 1)
     }
-    if (accepted(this.doc, this.doc.id).includes(type)) return this.insertAt(key, this.doc.id, this.doc.children.length)
+    if (this.accepted(this.doc.id).includes(type)) return this.insertAt(key, this.doc.id, this.doc.children.length)
+    if (this.lock) {
+      let target = null
+      walk(this.doc, (node) => {
+        if (target) return false
+        if (this.lock.except.includes(node.type) && this.accepted(node.id).includes(type)) target = node
+      })
+      if (target) return this.insertAt(key, target.id, target.children.length)
+    }
     this.flash(`${getBlock(type)?.name || key} has to go inside a column. Select one first, or drag it onto the canvas.`)
   }
 
@@ -512,7 +549,7 @@ export default class extends Controller {
       return
     }
     this.closeMenu()
-    const allowed = accepted(this.doc, parentId)
+    const allowed = this.accepted(parentId)
     const items = paletteItems().filter((item) => allowed.includes(item.type))
     if (!items.length) return
     this.menu = h(
@@ -622,11 +659,13 @@ export default class extends Controller {
     const show = (key) => {
       tab = key
       textarea.value = contents[key]
-      textarea.readOnly = key !== "json"
-      apply.classList.toggle("hidden", key !== "json")
+      // Loading JSON could replace locked parts, so a locked editor only shows it.
+      const loadable = key === "json" && !this.lock
+      textarea.readOnly = !loadable
+      apply.classList.toggle("hidden", !loadable)
       status.className = "text-xs text-gray-500"
       status.textContent =
-        key === "json" ? "The document. Edit and load it, or paste one in." : key === "mjml" ? "Liquid loops and conditions are in <mj-raw> tags." : errors.length ? `The MJML could not be compiled: ${errors.join("; ")}` : "Liquid is left in place for rendering at send time."
+        key === "json" ? (this.lock ? "The document. Parts of it are locked, so it can't be loaded here." : "The document. Edit and load it, or paste one in.") : key === "mjml" ? "Liquid loops and conditions are in <mj-raw> tags." : errors.length ? `The MJML could not be compiled: ${errors.join("; ")}` : "Liquid is left in place for rendering at send time."
       tabs.replaceChildren(
         ...["json", "mjml", "html"].map((name) =>
           h("button", { type: "button", class: `rounded-md px-3 py-1.5 text-xs font-medium ${name === tab ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`, onclick: () => show(name) }, name.toUpperCase())

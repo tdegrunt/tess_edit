@@ -1,7 +1,7 @@
 // The Layers panel: the document as a collapsible tree that can be reordered by
 // dragging. Rows also take blocks dragged from the Blocks panel.
 
-import { accepted, canInsert, find, isDescendant } from "tess_edit/core/document"
+import { canInsert, find, isDescendant } from "tess_edit/core/document"
 import { getBlock, isContainer, label } from "tess_edit/core/registry"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -25,6 +25,8 @@ export class Tree {
     const open = !this.collapsed.has(node.id)
     const selected = node.id === selectedId
     const container = isContainer(node.type)
+    // Layout parts under a lock; the root shows no lock, as some of its fields may be open.
+    const locked = !!this.editor.lock && node.id !== this.editor.doc.id && !this.editor.canFill(node.id)
 
     const toggle = h(
       "button",
@@ -40,7 +42,7 @@ export class Tree {
       }
     )
 
-    const add = container && accepted(this.editor.doc, node.id).length
+    const add = container && this.editor.accepted(node.id).length
       ? h("button", {
           type: "button",
           title: "Add a block inside",
@@ -60,7 +62,7 @@ export class Tree {
         style: `padding-left:${depth * 14 + 4}px`,
         role: "treeitem",
         "aria-selected": selected ? "true" : "false",
-        draggable: node.type !== "root",
+        draggable: this.editor.isFree(node.id),
         dataset: { id: node.id },
         onclick: () => this.editor.select(node.id),
         ondragstart: (event) => {
@@ -78,8 +80,8 @@ export class Tree {
       },
       toggle,
       h("span", { class: `shrink-0 ${getBlock(node.type)?.accepts === "inherit" ? "text-amber-600" : "text-gray-400"}`, html: icon(getBlock(node.type)?.icon, "w-4 h-4") }),
-      h("span", { class: "truncate text-[13px]" }, label(node)),
-      add,
+      h("span", { class: `truncate text-[13px] ${locked ? "text-gray-400" : ""}` }, label(node)),
+      locked ? h("span", { class: "ml-auto shrink-0 text-gray-300", title: "Part of the layout", html: icon("lock", "w-3.5 h-3.5") }) : add,
       h("div", { class: "tess-tree-marker pointer-events-none absolute left-1 right-1 hidden" })
     )
 
@@ -91,7 +93,7 @@ export class Tree {
     const drag = this.editor.drag
     if (!drag) return null
     const doc = this.editor.doc
-    const ok = (parentId) => canInsert(doc, parentId, drag.type) && !(drag.kind === "move" && (parentId === drag.id || isDescendant(doc, drag.id, parentId)))
+    const ok = (parentId) => this.editor.canFill(parentId) && canInsert(doc, parentId, drag.type) && !(drag.kind === "move" && (parentId === drag.id || isDescendant(doc, drag.id, parentId)))
     const rect = event.currentTarget.getBoundingClientRect()
     const ratio = (event.clientY - rect.top) / rect.height
     const hit = find(doc, node.id)

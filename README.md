@@ -120,6 +120,17 @@ TessEdit.parent_controller = "Admin::BaseController"
 
 The top node is the `root` block, which renders the `<mjml>` document with the subject, preview text and theme. Documents from before its rename, with `"type": "page"`, still load. `attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a PDF renderer, can walk it.
 
+### Locking a layout
+
+To let people fill in one part of a design that is otherwise fixed, such as a template's own content inside a shared layout, give the editor a lock:
+
+```erb
+<div data-controller="tess-edit"
+  data-tess-edit-lock-value='<%= {except: ["content"], fields: ["data.subject", "data.preheader"]}.to_json %>'>
+```
+
+Only what is inside blocks of the types in `except` can change: those blocks take new blocks, and everything in them can be edited, moved, duplicated and deleted. The blocks themselves stay where they are. Of the root, only the listed `fields` can change. Everything else still shows on the canvas and can be selected, with its settings disabled in Inspect and a lock in Layers. A tile clicked while a locked block is selected goes at the end of the first block it is allowed in, and the Code dialog shows the JSON without loading it. The editor still stores the whole document; taking the open part out of it is up to the host app. The `except` types are usually a custom block, like the demo's Content block in `test/dummy/app/javascript/blocks/content.js`.
+
 ### Blocks and custom blocks
 
 Every block is a plugin: one module in `app/javascript/tess_edit/blocks/` with its defaults, its Inspect fields, its Blocks panel tiles and a `render.mjml` hook. The built-in blocks are registered the same way a host app registers its own, so register yours before the editor connects:
@@ -157,6 +168,8 @@ The dummy app in `test/dummy` serves a demo page:
 ```bash
 cd test/dummy && bin/dev
 ```
+
+`/?lock=1` opens a locked layout (`test/dummy/config/demo_layout.json`) with only its Content block, subject and preview text open.
 
 Tests:
 

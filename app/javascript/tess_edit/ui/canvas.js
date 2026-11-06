@@ -172,16 +172,15 @@ export class Canvas {
     const rect = this.rectOf(selectedId)
     if (!rect) return
     const box = this.box(rect, editingId === selectedId ? "tess-selected tess-editing" : "tess-selected")
-    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? "Editing text · Esc to finish" : label(hit.node) }))
+    const free = this.editor.isFree(selectedId)
+    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? "Editing text · Esc to finish" : free ? label(hit.node) : `${label(hit.node)} · Layout` }))
 
     if (editingId !== selectedId) {
       const tools = this.doc.createElement("div")
       tools.className = "tess-tools"
       tools.innerHTML = [
         ["parent", "Select parent"],
-        ["drag", "Drag to move"],
-        ["duplicate", "Duplicate"],
-        ["delete", "Delete"]
+        ...(free ? [["drag", "Drag to move"], ["duplicate", "Duplicate"], ["delete", "Delete"]] : [])
       ]
         .map(([tool, title]) => `<span data-tool="${tool}" title="${title}" ${tool === "drag" ? 'draggable="true"' : ""}>${icon({ parent: "parent", drag: "move", duplicate: "copy", delete: "trash" }[tool], "tess-icon")}</span>`)
         .join("")
@@ -195,17 +194,17 @@ export class Canvas {
         if (tool === "duplicate") this.editor.duplicate(selectedId)
         if (tool === "delete") this.editor.remove(selectedId)
       })
-      tools.querySelector('[data-tool="drag"]').addEventListener("dragstart", (event) => {
+      tools.querySelector('[data-tool="drag"]')?.addEventListener("dragstart", (event) => {
         event.dataTransfer.effectAllowed = "move"
         event.dataTransfer.setData("text/plain", selectedId)
         const element = this.elementOf(selectedId)
         if (element) event.dataTransfer.setDragImage(element, 10, 10)
         this.editor.startDrag({ kind: "move", id: selectedId, type: hit.node.type })
       })
-      tools.querySelector('[data-tool="drag"]').addEventListener("dragend", () => this.editor.endDrag())
+      tools.querySelector('[data-tool="drag"]')?.addEventListener("dragend", () => this.editor.endDrag())
       box.append(tools)
 
-      if (hit.parent) {
+      if (hit.parent && this.editor.canFill(hit.parent.id)) {
         const plus = this.doc.createElement("button")
         plus.className = "tess-plus"
         plus.title = "Add a block below"
@@ -292,7 +291,7 @@ export class Canvas {
 
   allowed(parentId, drag) {
     const doc = this.editor.doc
-    if (!canInsert(doc, parentId, drag.type)) return false
+    if (!this.editor.canFill(parentId) || !canInsert(doc, parentId, drag.type)) return false
     if (drag.kind === "move" && (parentId === drag.id || isDescendant(doc, drag.id, parentId))) return false
     return true
   }

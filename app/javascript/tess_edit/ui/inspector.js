@@ -43,7 +43,7 @@ export class Inspector {
     const definition = getBlock(node.type)
 
     const actions =
-      node.type === "root"
+      !this.editor.isFree(node.id)
         ? []
         : [
           ["parent", "Select parent", () => this.editor.selectParent()],
@@ -62,9 +62,13 @@ export class Inspector {
     )
 
     const groups = (definition.fields || []).map((group) => this.group(node, group))
-    const hint = definition.hint ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600" }, definition.hint) : null
+    const locked = this.editor.lock && node.id !== doc.id && !this.editor.isFree(node.id)
+      ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), "Part of the layout")
+      : null
+    // A block's hint explains how to edit it, which a locked block can't be.
+    const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600" }, definition.hint) : null
 
-    this.element.replaceChildren(header, h("div", { class: "flex-1 overflow-y-auto pb-6" }, hint, groups))
+    this.element.replaceChildren(header, h("div", { class: "flex-1 overflow-y-auto pb-6" }, locked, hint, groups))
   }
 
   group(node, group) {
@@ -87,7 +91,10 @@ export class Inspector {
   field(node, field) {
     const value = getValue(node, field.key) ?? ""
     const set = (next, options = {}) => this.editor.setValue(node.id, field.key, next, options)
-    const control = this.control(node, field, value, set)
+    // A fieldset disables every input and button of a locked field at once.
+    const control = this.editor.canEditField(node.id, field.key)
+      ? this.control(node, field, value, set)
+      : h("fieldset", { disabled: true, class: "opacity-60" }, this.control(node, field, value, set))
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",

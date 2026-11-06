@@ -1,0 +1,24 @@
+{
+  "version": 1, "id": "blroot", "type": "root",
+  "attributes": { "width": "600px", "background-color": "#f3f4f6" },
+  "data": { "subject": "Your order {{ order.number }}", "preheader": "Thanks for shopping with us", "breakpoint": "480px", "fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "14px", "lineHeight": "1.6", "textColor": "#111827", "css": "" },
+  "children": [
+    { "id": "blheader", "type": "section", "attributes": { "background-color": "#111827", "padding": "20px 0px" }, "data": {}, "children": [
+      { "id": "blheadercol", "type": "column", "attributes": {}, "data": {}, "children": [
+        { "id": "bllogo", "type": "text", "attributes": { "align": "center", "color": "#ffffff", "font-size": "18px", "padding": "10px 25px" }, "data": { "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "ACME STORE", "marks": [{ "type": "bold" }] }] }] } }, "children": [] }
+      ] }
+    ] },
+    { "id": "blcontent", "type": "content", "attributes": {}, "data": {}, "children": [
+      { "id": "blbody", "type": "section", "attributes": { "background-color": "#ffffff", "padding": "20px 0px" }, "data": {}, "children": [
+        { "id": "blbodycol", "type": "column", "attributes": {}, "data": {}, "children": [
+          { "id": "blgreeting", "type": "text", "attributes": { "padding": "10px 25px" }, "data": { "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Hi {{ customer.first_name }}, this part is the template's own content." }] }] } }, "children": [] }
+        ] }
+      ] }
+    ] },
+    { "id": "blfooter", "type": "section", "attributes": { "padding": "20px 0px" }, "data": {}, "children": [
+      { "id": "blfootercol", "type": "column", "attributes": {}, "data": {}, "children": [
+        { "id": "blfootertext", "type": "text", "attributes": { "align": "center", "color": "#6b7280", "font-size": "12px", "padding": "10px 25px" }, "data": { "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "ACME Store · Main Street 1" }] }] } }, "children": [] }
+      ] }
+    ] }
+  ]
+}
