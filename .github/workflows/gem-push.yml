@@ -1,0 +1,11 @@
+name: RubyGem Push
+on:
+  push:
+    tags:
+      - "*"
+jobs:
+  build:
+    uses: tdegrunt/_workflows/.github/workflows/gem-push.yml@main
+    with:
+      public: true
+    secrets: inherit
