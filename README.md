@@ -184,6 +184,8 @@ cd test/dummy && bin/dev
 
 `/?lock=1` opens a locked layout (`test/dummy/config/demo_layout.json`) with only its Content block, subject and preview text open.
 
+`/?media=1` gives the editor the demo's image endpoint (`MediaController`), so images can be chosen from a list, uploaded, or dragged onto the canvas from the desktop; uploads go to `test/dummy/tmp/media`. Without it, images are URLs only. The options combine, e.g. `/?lock=1&media=1`.
+
 Tests:
 
 ```bash
