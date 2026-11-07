@@ -4,6 +4,8 @@ TessEdit is a drag-and-drop email editor for Rails, written in plain JavaScript 
 
 The interface follows familiar layout: blocks and a layers tree on the left, the email in the middle, and Inspect, with the selected block's settings, on the right.
 
+![TessEdit interface](docs/overview.png)
+
 ## Features
 
 - Blocks: Section (1-4 columns), Column, Wrapper, Hero, Text, Heading, Image, Button, Divider, Spacer, Social, Navbar and raw HTML.
