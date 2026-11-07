@@ -155,6 +155,18 @@ class EditorTest < ApplicationSystemTestCase
     within_canvas { assert_text "Closed now" }
   end
 
+  test "an HTML block shows its HTML in Inspect" do
+    execute_script(<<~JS)
+      const editor = document.querySelector("[data-controller='tess-edit']").tessEdit
+      const doc = editor.getDocument()
+      doc.children.push({ id: "bhtml", type: "raw", attributes: {}, data: { html: "<p>Hand-written HTML</p>" }, children: [] })
+      editor.setDocument(doc)
+    JS
+    within_canvas { find("p", text: "Hand-written HTML").click }
+
+    assert_equal "<p>Hand-written HTML</p>", find("[data-tess-edit-panel='inspect'] textarea").value
+  end
+
   test "combining the panels on one side" do
     assert_selector ".tess-edit aside", count: 2
     find("[title='All panels on the left']").click

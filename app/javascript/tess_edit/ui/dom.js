@@ -10,7 +10,8 @@ export function h(tag, props = {}, ...children) {
       element.innerHTML = value
     } else if (name === "dataset") {
       Object.assign(element.dataset, value)
-    } else if (name in element && typeof value !== "string") {
+    } else if (name === "value" || (name in element && typeof value !== "string")) {
+      // A textarea ignores a value attribute, so values are always set as the property
       element[name] = value
     } else {
       element.setAttribute(name, value === true ? "" : value)
