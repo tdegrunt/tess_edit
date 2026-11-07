@@ -25,4 +25,11 @@ class CompileTest < ActiveSupport::TestCase
     assert_nil result.html
     assert_equal 1, result.errors.size
   end
+
+  test "MJML with CRLF line endings, as browsers submit form fields, compiles" do
+    sample = File.read(File.join(SNAPSHOTS, "sample.mjml"))
+    result = TessEdit.compile(sample.gsub("\n", "\r\n"))
+    assert_empty result.errors
+    assert_equal TessEdit.compile(sample).html, result.html
+  end
 end

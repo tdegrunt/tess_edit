@@ -17,8 +17,11 @@ module TessEdit
 
   # Compiles MJML to HTML with MRML. Liquid passes through untouched. When the
   # MJML can't be parsed, html is nil and errors holds the reason.
+  #
+  # Browsers submit form fields with CRLF line endings, which MRML can't parse
+  # in mj-head, so line endings become LF first.
   def self.compile(mjml)
-    Result.new(html: MRML::Template.new(mjml.to_s).to_html, errors: [])
+    Result.new(html: MRML::Template.new(mjml.to_s.gsub(/\r\n?/, "\n")).to_html, errors: [])
   rescue MRML::Error => error
     Result.new(html: nil, errors: [error.message])
   end
