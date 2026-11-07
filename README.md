@@ -210,6 +210,16 @@ Tiptap is vendored as a single ES module bundle in `vendor/javascript/tess_edit`
 cd script/vendor && npm install && node build.mjs
 ```
 
+## Backlog
+
+Ideas for later, not planned yet:
+
+- **Importing MJML.** Turn an existing MJML template into a TessEdit document, so designs made elsewhere can be edited here. Parts without a matching block could become HTML blocks.
+- **Images whose address is Liquid.** An image with a `src` like `{{ product.image_url }}` shows as a broken image on the canvas. It should show a placeholder there instead, and in Inspect say that the address is filled in when the email is sent.
+- **A translation block.** Text that differs per language in one design, e.g. a block with a version of its text per locale, so a host app doesn't need a design per language.
+- **Text extensions from the host app.** Tiptap (the vendored bundle exports `Node`, `Mark` and `Extension`) can be extended, but the editor's extensions, the email HTML of rich text (`export/richtext.js`) and the text toolbar are fixed. A call like `registerTextExtension({ extension, toHtml(node, children), button })` would add all three, as `registerBlock` does for blocks. A Liquid variable shown as a chip (`{{ customer.first_name }}`) would be a first example; a translation could be one too. Extensions that need ProseMirror itself (plugins, node views) also need those exported from the same bundle.
+- **Dropping an image file where there's no image.** A file dropped on an empty spot in the canvas could add a new Image block there with the upload, instead of being refused.
+
 ## License
 
 MIT. The vendored Tiptap is MIT licensed too; MRML, through the `mrml` gem, is MIT licensed.
