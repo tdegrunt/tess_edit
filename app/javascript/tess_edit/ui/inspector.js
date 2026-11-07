@@ -4,9 +4,11 @@
 import { imageSource } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { find, getValue } from "tess_edit/core/document"
+import { loopScope } from "tess_edit/core/variables"
 import { codeInput } from "tess_edit/ui/code_input"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
+import { inputAdapter, suggestIn } from "tess_edit/ui/variable_menu"
 
 const INPUT = "w-full min-w-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-[13px] text-gray-900 shadow-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
 
@@ -36,6 +38,7 @@ export class Inspector {
     this.editor = editor
     this.element = element
     this.openGroups = new Map()
+    this.adapters = new Map()
   }
 
   render() {
@@ -43,6 +46,8 @@ export class Inspector {
     const hit = find(doc, selectedId) || { node: doc }
     const node = hit.node
     const definition = getBlock(node.type)
+    this.editor.variableMenu?.close()
+    this.adapters = new Map()
 
     const actions =
       !this.editor.isFree(node.id)
@@ -102,12 +107,16 @@ export class Inspector {
     const expand = field.type === "code" && editable
       ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "absolute right-0 top-0 rounded px-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50", onclick: () => this.expand(node, field) }, "Expand")
       : null
+    const adapter = editable && field.liquid && this.adapters.get(field.key)
+    const variables = adapter
+      ? h("button", { type: "button", title: "Insert a variable", class: "absolute right-0 top-0 rounded px-1 font-mono text-[11px] font-medium text-blue-600 hover:bg-blue-50", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
+      : null
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
       { class: "relative block" },
       h("span", { class: "mb-1 block text-xs font-medium text-gray-700" }, field.label),
-      expand,
+      expand || variables,
       control,
       field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500" }, field.hint) : null
     )
@@ -116,7 +125,7 @@ export class Inspector {
   control(node, field, value, set) {
     switch (field.type) {
       case "textarea":
-        return h("textarea", { class: `${INPUT} min-h-32`, rows: 4, value, oninput: (event) => set(event.target.value) })
+        return this.variables(h("textarea", { class: `${INPUT} min-h-32`, rows: 4, value, oninput: (event) => set(event.target.value) }), node, field)
 
       case "code":
         return codeInput({ value, language: field.language, oninput: set, class: "h-60" })
@@ -190,14 +199,27 @@ export class Inspector {
         return this.image(node, field, value, set)
 
       default:
-        return h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "", oninput: (event) => set(event.target.value) })
+        return this.variables(h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "", oninput: (event) => set(event.target.value) }), node, field)
     }
+  }
+
+  // Suggests the host's Liquid variables (editor.variables) while typing {{ in
+  // a text field. A field's `liquid` also gives it a { } button to browse
+  // them: true for Liquid in text, "expression" for a condition, "collection"
+  // for what a Loop goes over.
+  variables(input, node, field) {
+    if (!this.editor.variables?.enabled) return input
+    const mode = field.liquid === "expression" || field.liquid === "collection" ? field.liquid : "output"
+    const adapter = inputAdapter(input, { mode, scope: loopScope(this.editor.doc, node.id) })
+    suggestIn(this.editor.variableMenu, input, adapter)
+    this.adapters.set(field.key, adapter)
+    return input
   }
 
   // An image URL, or with the host's images (editor.media, core/media.js) a
   // choice between one of those, a new upload, and a URL
   image(node, field, value, set) {
-    const url = h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "https://…", oninput: (event) => set(event.target.value) })
+    const url = this.variables(h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "https://…", oninput: (event) => set(event.target.value) }), node, field)
     if (!this.editor.media.enabled) return url
 
     const source = imageSource(node, this.editor, field)
@@ -342,7 +364,7 @@ export class Inspector {
               { class: INPUT, onchange: (event) => update(items.map((it, i) => (i === index ? { ...it, [part.name]: event.target.value } : it))) },
               part.options.map((option) => h("option", { value: option, selected: option === item[part.name] }, option))
             )
-            : h("input", {
+            : this.variables(h("input", {
               type: "text",
               class: INPUT,
               placeholder: part.label,
@@ -351,7 +373,7 @@ export class Inspector {
                 items = items.map((it, i) => (i === index ? { ...it, [part.name]: event.target.value } : it))
                 set(items)
               }
-            })
+            }), node, { key: `${field.key}.${index}.${part.name}` })
         ),
         h(
           "div",

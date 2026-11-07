@@ -11,7 +11,7 @@ export default {
       title: "Loop",
       fields: [
         { key: "data.variable", label: "Variable", type: "text", hint: "The name each item gets, e.g. line." },
-        { key: "data.collection", label: "Collection", type: "text", hint: "What to loop over, e.g. invoice.lines." }
+        { key: "data.collection", label: "Collection", type: "text", liquid: "collection", hint: "What to loop over, e.g. invoice.lines." }
       ]
     }
   ],

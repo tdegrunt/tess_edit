@@ -12,6 +12,9 @@
 //               the engine mounted at /tess_edit)
 //   mediaUrl    the host's images, chosen and uploaded in Image blocks (see
 //               core/media.js); without it images only have a URL
+//   variablesUrl  the variables a template can use, suggested while typing {{
+//                 and browsed with { } buttons (see core/variables.js), e.g.
+//                 Liquidum's /liquidum/variables?roots=…
 //   lock        JSON: only the insides of some blocks and some root fields can
 //               change, e.g. {"except": ["content"], "fields": ["data.subject"]}
 //               (see core/lock.js)
@@ -30,10 +33,12 @@ import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
 import { COMPILE_URL, compile } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
+import { Variables, loopScope } from "tess_edit/core/variables"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
 import { Inspector } from "tess_edit/ui/inspector"
 import { TextEditing } from "tess_edit/ui/text_editing"
+import { VariableMenu } from "tess_edit/ui/variable_menu"
 import { renderBlocksPanel } from "tess_edit/ui/blocks_panel"
 import { debounce, h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -46,7 +51,7 @@ const PANELS_KEY = "tess_edit:panels"
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, lock: String }
+  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, lock: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
@@ -63,6 +68,8 @@ export default class extends Controller {
     this.narrow = false
     this.requests = {}
     this.media = { enabled: Boolean(this.mediaUrlValue), images: [], uploading: false, error: null }
+    this.variables = new Variables(this.variablesUrlValue)
+    this.variableMenu = this.variables.enabled ? new VariableMenu(this) : null
 
     this.scheduleCanvas = debounce(() => this.renderCanvas(), 60)
     this.scheduleOutputs = debounce(() => this.writeOutputs(), 300)
@@ -127,6 +134,7 @@ export default class extends Controller {
     this.scheduleOutputs.cancel()
     Object.values(this.requests).forEach((request) => request.abort())
     this.textEditing?.stop()
+    this.variableMenu?.close()
     this.closeMenu()
     this.resizeObserver?.disconnect()
     document.removeEventListener("mousedown", this.outsideClick)
@@ -216,7 +224,7 @@ export default class extends Controller {
     this.canvas = new Canvas(this, this.frame)
     this.tree = new Tree(this, this.treeElement)
     this.inspector = new Inspector(this, this.inspectorElement)
-    this.textEditing = new TextEditing(this.textToolbar)
+    this.textEditing = new TextEditing(this.textToolbar, { menu: this.variableMenu })
     renderBlocksPanel(this, this.blocksElement)
     this.observeWidth()
 
@@ -500,7 +508,7 @@ export default class extends Controller {
       this.tree.render()
       this.canvas.refresh()
       this.scheduleOutputs()
-    })
+    }, { scope: loopScope(this.doc, id) })
     this.canvas.refresh()
   }
 

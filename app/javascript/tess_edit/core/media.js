@@ -38,7 +38,7 @@ export const IMAGE_FIELD = { key: "attributes.src", image: "data.image", source:
 // An image field for an image attribute, e.g. a background:
 //   imageField("attributes.background-url", "Background image", "data.background")
 export function imageField(key, label, image) {
-  return { key, label, type: "image", image, source: `${image}Source` }
+  return { key, label, type: "image", image, source: `${image}Source`, liquid: true }
 }
 
 // The image fields of a block definition

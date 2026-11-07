@@ -14,9 +14,9 @@ export default {
     {
       title: "Image",
       fields: [
-        { ...IMAGE_FIELD, label: "Image", type: "image" },
-        { key: "attributes.alt", label: "Alt text", type: "text" },
-        { key: "attributes.href", label: "Link", type: "text" },
+        { ...IMAGE_FIELD, label: "Image", type: "image", liquid: true },
+        { key: "attributes.alt", label: "Alt text", type: "text", liquid: true },
+        { key: "attributes.href", label: "Link", type: "text", liquid: true },
         { key: "attributes.width", label: "Width", type: "size", placeholder: "Full" },
         { key: "attributes.height", label: "Height", type: "size", placeholder: "Auto" },
         align,

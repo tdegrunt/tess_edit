@@ -24,8 +24,8 @@ export default {
     {
       title: "Email",
       fields: [
-        { key: "data.subject", label: "Subject", type: "text" },
-        { key: "data.preheader", label: "Preview text", type: "text", hint: "Shown after the subject in most inboxes." }
+        { key: "data.subject", label: "Subject", type: "text", liquid: true },
+        { key: "data.preheader", label: "Preview text", type: "text", liquid: true, hint: "Shown after the subject in most inboxes." }
       ]
     },
     {

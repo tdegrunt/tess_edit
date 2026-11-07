@@ -12,6 +12,7 @@ The interface follows familiar layout: blocks and a layers tree on the left, the
 - Liquid blocks: **Loop** (`{% for line in order.lines %}`) and **Condition** (`{% if order.total > 100 %}`) wrap other blocks.
 - Drag from the Blocks panel onto the canvas or into the Layers tree; move blocks on the canvas (drag handle) or in the tree; plus buttons and empty-column placeholders open an "Add block" menu.
 - Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings.
+- Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
 - Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Esc).
 - Desktop and mobile preview, and a preview of the HTML as sent.
 - Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room.
@@ -146,6 +147,24 @@ A block stores the image's `url` in the attribute (`src`, `background-url`) and 
 
 A block of your own gets the same with an image field, `imageField("attributes.background-url", "Background image", "data.background")`, imported from `tess_edit`.
 
+### Variables
+
+To suggest the variables a template can use, give the editor an endpoint with `data-tess-edit-variables-url-value`. Typing `{{` in text on the canvas, or in a setting such as a link, subject or image address, then shows them, one level at a time: `order.` shows the order's variables, `order.customer.` the customer's. Arrow keys and Enter or Tab choose, Escape closes. The text toolbar, and settings that usually hold Liquid, have a `{ }` button to browse them instead. A Loop's collection and a Condition are suggested without the braces.
+
+The endpoint answers `GET` with the variables at `path` (the roots without one), as JSON:
+
+```json
+{"path": "order", "variables": [
+  {"name": "customer", "label": "Ordered by", "type": "object", "collection": false, "children": true},
+  {"name": "order_lines", "label": "Order lines", "type": "object", "collection": true, "children": true},
+  {"name": "total", "label": "Total", "type": "money", "hint": "Including VAT", "collection": false, "children": false}
+]}
+```
+
+`children` says a variable has variables of its own, at the path with its name added; a `collection` is a list of them, and its path goes into its elements (`order.order_lines.product`). The editor offers a collection's `first`, `last` and `size`, and inside a Loop block (`{% for line in order.order_lines %}`) its variable, `line`, asking for `order.order_lines.…` for it. An unknown path answers 404. [Liquidum](https://github.com/entdec/liquidum)'s `/liquidum/variables` answers this way from your drops; the dummy app's `VariablesController` is a fixed example (`/?variables=1`).
+
+A field of your own gets the `{ }` button with `liquid: true`, or `liquid: "expression"` (a condition) or `liquid: "collection"` (what a loop goes over) for Liquid without braces.
+
 ### Blocks and custom blocks
 
 Every block is a plugin: one module in `app/javascript/tess_edit/blocks/` with its defaults, its Inspect fields, its Blocks panel tiles and a `render.mjml` hook. The built-in blocks are registered the same way a host app registers its own, so register yours before the editor connects:
@@ -186,7 +205,9 @@ cd test/dummy && bin/dev
 
 `/?lock=1` opens a locked layout (`test/dummy/config/demo_layout.json`) with only its Content block, subject and preview text open.
 
-`/?media=1` gives the editor the demo's image endpoint (`MediaController`), so images can be chosen from a list, uploaded, or dragged onto the canvas from the desktop; uploads go to `test/dummy/tmp/media`. Without it, images are URLs only. The options combine, e.g. `/?lock=1&media=1`.
+`/?media=1` gives the editor the demo's image endpoint (`MediaController`), so images can be chosen from a list, uploaded, or dragged onto the canvas from the desktop; uploads go to `test/dummy/tmp/media`. Without it, images are URLs only.
+
+`/?variables=1` gives the editor the demo's variables (`VariablesController`), an order's, to try the suggestions. The options combine, e.g. `/?lock=1&media=1&variables=1`.
 
 Tests:
 

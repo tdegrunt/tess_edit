@@ -14,8 +14,8 @@ export default {
     {
       title: "Button",
       fields: [
-        { key: "data.content", label: "Label", type: "text" },
-        { key: "attributes.href", label: "Link", type: "text" },
+        { key: "data.content", label: "Label", type: "text", liquid: true },
+        { key: "attributes.href", label: "Link", type: "text", liquid: true },
         { key: "attributes.target", label: "Open in", type: "segmented", options: [{ value: "_blank", label: "New tab" }, { value: "_self", label: "Same tab" }] },
         { key: "attributes.background-color", label: "Button color", type: "color" },
         { key: "attributes.width", label: "Width", type: "size", placeholder: "Auto" },

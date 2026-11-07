@@ -9,10 +9,12 @@
 
   <%# ?panels=left or ?panels=right sets the default panel layout. ?lock=1 opens
       a layout with only its Content block, subject and preview text editable.
-      ?media=1 lets Image blocks choose and upload images (MediaController). %>
+      ?media=1 lets Image blocks choose and upload images (MediaController).
+      ?variables=1 suggests an order template's Liquid variables (VariablesController). %>
   <% locked = params[:lock].present? %>
   <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>"
     <% if params[:media].present? %>data-tess-edit-media-url-value="<%= media_path %>"<% end %>
+    <% if params[:variables].present? %>data-tess-edit-variables-url-value="<%= variables_path %>"<% end %>
     <% if locked %>
       data-tess-edit-document-value="<%= Rails.root.join("config/demo_layout.json").read %>"
       data-tess-edit-lock-value="<%= {except: ["content"], fields: ["data.subject", "data.preheader"]}.to_json %>"
