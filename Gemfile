@@ -14,3 +14,7 @@ group :development, :test do
   # Renders the compiled sample in test/liquid_render_test.rb, as a host app would at send time
   gem "liquid"
 end
+
+source "https://rubygems.pkg.github.com/entdec" do
+  gem "shipkit"
+end
