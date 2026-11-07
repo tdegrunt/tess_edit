@@ -83,7 +83,8 @@ export class Inspector {
         h("span", { html: icon("chevron", "w-3 h-3 transition-transform group-open/field:rotate-90") }),
         group.title
       ),
-      h("div", { class: "px-4 pb-4 space-y-3" }, group.fields.map((field) => this.field(node, field)))
+      // A field's visible(node, editor) shows it only when it applies
+      h("div", { class: "px-4 pb-4 space-y-3" }, group.fields.filter((field) => !field.visible || field.visible(node, this.editor)).map((field) => this.field(node, field)))
     )
     return details
   }
@@ -182,9 +183,52 @@ export class Inspector {
       case "list":
         return this.list(node, field, Array.isArray(value) ? value : [], set)
 
+      case "media":
+        return this.mediaPicker(node, value)
+
       default:
         return h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "", oninput: (event) => set(event.target.value) })
     }
+  }
+
+  // One of the host's images, or a new upload (editor.media, core/media.js)
+  mediaPicker(node, value) {
+    const { images, uploading, error } = this.editor.media
+    const current = images.find((image) => image.id === value)
+    const file = h("input", {
+      type: "file",
+      accept: "image/*",
+      class: "hidden",
+      onchange: (event) => {
+        const chosen = event.target.files[0]
+        if (chosen) this.editor.uploadImage(node.id, chosen)
+      }
+    })
+    const select = h(
+      "select",
+      {
+        class: `${INPUT} min-w-0 flex-1`,
+        onchange: (event) => {
+          const image = images.find((option) => option.id === event.target.value)
+          if (image) this.editor.chooseImage(node.id, image)
+        }
+      },
+      h("option", { value: "" }, images.length ? "Choose an image" : "No images yet"),
+      images.map((image) => h("option", { value: image.id, selected: image.id === value }, image.name))
+    )
+    return h(
+      "div",
+      {},
+      h(
+        "div",
+        { class: "flex items-center gap-1.5" },
+        select,
+        h("button", { type: "button", class: "shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50", disabled: uploading, onclick: () => file.click() }, uploading ? "Uploading…" : "Upload"),
+        file
+      ),
+      error ? h("p", { class: "mt-1 text-[11px] text-red-600", role: "alert" }, error) : null,
+      current ? h("img", { src: current.url, alt: "", class: "mt-2 max-h-24 rounded border border-gray-200" }) : null
+    )
   }
 
   color(value, set) {

@@ -131,6 +131,17 @@ To let people fill in one part of a design that is otherwise fixed, such as a te
 
 Only what is inside blocks of the types in `except` can change: those blocks take new blocks, and everything in them can be edited, moved, duplicated and deleted. The blocks themselves stay where they are. Of the root, only the listed `fields` can change. Everything else still shows on the canvas and can be selected, with its settings disabled in Inspect and a lock in Layers. A tile clicked while a locked block is selected goes at the end of the first block it is allowed in, and the Code dialog shows the JSON without loading it. The editor still stores the whole document; taking the open part out of it is up to the host app. The `except` types are usually a custom block, like the demo's Content block in `test/dummy/app/javascript/blocks/content.js`.
 
+### Images
+
+By default an Image block takes a URL. To let people choose from your app's images and upload new ones, give the editor an endpoint with `data-tess-edit-media-url-value`. The Image block then has a source, Uploaded (a dropdown of your images with an Upload button) or Web (a URL); new images start as Uploaded.
+
+The endpoint answers two requests, both as JSON:
+
+- `GET`: the images to choose from, `{"images": [{"id": "…", "url": "https://…", "name": "logo.png"}]}`
+- `POST` (multipart, the file in `file`, with the page's CSRF token): the uploaded image, `{"id": "…", "url": "…", "name": "…"}`, or `{"errors": ["…"]}` with an error status
+
+The block stores the image's `id` in `data.image` and its `url` as the image's `src`. How images are stored and who may upload them is up to your app; the dummy app's `MediaController` is a minimal example (`/?media=1`).
+
 ### Blocks and custom blocks
 
 Every block is a plugin: one module in `app/javascript/tess_edit/blocks/` with its defaults, its Inspect fields, its Blocks panel tiles and a `render.mjml` hook. The built-in blocks are registered the same way a host app registers its own, so register yours before the editor connects:

@@ -10,6 +10,8 @@
 //             for the canvas.
 //   compileUrl  the endpoint that compiles MJML to HTML (default /tess_edit/compile,
 //               the engine mounted at /tess_edit)
+//   mediaUrl    the host's images, chosen and uploaded in Image blocks (see
+//               core/media.js); without it images only have a URL
 //   lock        JSON: only the insides of some blocks and some root fields can
 //               change, e.g. {"except": ["content"], "fields": ["data.subject"]}
 //               (see core/lock.js)
@@ -27,6 +29,7 @@ import { getBlock, paletteItems } from "tess_edit/core/registry"
 import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
 import { COMPILE_URL, compile } from "tess_edit/export/compile"
+import { fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
 import { Inspector } from "tess_edit/ui/inspector"
@@ -43,7 +46,7 @@ const PANELS_KEY = "tess_edit:panels"
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, lock: String }
+  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, lock: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
@@ -59,6 +62,7 @@ export default class extends Controller {
     this.panels = [this.storedPanels(), this.panelsValue].find((value) => PANELS.includes(value)) || "split"
     this.narrow = false
     this.requests = {}
+    this.media = { enabled: Boolean(this.mediaUrlValue), images: [], uploading: false, error: null }
 
     this.scheduleCanvas = debounce(() => this.renderCanvas(), 60)
     this.scheduleOutputs = debounce(() => this.writeOutputs(), 300)
@@ -66,7 +70,43 @@ export default class extends Controller {
     this.build()
     this.renderAll()
     this.writeOutputs()
+    if (this.media.enabled) this.loadMedia()
     this.element.tessEdit = this
+  }
+
+  async loadMedia() {
+    try {
+      this.media.images = await fetchMedia(this.mediaUrlValue)
+      this.media.error = null
+    } catch (error) {
+      this.media.error = error.message
+    }
+    this.inspector?.render()
+  }
+
+  // Puts one of the host's images in an Image block: its id and its URL
+  chooseImage(id, image) {
+    if (!this.canEditField(id, "data.image")) return
+    this.commit((doc) => {
+      setValue(doc, id, "data.image", image.id)
+      setValue(doc, id, "attributes.src", image.url)
+    })
+  }
+
+  async uploadImage(id, file) {
+    this.media.uploading = true
+    this.media.error = null
+    this.inspector.render()
+    try {
+      const image = await uploadMedia(this.mediaUrlValue, file)
+      this.media.images = [...this.media.images.filter((other) => other.id !== image.id), image]
+      this.chooseImage(id, image)
+    } catch (error) {
+      this.media.error = error.message
+    } finally {
+      this.media.uploading = false
+      this.inspector.render()
+    }
   }
 
   disconnect() {
