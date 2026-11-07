@@ -48,7 +48,7 @@ export default {
     {
       title: "Custom CSS",
       collapsed: true,
-      fields: [{ key: "data.css", label: "CSS", type: "code", hint: "Added to the email's <style> block." }]
+      fields: [{ key: "data.css", label: "CSS", type: "code", language: "css", hint: "Added to the email's <style> block." }]
     }
   ],
   render: {

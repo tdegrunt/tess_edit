@@ -165,6 +165,31 @@ class EditorTest < ApplicationSystemTestCase
     within_canvas { find("p", text: "Hand-written HTML").click }
 
     assert_equal "<p>Hand-written HTML</p>", find("[data-tess-edit-panel='inspect'] textarea").value
+    assert_selector "[data-tess-edit-panel='inspect'] pre .text-blue-700", text: "<p"
+  end
+
+  test "HTML is edited with indentation, and in a larger window" do
+    execute_script(<<~JS)
+      const editor = document.querySelector("[data-controller='tess-edit']").tessEdit
+      const doc = editor.getDocument()
+      doc.children.push({ id: "bhtml", type: "raw", attributes: {}, data: { html: "<div>Start</div>" }, children: [] })
+      editor.setDocument(doc)
+    JS
+    within_canvas { find("div", text: "Start", exact_text: true, match: :first).click }
+    type_at_end(find("[data-tess-edit-panel='inspect'] textarea"), :enter, :tab, "<p>Tabbed</p>")
+    eventually { assert_equal "<div>Start</div>\n  <p>Tabbed</p>", raw_html }
+
+    click_on "Expand"
+    within("[role='dialog']") do
+      assert_selector "h3", text: "HTML"
+      type_at_end(find("textarea"), :enter, "<p>Bigger</p>")
+    end
+    eventually { assert_equal "<div>Start</div>\n  <p>Tabbed</p>\n  <p>Bigger</p>", raw_html }
+    within_canvas { assert_text "Bigger" }
+
+    find("[role='dialog'] textarea").send_keys(:escape)
+    assert_no_selector "[role='dialog']"
+    assert_equal "<div>Start</div>\n  <p>Tabbed</p>\n  <p>Bigger</p>", find("[data-tess-edit-panel='inspect'] textarea").value
   end
 
   test "combining the panels on one side" do
@@ -250,5 +275,14 @@ class EditorTest < ApplicationSystemTestCase
       over.dispatchEvent(new frame.contentWindow.DragEvent("drop", { ...at, dataTransfer }))
       tile.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }))
     JS
+  end
+
+  def type_at_end(textarea, *keys)
+    execute_script("arguments[0].focus(); arguments[0].setSelectionRange(arguments[0].value.length, arguments[0].value.length)", textarea)
+    textarea.send_keys(*keys)
+  end
+
+  def raw_html
+    document_json["children"].find { |node| node["id"] == "bhtml" }&.dig("data", "html")
   end
 end

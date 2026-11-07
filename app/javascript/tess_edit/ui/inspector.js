@@ -4,6 +4,7 @@
 import { imageSource } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { find, getValue } from "tess_edit/core/document"
+import { codeInput } from "tess_edit/ui/code_input"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
@@ -94,14 +95,19 @@ export class Inspector {
     const value = getValue(node, field.key) ?? ""
     const set = (next, options = {}) => this.editor.setValue(node.id, field.key, next, options)
     // A fieldset disables every input and button of a locked field at once.
-    const control = this.editor.canEditField(node.id, field.key)
+    const editable = this.editor.canEditField(node.id, field.key)
+    const control = editable
       ? this.control(node, field, value, set)
       : h("fieldset", { disabled: true, class: "opacity-60" }, this.control(node, field, value, set))
+    const expand = field.type === "code" && editable
+      ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "absolute right-0 top-0 rounded px-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50", onclick: () => this.expand(node, field) }, "Expand")
+      : null
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
-      { class: "block" },
+      { class: "relative block" },
       h("span", { class: "mb-1 block text-xs font-medium text-gray-700" }, field.label),
+      expand,
       control,
       field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500" }, field.hint) : null
     )
@@ -110,14 +116,10 @@ export class Inspector {
   control(node, field, value, set) {
     switch (field.type) {
       case "textarea":
+        return h("textarea", { class: `${INPUT} min-h-32`, rows: 4, value, oninput: (event) => set(event.target.value) })
+
       case "code":
-        return h("textarea", {
-          class: `${INPUT} ${field.type === "code" ? "font-mono text-xs" : ""} min-h-32`,
-          rows: field.type === "code" ? 10 : 4,
-          spellcheck: field.type !== "code",
-          value,
-          oninput: (event) => set(event.target.value)
-        })
+        return codeInput({ value, language: field.language, oninput: set, class: "h-60" })
 
       case "size":
         return h("input", {
@@ -242,6 +244,44 @@ export class Inspector {
       error ? h("p", { class: "mt-1 text-[11px] text-red-600", role: "alert" }, error) : null,
       current ? h("img", { src: current.url, alt: "", class: "mt-2 max-h-24 rounded border border-gray-200" }) : null
     )
+  }
+
+  // A code field in a dialog over the editor, for more room. Changes apply as
+  // you type, like in the field itself.
+  expand(node, field) {
+    const close = () => {
+      dialog.remove()
+      this.render()
+    }
+    const input = codeInput({ value: getValue(node, field.key) ?? "", language: field.language, oninput: (next) => this.editor.setValue(node.id, field.key, next), class: "h-full min-h-0 resize-none" })
+    input.classList.add("flex-1", "min-h-0")
+    const dialog = h(
+      "div",
+      {
+        class: "absolute inset-0 z-40 flex items-center justify-center bg-gray-900/40 p-6",
+        onmousedown: (event) => event.target === dialog && close(),
+        // Escape closes the dialog, not anything behind it
+        onkeydown: (event) => {
+          if (event.key !== "Escape") return
+          event.stopPropagation()
+          close()
+        }
+      },
+      h(
+        "div",
+        { role: "dialog", "aria-label": field.label, class: "flex h-full max-h-[800px] w-full max-w-5xl flex-col gap-3 rounded-xl bg-white p-4 shadow-xl" },
+        h(
+          "div",
+          { class: "flex items-center gap-3" },
+          h("h3", { class: "text-sm font-semibold text-gray-900" }, label(node) === field.label ? field.label : `${label(node)} · ${field.label}`),
+          field.hint ? h("span", { class: "text-xs text-gray-500" }, field.hint) : null,
+          h("button", { type: "button", title: "Close", class: "ml-auto w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100", html: icon("close"), onclick: close })
+        ),
+        input
+      )
+    )
+    this.editor.root.append(dialog)
+    input.textarea.focus()
   }
 
   color(value, set) {
