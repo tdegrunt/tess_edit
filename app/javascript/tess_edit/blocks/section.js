@@ -1,4 +1,5 @@
 import { ALIGN, background, border, padding } from "tess_edit/blocks/fields"
+import { imageField } from "tess_edit/core/media"
 
 const section = (createNode, widths) =>
   createNode("section", { children: widths.map((width) => createNode("column", { attributes: width ? { width } : {} })) })
@@ -25,7 +26,7 @@ export default {
       title: "Section",
       fields: [
         background,
-        { key: "attributes.background-url", label: "Background image", type: "text" },
+        imageField("attributes.background-url", "Background image", "data.background"),
         { key: "attributes.full-width", label: "Full width", type: "toggle", on: "full-width", off: "" },
         { key: "attributes.direction", label: "Column order", type: "segmented", options: [{ value: "ltr", label: "Left to right" }, { value: "rtl", label: "Right to left" }] },
         { key: "attributes.text-align", label: "Align", type: "segmented", options: ALIGN },

@@ -9,7 +9,8 @@
 //     accepts: undefined,              // roles it takes as children, "inherit", or undefined for a leaf
 //     defaults: () => ({ attributes: {}, data: {} }),
 //     fields: [{ title: "Product", fields: [{ key: "data.sku", label: "SKU", type: "text" }] }],
-//                                      // a field's visible: (node, editor) => boolean shows it only when it applies
+//                                      // a field's visible: (node, editor) => boolean shows it only when it applies;
+//                                      // imageField(key, label, idKey) (core/media.js) makes an image field
 //     hint: "Shown at the top of Inspect.",
 //     label: (node) => `Product · ${node.data.sku}`,   // optional, for Layers and the canvas
 //     richText: "data.content",        // optional: a Tiptap JSON value edited on the canvas by double-click

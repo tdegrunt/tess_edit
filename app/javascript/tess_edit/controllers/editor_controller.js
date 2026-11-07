@@ -29,7 +29,7 @@ import { getBlock, paletteItems } from "tess_edit/core/registry"
 import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
 import { COMPILE_URL, compile } from "tess_edit/export/compile"
-import { fetchMedia, uploadMedia } from "tess_edit/core/media"
+import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
 import { Inspector } from "tess_edit/ui/inspector"
@@ -84,35 +84,36 @@ export default class extends Controller {
     this.inspector?.render()
   }
 
-  // Puts one of the host's images in an Image block: its id and its URL
-  chooseImage(id, image) {
-    if (!this.canEditField(id, "data.image")) return
+  // Puts one of the host's images in a block's image field (an Image block's
+  // image by default): its id and its URL
+  chooseImage(id, image, field = IMAGE_FIELD) {
+    if (!this.canEditField(id, field.key)) return
     this.commit((doc) => {
-      setValue(doc, id, "data.source", "upload")
-      setValue(doc, id, "data.image", image.id)
-      setValue(doc, id, "attributes.src", image.url)
+      setValue(doc, id, field.source, "upload")
+      setValue(doc, id, field.image, image.id)
+      setValue(doc, id, field.key, image.url)
     })
   }
 
-  // An image file dropped on an Image block: shown at once, then uploaded
-  async dropImage(id, file) {
+  // An image file dropped on a block: shown at once, then uploaded
+  async dropImage(id, file, field = IMAGE_FIELD) {
     this.select(id)
     const url = URL.createObjectURL(file)
-    this.canvas.preview(id, url)
-    await this.uploadImage(id, file)
+    this.canvas.preview(id, getValue(find(this.doc, id).node, field.key), url)
+    await this.uploadImage(id, file, field)
     // On failure the canvas goes back to the block's own image
     if (this.media.error) this.renderCanvas()
     URL.revokeObjectURL(url)
   }
 
-  async uploadImage(id, file) {
+  async uploadImage(id, file, field = IMAGE_FIELD) {
     this.media.uploading = true
     this.media.error = null
     this.inspector.render()
     try {
       const image = await uploadMedia(this.mediaUrlValue, file)
       this.media.images = [...this.media.images.filter((other) => other.id !== image.id), image]
-      this.chooseImage(id, image)
+      this.chooseImage(id, image, field)
     } catch (error) {
       this.media.error = error.message
     } finally {

@@ -1,6 +1,7 @@
 // The Inspect panel: renders the selected block's fields from its
 // definition (blocks/*.js, via core/registry.js) and writes changes back through the editor.
 
+import { imageSource } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { find, getValue } from "tess_edit/core/document"
 import { h } from "tess_edit/ui/dom"
@@ -183,16 +184,28 @@ export class Inspector {
       case "list":
         return this.list(node, field, Array.isArray(value) ? value : [], set)
 
-      case "media":
-        return this.mediaPicker(node, value)
+      case "image":
+        return this.image(node, field, value, set)
 
       default:
         return h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "", oninput: (event) => set(event.target.value) })
     }
   }
 
-  // One of the host's images, or a new upload (editor.media, core/media.js)
-  mediaPicker(node, value) {
+  // An image URL, or with the host's images (editor.media, core/media.js) a
+  // choice between one of those, a new upload, and a URL
+  image(node, field, value, set) {
+    const url = h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "https://…", oninput: (event) => set(event.target.value) })
+    if (!this.editor.media.enabled) return url
+
+    const source = imageSource(node, this.editor, field)
+    const sources = this.control(node, { type: "segmented", options: [{ value: "upload", label: "Uploaded" }, { value: "web", label: "Web" }] }, source, (next) =>
+      this.editor.setValue(node.id, field.source, next || source)
+    )
+    return h("div", { class: "space-y-1.5" }, sources, source === "upload" ? this.mediaPicker(node, field, getValue(node, field.image)) : url)
+  }
+
+  mediaPicker(node, field, value) {
     const { images, uploading, error } = this.editor.media
     const current = images.find((image) => image.id === value)
     const file = h("input", {
@@ -201,7 +214,7 @@ export class Inspector {
       class: "hidden",
       onchange: (event) => {
         const chosen = event.target.files[0]
-        if (chosen) this.editor.uploadImage(node.id, chosen)
+        if (chosen) this.editor.uploadImage(node.id, chosen, field)
       }
     })
     const select = h(
@@ -210,7 +223,7 @@ export class Inspector {
         class: `${INPUT} min-w-0 flex-1`,
         onchange: (event) => {
           const image = images.find((option) => option.id === event.target.value)
-          if (image) this.editor.chooseImage(node.id, image)
+          if (image) this.editor.chooseImage(node.id, image, field)
         }
       },
       h("option", { value: "" }, images.length ? "Choose an image" : "No images yet"),

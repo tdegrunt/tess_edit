@@ -1,5 +1,5 @@
 import { align, padding } from "tess_edit/blocks/fields"
-import { imageSource } from "tess_edit/core/media"
+import { IMAGE_FIELD } from "tess_edit/core/media"
 
 export default {
   type: "image",
@@ -14,10 +14,7 @@ export default {
     {
       title: "Image",
       fields: [
-        // Uploaded images only when the host keeps images (the editor's mediaUrl)
-        { key: "data.source", label: "Source", type: "segmented", options: [{ value: "upload", label: "Uploaded" }, { value: "web", label: "Web" }], visible: (node, editor) => editor.media?.enabled },
-        { key: "data.image", label: "Image", type: "media", visible: (node, editor) => imageSource(node, editor) === "upload" },
-        { key: "attributes.src", label: "Image URL", type: "text", visible: (node, editor) => imageSource(node, editor) === "web" },
+        { ...IMAGE_FIELD, label: "Image", type: "image" },
         { key: "attributes.alt", label: "Alt text", type: "text" },
         { key: "attributes.href", label: "Link", type: "text" },
         { key: "attributes.width", label: "Width", type: "size", placeholder: "Full" },

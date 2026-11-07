@@ -1,4 +1,5 @@
 import { VERTICAL_ALIGN, background, padding } from "tess_edit/blocks/fields"
+import { imageField } from "tess_edit/core/media"
 
 const headline = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "A big headline" }] }] }
 
@@ -33,7 +34,7 @@ export default {
     {
       title: "Background",
       fields: [
-        { key: "attributes.background-url", label: "Image URL", type: "text" },
+        imageField("attributes.background-url", "Image", "data.background"),
         { key: "attributes.background-width", label: "Image width", type: "size" },
         { key: "attributes.background-height", label: "Image height", type: "size" },
         { key: "attributes.background-position", label: "Position", type: "text", placeholder: "center center" },

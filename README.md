@@ -133,14 +133,16 @@ Only what is inside blocks of the types in `except` can change: those blocks tak
 
 ### Images
 
-By default an Image block takes a URL. To let people choose from your app's images and upload new ones, give the editor an endpoint with `data-tess-edit-media-url-value`. The Image block then has a source, Uploaded (a dropdown of your images with an Upload button) or Web (a URL); new images start as Uploaded. An image file dragged from the desktop onto an Image block in the canvas is uploaded and put in that block, and shows straight away while it uploads.
+By default images are URLs. To let people choose from your app's images and upload new ones, give the editor an endpoint with `data-tess-edit-media-url-value`. Every image then has a source, Uploaded (a dropdown of your images with an Upload button) or Web (a URL): the Image block's image and the background images of heroes, sections and wrappers. New Image blocks start as Uploaded. An image file dragged from the desktop onto the canvas is uploaded and put in the nearest block with an image, an Image block or else the background of the hero, section or wrapper it's dropped on, and shows straight away while it uploads.
 
 The endpoint answers two requests, both as JSON:
 
 - `GET`: the images to choose from, `{"images": [{"id": "…", "url": "https://…", "name": "logo.png"}]}`
 - `POST` (multipart, the file in `file`, with the page's CSRF token): the uploaded image, `{"id": "…", "url": "…", "name": "…"}`, or `{"errors": ["…"]}` with an error status
 
-The block stores the image's `id` in `data.image` and its `url` as the image's `src`. How images are stored and who may upload them is up to your app; the dummy app's `MediaController` is a minimal example (`/?media=1`).
+A block stores the image's `url` in the attribute (`src`, `background-url`) and its `id` next to it in `data`: `data.image` for the Image block, `data.background` for backgrounds. How images are stored and who may upload them is up to your app; the dummy app's `MediaController` is a minimal example (`/?media=1`).
+
+A block of your own gets the same with an image field, `imageField("attributes.background-url", "Background image", "data.background")`, imported from `tess_edit`.
 
 ### Blocks and custom blocks
 

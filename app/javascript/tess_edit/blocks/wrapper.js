@@ -1,4 +1,5 @@
 import { background, border, padding } from "tess_edit/blocks/fields"
+import { imageField } from "tess_edit/core/media"
 
 export default {
   type: "wrapper",
@@ -9,7 +10,7 @@ export default {
   accepts: ["body"],
   defaults: () => ({ attributes: { padding: "20px 0px", "background-color": "#ffffff" } }),
   fields: [
-    { title: "Wrapper", fields: [background, { key: "attributes.background-url", label: "Background image", type: "text" }, { key: "attributes.full-width", label: "Full width", type: "toggle", on: "full-width", off: "" }, padding] },
+    { title: "Wrapper", fields: [background, imageField("attributes.background-url", "Background image", "data.background"), { key: "attributes.full-width", label: "Full width", type: "toggle", on: "full-width", off: "" }, padding] },
     border
   ],
   palette: [

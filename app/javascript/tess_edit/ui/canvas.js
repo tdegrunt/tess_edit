@@ -4,6 +4,7 @@
 // editor-mode MJML puts on every element.
 
 import { ancestors, canInsert, find, isDescendant, isHorizontal } from "tess_edit/core/document"
+import { imageFields } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { icon } from "tess_edit/ui/icons"
 
@@ -294,39 +295,63 @@ export class Canvas {
     this.editor.endDrag()
   }
 
-  // An image file dragged from the desktop onto an Image block uploads it there.
-  // Elsewhere the drop is refused, so the browser doesn't open the file.
+  // An image file dragged from the desktop onto a block with an image field
+  // uploads it there: an Image block's image, or the background of the hero,
+  // section or wrapper the pointer is in. Elsewhere the drop is refused, so
+  // the browser doesn't open the file.
   onFileDragOver(event) {
     event.preventDefault()
-    const hit = this.imageTarget(event.target)
-    event.dataTransfer.dropEffect = hit ? "copy" : "none"
-    if (hit) this.showIndicator({ fill: hit.element.getBoundingClientRect() })
+    const target = this.imageTarget(event.target)
+    event.dataTransfer.dropEffect = target ? "copy" : "none"
+    const rect = target && this.rectOf(target.id)
+    if (rect) this.showIndicator({ fill: rect })
     else this.hideIndicator()
   }
 
   onFileDrop(event) {
     event.preventDefault()
     this.hideIndicator()
-    const hit = this.imageTarget(event.target)
+    const target = this.imageTarget(event.target)
     const file = Array.from(event.dataTransfer.files).find((file) => file.type.startsWith("image/"))
-    if (hit && file) this.editor.dropImage(hit.id, file)
+    if (target && file) this.editor.dropImage(target.id, file, target.field)
   }
 
+  // The nearest block, from the one under the pointer outwards, with an image
+  // field that can be edited
   imageTarget(target) {
     if (!this.editor.media.enabled) return null
     const hit = this.hit(target)
-    if (!hit || hit.placeholder || find(this.editor.doc, hit.id).node.type !== "image") return null
-    return this.editor.canEditField(hit.id, "data.image") ? hit : null
+    if (!hit) return null
+    const doc = this.editor.doc
+    for (const node of [find(doc, hit.id).node, ...ancestors(doc, hit.id)]) {
+      const field = imageFields(getBlock(node.type)).find((field) => this.editor.canEditField(node.id, field.key))
+      if (field) return { id: node.id, field }
+    }
+    return null
   }
 
-  // Shows a file in an Image block before the upload finishes (until the next render)
-  preview(id, url) {
+  // Shows another image in a block before the upload finishes (until the
+  // next render): where the block shows its current image, or else as the
+  // block's background
+  preview(id, current, url) {
     const element = this.elementOf(id)
-    const image = element?.tagName === "IMG" ? element : element?.querySelector("img")
-    if (!image) return
-    image.removeAttribute("srcset")
-    image.src = url
-    image.style.opacity = "0.6"
+    if (!element) return
+    let shown = false
+    for (const child of [element, ...element.querySelectorAll("*")]) {
+      if (current && child.tagName === "IMG" && child.getAttribute("src") === current) {
+        child.removeAttribute("srcset")
+        child.src = url
+        shown = true
+      }
+      if (current && child.getAttribute("background") === current) child.setAttribute("background", url)
+      const style = child.getAttribute("style")
+      if (current && style?.includes(current)) {
+        child.setAttribute("style", style.split(current).join(url))
+        shown = true
+      }
+    }
+    if (!shown) Object.assign(element.style, { backgroundImage: `url("${url}")`, backgroundSize: "cover", backgroundPosition: "center" })
+    element.style.opacity = "0.6"
   }
 
   // --- dropping --------------------------------------------------------------

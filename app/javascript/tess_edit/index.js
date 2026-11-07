@@ -13,6 +13,7 @@ export { richTextToHtml } from "tess_edit/export/richtext"
 export { createDocument, createNode, normalize } from "tess_edit/core/document"
 export { registerBlock, registerCategory, getBlock, blockTypes, paletteItems } from "tess_edit/core/registry"
 export * as fields from "tess_edit/blocks/fields"
+export { imageField } from "tess_edit/core/media"
 export { starterDocument } from "tess_edit/core/starter"
 
 export function registerTessEdit(application, identifier = "tess-edit") {
