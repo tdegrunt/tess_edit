@@ -35,6 +35,11 @@ a{cursor:default}
 .ProseMirror ul,.ProseMirror ol{margin:0;padding-left:1.5em}
 `
 
+// A file dragged in from outside the browser (block drags set editor.drag)
+function isFileDrag(event, editor) {
+  return !editor.drag && Array.from(event.dataTransfer?.types || []).includes("Files")
+}
+
 const CLASS = /\btess-(b[a-z0-9]+)\b/
 const PLACEHOLDER = /\btessph-(b[a-z0-9]+)\b/
 
@@ -265,6 +270,7 @@ export class Canvas {
   }
 
   onDragOver(event) {
+    if (isFileDrag(event, this.editor)) return this.onFileDragOver(event)
     const drag = this.editor.drag
     if (!drag) return
     const target = this.dropTarget(event.clientX, event.clientY, drag)
@@ -278,6 +284,7 @@ export class Canvas {
   }
 
   onDrop(event) {
+    if (isFileDrag(event, this.editor)) return this.onFileDrop(event)
     const drag = this.editor.drag
     if (!drag) return
     event.preventDefault()
@@ -285,6 +292,41 @@ export class Canvas {
     this.hideIndicator()
     if (target) this.editor.drop(drag, target.parentId, target.index)
     this.editor.endDrag()
+  }
+
+  // An image file dragged from the desktop onto an Image block uploads it there.
+  // Elsewhere the drop is refused, so the browser doesn't open the file.
+  onFileDragOver(event) {
+    event.preventDefault()
+    const hit = this.imageTarget(event.target)
+    event.dataTransfer.dropEffect = hit ? "copy" : "none"
+    if (hit) this.showIndicator({ fill: hit.element.getBoundingClientRect() })
+    else this.hideIndicator()
+  }
+
+  onFileDrop(event) {
+    event.preventDefault()
+    this.hideIndicator()
+    const hit = this.imageTarget(event.target)
+    const file = Array.from(event.dataTransfer.files).find((file) => file.type.startsWith("image/"))
+    if (hit && file) this.editor.dropImage(hit.id, file)
+  }
+
+  imageTarget(target) {
+    if (!this.editor.media.enabled) return null
+    const hit = this.hit(target)
+    if (!hit || hit.placeholder || find(this.editor.doc, hit.id).node.type !== "image") return null
+    return this.editor.canEditField(hit.id, "data.image") ? hit : null
+  }
+
+  // Shows a file in an Image block before the upload finishes (until the next render)
+  preview(id, url) {
+    const element = this.elementOf(id)
+    const image = element?.tagName === "IMG" ? element : element?.querySelector("img")
+    if (!image) return
+    image.removeAttribute("srcset")
+    image.src = url
+    image.style.opacity = "0.6"
   }
 
   // --- dropping --------------------------------------------------------------

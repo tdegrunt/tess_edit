@@ -88,9 +88,21 @@ export default class extends Controller {
   chooseImage(id, image) {
     if (!this.canEditField(id, "data.image")) return
     this.commit((doc) => {
+      setValue(doc, id, "data.source", "upload")
       setValue(doc, id, "data.image", image.id)
       setValue(doc, id, "attributes.src", image.url)
     })
+  }
+
+  // An image file dropped on an Image block: shown at once, then uploaded
+  async dropImage(id, file) {
+    this.select(id)
+    const url = URL.createObjectURL(file)
+    this.canvas.preview(id, url)
+    await this.uploadImage(id, file)
+    // On failure the canvas goes back to the block's own image
+    if (this.media.error) this.renderCanvas()
+    URL.revokeObjectURL(url)
   }
 
   async uploadImage(id, file) {

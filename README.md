@@ -133,7 +133,7 @@ Only what is inside blocks of the types in `except` can change: those blocks tak
 
 ### Images
 
-By default an Image block takes a URL. To let people choose from your app's images and upload new ones, give the editor an endpoint with `data-tess-edit-media-url-value`. The Image block then has a source, Uploaded (a dropdown of your images with an Upload button) or Web (a URL); new images start as Uploaded.
+By default an Image block takes a URL. To let people choose from your app's images and upload new ones, give the editor an endpoint with `data-tess-edit-media-url-value`. The Image block then has a source, Uploaded (a dropdown of your images with an Upload button) or Web (a URL); new images start as Uploaded. An image file dragged from the desktop onto an Image block in the canvas is uploaded and put in that block, and shows straight away while it uploads.
 
 The endpoint answers two requests, both as JSON:
 
