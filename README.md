@@ -6,6 +6,9 @@ The interface follows familiar layout: blocks and a layers tree on the left, the
 
 ![TessEdit interface](docs/overview.png)
 
+It completes Liquid tags and variables as you type, making it easier to work with dynamic content.
+![Liquid completion](docs/liquid.png)
+
 ## Features
 
 - Blocks: Section (1-4 columns), Column, Wrapper, Hero, Text, Heading, Image, Button, Divider, Spacer, Social, Navbar and raw HTML.
