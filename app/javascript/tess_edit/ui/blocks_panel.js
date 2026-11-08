@@ -11,7 +11,7 @@ export function renderBlocksPanel(editor, element) {
     h(
       "section",
       { class: "px-3 pt-3" },
-      h("h3", { class: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500" }, category.label),
+      h("h3", { class: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" }, category.label),
       h(
         "div",
         { class: "grid grid-cols-3 gap-1.5" },
@@ -24,7 +24,7 @@ export function renderBlocksPanel(editor, element) {
                 type: "button",
                 draggable: true,
                 title: `Drag onto the canvas, or click to add`,
-                class: `flex flex-col items-center justify-center gap-1 h-16 rounded-lg border border-gray-200 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:shadow-sm cursor-grab active:cursor-grabbing ${category.key === "liquid" ? "text-amber-700" : ""}`,
+                class: `flex flex-col items-center justify-center gap-1 h-16 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm cursor-grab active:cursor-grabbing ${category.key === "liquid" ? "text-amber-700 dark:text-amber-400" : ""}`,
                 ondragstart: (event) => {
                   event.dataTransfer.effectAllowed = "copy"
                   event.dataTransfer.setData("text/plain", item.key)
@@ -40,5 +40,5 @@ export function renderBlocksPanel(editor, element) {
       )
     )
   )
-  element.replaceChildren(...groups, h("p", { class: "px-3 py-4 text-xs text-gray-500" }, "Drag blocks onto the canvas or into the Layers tree. Liquid blocks wrap other blocks in {% for %} or {% if %}."))
+  element.replaceChildren(...groups, h("p", { class: "px-3 py-4 text-xs text-gray-500 dark:text-gray-400" }, "Drag blocks onto the canvas or into the Layers tree. Liquid blocks wrap other blocks in {% for %} or {% if %}."))
 }

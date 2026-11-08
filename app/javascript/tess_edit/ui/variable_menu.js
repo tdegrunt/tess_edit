@@ -134,7 +134,7 @@ export class VariableMenu {
     this.state = state
     if (!this.element) {
       this.element = h("div", {
-        class: "absolute z-50 w-72 max-h-72 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg",
+        class: "absolute z-50 w-72 max-h-72 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-1 shadow-lg",
         role: "listbox",
         "aria-label": "Variables",
         // Keep the focus (and caret) in the field being typed in
@@ -152,9 +152,9 @@ export class VariableMenu {
     const header = browse
       ? h(
         "div",
-        { class: "flex items-center gap-1 border-b border-gray-100 px-2.5 pb-1.5 pt-0.5 text-xs text-gray-500" },
+        { class: "flex items-center gap-1 border-b border-gray-100 dark:border-gray-700 px-2.5 pb-1.5 pt-0.5 text-xs text-gray-500 dark:text-gray-400" },
         path
-          ? h("button", { type: "button", class: "rounded px-1 text-blue-600 hover:bg-blue-50", onclick: () => this.browse(adapter, this.anchor, path.split(".").slice(0, -1).join(".")) }, "‹ Back")
+          ? h("button", { type: "button", class: "rounded px-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.browse(adapter, this.anchor, path.split(".").slice(0, -1).join(".")) }, "‹ Back")
           : null,
         h("span", { class: "truncate font-mono" }, path || "Variables")
       )
@@ -166,16 +166,16 @@ export class VariableMenu {
           type: "button",
           role: "option",
           "aria-selected": i === index ? "true" : "false",
-          class: `${ITEM} ${i === index ? "bg-blue-50 text-blue-800" : "text-gray-800 hover:bg-gray-50"}`,
+          class: `${ITEM} ${i === index ? "bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"}`,
           title: item.hint || "",
           onclick: () => choose(item)
         },
         h("span", { class: "min-w-0 flex-1 truncate" }, item.label || item.name),
-        h("span", { class: "shrink-0 font-mono text-[11px] text-gray-500" }, item.name),
-        item.children && !(adapter.mode === "collection" && item.collection) ? h("span", { class: "shrink-0 text-gray-400" }, "›") : null
+        h("span", { class: "shrink-0 font-mono text-[11px] text-gray-500 dark:text-gray-400" }, item.name),
+        item.children && !(adapter.mode === "collection" && item.collection) ? h("span", { class: "shrink-0 text-gray-400 dark:text-gray-500" }, "›") : null
       )
     )
-    const empty = !items.length ? h("p", { class: "px-2.5 py-1.5 text-xs text-gray-500" }, error || "No variables here") : null
+    const empty = !items.length ? h("p", { class: "px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400" }, error || "No variables here") : null
     this.element.replaceChildren(...[header, ...rows, empty].filter(Boolean))
     this.place(browse ? this.anchor.getBoundingClientRect() : adapter.rect())
     this.element.querySelector("[aria-selected='true']")?.scrollIntoView({ block: "nearest" })

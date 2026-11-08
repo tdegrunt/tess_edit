@@ -43,7 +43,7 @@ import { renderBlocksPanel } from "tess_edit/ui/blocks_panel"
 import { debounce, h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
-const TOOL = "w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-transparent"
+const TOOL = "w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
 const TAB = "px-3 h-12 text-[13px] font-medium border-b-2 -mb-px"
 const PANELS = ["left", "split", "right"]
 const PANELS_KEY = "tess_edit:panels"
@@ -200,24 +200,24 @@ export default class extends Controller {
   build() {
     this.blocksElement = h("div", { class: "flex-1 overflow-y-auto pb-4" })
     this.treeElement = h("div", { class: "flex-1 overflow-y-auto" })
-    this.leftTabs = h("div", { class: "flex border-b border-gray-200 px-2 shrink-0" })
+    this.leftTabs = h("div", { class: "flex border-b border-gray-200 dark:border-gray-700 px-2 shrink-0" })
     this.inspectorElement = h("div", { class: "flex flex-1 flex-col min-h-0", dataset: { tessEditPanel: "inspect" } })
     this.sidePanel = h("aside")
     this.inspectPanel = h("aside")
-    this.textToolbar = h("div", { class: "hidden absolute left-1/2 top-3 z-20 -translate-x-1/2 flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white px-1.5 py-1 shadow-md" })
+    this.textToolbar = h("div", { class: "hidden absolute left-1/2 top-3 z-20 -translate-x-1/2 flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-1.5 py-1 shadow-md" })
     this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: "Email canvas" })
     this.frameWrap = h("div", { class: "relative h-full mx-auto" }, this.frame)
-    this.topBar = h("div", { class: "flex items-center gap-1 h-12 px-3 border-b border-gray-200 bg-white shrink-0" })
+    this.topBar = h("div", { class: "flex items-center gap-1 h-12 px-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0" })
     this.body = h("div", { class: "flex flex-1 min-h-0" })
 
     this.root = h(
       "div",
-      { class: "tess-edit relative flex flex-col h-full min-h-[560px] overflow-hidden rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 antialiased", tabindex: "-1", onkeydown: (event) => this.onKeydown(event) },
+      { class: "tess-edit relative flex flex-col h-full min-h-[560px] overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 antialiased dark:[color-scheme:dark]", tabindex: "-1", onkeydown: (event) => this.onKeydown(event) },
       this.topBar,
       this.body
     )
-    this.errorBar = h("div", { class: "hidden absolute inset-x-3 bottom-3 z-20 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-sm", role: "alert" })
-    this.main = h("main", { class: "relative flex-1 min-w-0 bg-gray-100", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar)
+    this.errorBar = h("div", { class: "hidden absolute inset-x-3 bottom-3 z-20 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/40 px-3 py-2 text-xs text-red-700 dark:text-red-300 shadow-sm", role: "alert" })
+    this.main = h("main", { class: "relative flex-1 min-w-0 bg-gray-100 dark:bg-gray-900", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar)
     this.arrangePanels()
     this.element.append(this.root)
 
@@ -249,7 +249,7 @@ export default class extends Controller {
   // Split: Blocks and Layers on the left, Inspect on the right. Left or right:
   // one sidebar on that side with Blocks, Layers and Inspect as tabs.
   arrangePanels() {
-    const panelClass = (border, width) => `${width} shrink-0 flex flex-col ${border} border-gray-200 bg-white min-h-0`
+    const panelClass = (border, width) => `${width} shrink-0 flex flex-col ${border} border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 min-h-0`
     // Only the sidebars move: moving <main> would reload the canvas iframe and blank it.
     if (!this.main.isConnected) this.body.append(this.main)
     this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement)
@@ -326,13 +326,13 @@ export default class extends Controller {
     const toggle = (current, options, onchange) =>
       h(
         "div",
-        { class: "flex rounded-lg bg-gray-100 p-0.5" },
+        { class: "flex rounded-lg bg-gray-100 dark:bg-gray-900 p-0.5" },
         options.map(([value, name, title, disabled = false]) =>
           h("button", {
             type: "button",
             title,
             disabled,
-            class: `w-8 h-7 flex items-center justify-center rounded-md disabled:opacity-40 disabled:pointer-events-none ${current === value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"}`,
+            class: `w-8 h-7 flex items-center justify-center rounded-md disabled:opacity-40 disabled:pointer-events-none ${current === value ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`,
             html: icon(name),
             onclick: () => onchange(value)
           })
@@ -340,7 +340,7 @@ export default class extends Controller {
       )
 
     this.topBar.replaceChildren(
-      h("span", { class: "font-semibold text-gray-900 mr-3" }, "Email"),
+      h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, "Email"),
       toggle(this.mode, [["edit", "edit", "Edit"], ["preview", "eye", "Preview the email as sent, with Liquid tags"]], (mode) => this.setMode(mode)),
       toggle(this.device, [["desktop", "desktop", "Desktop"], ["mobile", "mobile", "Mobile"]], (device) => this.setDevice(device)),
       h("div", { class: "flex-1" }),
@@ -353,12 +353,12 @@ export default class extends Controller {
         ],
         (panels) => this.setPanels(panels)
       ),
-      h("span", { class: "mx-1 h-5 w-px bg-gray-200" }),
+      h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" }),
       h("button", { type: "button", title: "Undo (⌘Z)", class: TOOL, disabled: !this.history.canUndo, html: icon("undo"), onclick: () => this.undo() }),
       h("button", { type: "button", title: "Redo (⇧⌘Z)", class: TOOL, disabled: !this.history.canRedo, html: icon("redo"), onclick: () => this.redo() }),
       h(
         "button",
-        { type: "button", class: "ml-2 flex items-center gap-1.5 h-8 rounded-md bg-gray-900 px-3 text-[13px] font-medium text-white hover:bg-gray-700", onclick: () => this.openCodeDialog() },
+        { type: "button", class: "ml-2 flex items-center gap-1.5 h-8 rounded-md bg-gray-900 px-3 text-[13px] font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300", onclick: () => this.openCodeDialog() },
         h("span", { html: icon("export") }),
         "Code"
       )
@@ -367,7 +367,7 @@ export default class extends Controller {
 
   renderLeftTabs() {
     const tab = (key, name) =>
-      h("button", { type: "button", class: `${TAB} ${this.leftTab === key ? "border-blue-600 text-blue-700" : "border-transparent text-gray-500 hover:text-gray-800"}`, onclick: () => this.setLeftTab(key) }, name)
+      h("button", { type: "button", class: `${TAB} ${this.leftTab === key ? "border-blue-600 dark:border-blue-400 text-blue-700 dark:text-blue-300" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`, onclick: () => this.setLeftTab(key) }, name)
     // replaceChildren would turn a null into the text "null", so only pass real tabs.
     const tabs = [tab("blocks", "Blocks"), tab("layers", "Layers")]
     if (this.combined) tabs.push(tab("inspect", "Inspect"))
@@ -615,21 +615,21 @@ export default class extends Controller {
     if (!items.length) return
     this.menu = h(
       "div",
-      { class: "fixed z-50 w-56 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-white p-1 shadow-lg", role: "menu", "data-anchor": anchor, "data-tess-edit-menu": "insert" },
-      h("div", { class: "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500" }, "Add block"),
+      { class: "fixed z-50 w-56 max-h-80 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 shadow-lg", role: "menu", "data-anchor": anchor, "data-tess-edit-menu": "insert" },
+      h("div", { class: "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" }, "Add block"),
       items.map((item) =>
         h(
           "button",
           {
             type: "button",
             role: "menuitem",
-            class: "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-gray-700 hover:bg-blue-50 hover:text-blue-700",
+            class: "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300",
             onclick: () => {
               this.closeMenu()
               this.insertAt(item.key, parentId, index)
             }
           },
-          h("span", { class: "text-gray-400", html: icon(item.icon) }),
+          h("span", { class: "text-gray-400 dark:text-gray-500", html: icon(item.icon) }),
           item.label
         )
       )
@@ -650,7 +650,7 @@ export default class extends Controller {
   }
 
   flash(message) {
-    const note = h("div", { class: "absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white shadow-lg" }, message)
+    const note = h("div", { class: "absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 dark:ring-1 dark:ring-white/10" }, message)
     this.root.append(note)
     setTimeout(() => note.remove(), 3500)
   }
@@ -704,8 +704,8 @@ export default class extends Controller {
     this.stopEditing()
     const { json, mjml, html, errors } = await this.export()
     const contents = { json: JSON.stringify(JSON.parse(json), null, 2), mjml, html }
-    const textarea = h("textarea", { class: "flex-1 w-full resize-none rounded-md border border-gray-300 p-3 font-mono text-xs text-gray-800 outline-none focus:border-blue-500", spellcheck: false })
-    const status = h("span", { class: "text-xs text-gray-500" })
+    const textarea = h("textarea", { class: "flex-1 w-full resize-none rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-3 font-mono text-xs text-gray-800 dark:text-gray-200 outline-none focus:border-blue-500", spellcheck: false })
+    const status = h("span", { class: "text-xs text-gray-500 dark:text-gray-400" })
     const tabs = h("div", { class: "flex gap-1" })
     const apply = h("button", { type: "button", class: "rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700", onclick: () => {
       try {
@@ -713,7 +713,7 @@ export default class extends Controller {
         close()
       } catch (error) {
         status.textContent = error.message
-        status.className = "text-xs text-red-600"
+        status.className = "text-xs text-red-600 dark:text-red-400"
       }
     } }, "Load this JSON")
 
@@ -724,12 +724,12 @@ export default class extends Controller {
       const loadable = key === "json" && !this.lock
       textarea.readOnly = !loadable
       apply.classList.toggle("hidden", !loadable)
-      status.className = "text-xs text-gray-500"
+      status.className = "text-xs text-gray-500 dark:text-gray-400"
       status.textContent =
         key === "json" ? (this.lock ? "The document. Parts of it are locked, so it can't be loaded here." : "The document. Edit and load it, or paste one in.") : key === "mjml" ? "Liquid loops and conditions are in <mj-raw> tags." : errors.length ? `The MJML could not be compiled: ${errors.join("; ")}` : "Liquid is left in place for rendering at send time."
       tabs.replaceChildren(
         ...["json", "mjml", "html"].map((name) =>
-          h("button", { type: "button", class: `rounded-md px-3 py-1.5 text-xs font-medium ${name === tab ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`, onclick: () => show(name) }, name.toUpperCase())
+          h("button", { type: "button", class: `rounded-md px-3 py-1.5 text-xs font-medium ${name === tab ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}`, onclick: () => show(name) }, name.toUpperCase())
         )
       )
     }
@@ -744,17 +744,17 @@ export default class extends Controller {
 
     const dialog = h(
       "div",
-      { class: "absolute inset-0 z-40 flex items-center justify-center bg-gray-900/40 p-6", onmousedown: (event) => event.target === dialog && close(), onkeydown: (event) => event.key === "Escape" && close() },
+      { class: "absolute inset-0 z-40 flex items-center justify-center bg-gray-900/40 dark:bg-black/60 p-6", onmousedown: (event) => event.target === dialog && close(), onkeydown: (event) => event.key === "Escape" && close() },
       h(
         "div",
-        { class: "flex h-full max-h-[720px] w-full max-w-4xl flex-col gap-3 rounded-xl bg-white p-4 shadow-xl" },
+        { class: "flex h-full max-h-[720px] w-full max-w-4xl flex-col gap-3 rounded-xl bg-white dark:bg-gray-800 p-4 shadow-xl" },
         h("div", { class: "flex items-center gap-3" }, tabs, status, h("button", { type: "button", class: "ml-auto " + TOOL, title: "Close", html: icon("close"), onclick: close })),
         textarea,
         h(
           "div",
           { class: "flex items-center justify-end gap-2" },
-          h("button", { type: "button", class: "rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50", onclick: () => navigator.clipboard?.writeText(textarea.value).then(() => (status.textContent = "Copied.")) }, "Copy"),
-          h("button", { type: "button", class: "rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50", onclick: download }, "Download"),
+          h("button", { type: "button", class: "rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700", onclick: () => navigator.clipboard?.writeText(textarea.value).then(() => (status.textContent = "Copied.")) }, "Copy"),
+          h("button", { type: "button", class: "rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700", onclick: download }, "Download"),
           apply
         )
       )

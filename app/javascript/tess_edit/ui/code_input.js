@@ -13,13 +13,13 @@ const BOX = "m-0 w-full rounded-md border px-2 py-1.5 font-mono text-xs leading-
 const LIQUID = /\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/
 const COLORS = {
   liquid: "text-purple-700",
-  comment: "text-gray-400 italic",
-  tag: "text-blue-700",
-  attribute: "text-amber-700",
-  string: "text-green-700",
-  property: "text-blue-700",
+  comment: "text-gray-400 dark:text-gray-500 italic",
+  tag: "text-blue-700 dark:text-blue-300",
+  attribute: "text-amber-700 dark:text-amber-400",
+  string: "text-green-700 dark:text-green-400",
+  property: "text-blue-700 dark:text-blue-300",
   at: "text-purple-700",
-  number: "text-amber-700"
+  number: "text-amber-700 dark:text-amber-400"
 }
 
 function escape(text) {
@@ -110,9 +110,9 @@ function onKeydown(event) {
 // value, language ("html" or "css"), oninput(value); class sizes the field
 export function codeInput({ value = "", language = "html", oninput, class: className = "min-h-32", readOnly = false }) {
   const highlight = HIGHLIGHT[language] || escape
-  const colored = h("pre", { "aria-hidden": "true", class: `${BOX} pointer-events-none absolute inset-0 h-full overflow-hidden border-transparent bg-white text-gray-800` })
+  const colored = h("pre", { "aria-hidden": "true", class: `${BOX} pointer-events-none absolute inset-0 h-full overflow-hidden border-transparent bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200` })
   const textarea = h("textarea", {
-    class: `${BOX} ${className} relative block resize-y overflow-y-auto border-gray-300 bg-transparent text-transparent caret-gray-900 outline-none selection:bg-blue-500/25 focus:border-blue-500 focus:ring-1 focus:ring-blue-500`,
+    class: `${BOX} ${className} relative block resize-y overflow-y-auto border-gray-300 dark:border-gray-600 bg-transparent text-transparent caret-gray-900 dark:caret-gray-100 outline-none selection:bg-blue-500/25 focus:border-blue-500 focus:ring-1 focus:ring-blue-500`,
     spellcheck: false,
     autocapitalize: "off",
     autocomplete: "off",

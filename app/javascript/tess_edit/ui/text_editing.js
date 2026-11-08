@@ -7,8 +7,8 @@ import { Color, Editor, StarterKit, TextAlign, TextStyle } from "tess_edit/vendo
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
-const BUTTON = "w-7 h-7 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-const ACTIVE = "bg-blue-50 text-blue-700"
+const BUTTON = "w-7 h-7 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
+const ACTIVE = "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
 
 export class TextEditing {
   constructor(toolbar, { menu = null } = {}) {
@@ -79,13 +79,13 @@ export class TextEditing {
         onmousedown: (event) => event.preventDefault(),
         onclick: run
       })
-    const separator = () => h("span", { class: "mx-1 h-5 w-px bg-gray-200" })
+    const separator = () => h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" })
 
     const level = [1, 2, 3].find((l) => editor.isActive("heading", { level: l }))
     const style = h(
       "select",
       {
-        class: "h-7 rounded-md border border-gray-300 bg-white px-1.5 text-xs text-gray-800",
+        class: "h-7 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1.5 text-xs text-gray-800 dark:text-gray-200",
         title: "Paragraph style",
         onchange: (event) => {
           const value = Number(event.target.value)
@@ -100,7 +100,7 @@ export class TextEditing {
     const color = h("input", {
       type: "color",
       title: "Text color",
-      class: "h-7 w-8 cursor-pointer rounded border border-gray-300 bg-white p-0.5",
+      class: "h-7 w-8 cursor-pointer rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-0.5",
       value: /^#[0-9a-f]{6}$/i.test(currentColor || "") ? currentColor : "#000000",
       onchange: (event) => chain().setColor(event.target.value).run()
     })

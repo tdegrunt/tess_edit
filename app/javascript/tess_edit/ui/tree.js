@@ -32,7 +32,7 @@ export class Tree {
       "button",
       {
         type: "button",
-        class: `w-4 h-4 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-700 ${children.length ? "" : "invisible"}`,
+        class: `w-4 h-4 shrink-0 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 ${children.length ? "" : "invisible"}`,
         onclick: (event) => {
           event.stopPropagation()
           open ? this.collapsed.add(node.id) : this.collapsed.delete(node.id)
@@ -46,7 +46,7 @@ export class Tree {
       ? h("button", {
           type: "button",
           title: "Add a block inside",
-          class: "ml-auto hidden group-hover:flex w-5 h-5 items-center justify-center rounded text-gray-500 hover:bg-gray-200 hover:text-gray-900",
+          class: "ml-auto hidden group-hover:flex w-5 h-5 items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-gray-100",
           html: icon("plus", "w-3.5 h-3.5"),
           onclick: (event) => {
             event.stopPropagation()
@@ -58,7 +58,7 @@ export class Tree {
     const line = h(
       "div",
       {
-        class: `group relative flex items-center gap-1.5 pr-2 h-7 cursor-pointer select-none rounded-md mx-1 ${selected ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-100"}`,
+        class: `group relative flex items-center gap-1.5 pr-2 h-7 cursor-pointer select-none rounded-md mx-1 ${selected ? "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}`,
         style: `padding-left:${depth * 14 + 4}px`,
         role: "treeitem",
         "aria-selected": selected ? "true" : "false",
@@ -79,9 +79,9 @@ export class Tree {
         onmouseleave: () => this.editor.canvas?.setHover(null)
       },
       toggle,
-      h("span", { class: `shrink-0 ${getBlock(node.type)?.accepts === "inherit" ? "text-amber-600" : "text-gray-400"}`, html: icon(getBlock(node.type)?.icon, "w-4 h-4") }),
-      h("span", { class: `truncate text-[13px] ${locked ? "text-gray-400" : ""}` }, label(node)),
-      locked ? h("span", { class: "ml-auto shrink-0 text-gray-300", title: "Part of the layout", html: icon("lock", "w-3.5 h-3.5") }) : add,
+      h("span", { class: `shrink-0 ${getBlock(node.type)?.accepts === "inherit" ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`, html: icon(getBlock(node.type)?.icon, "w-4 h-4") }),
+      h("span", { class: `truncate text-[13px] ${locked ? "text-gray-400 dark:text-gray-500" : ""}` }, label(node)),
+      locked ? h("span", { class: "ml-auto shrink-0 text-gray-300 dark:text-gray-600", title: "Part of the layout", html: icon("lock", "w-3.5 h-3.5") }) : add,
       h("div", { class: "tess-tree-marker pointer-events-none absolute left-1 right-1 hidden" })
     )
 

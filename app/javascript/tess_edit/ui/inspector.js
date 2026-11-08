@@ -10,7 +10,7 @@ import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 import { inputAdapter, suggestIn } from "tess_edit/ui/variable_menu"
 
-const INPUT = "w-full min-w-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-[13px] text-gray-900 shadow-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+const INPUT = "w-full min-w-0 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-[13px] text-gray-900 dark:text-gray-100 shadow-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
 
 // "12" → "12px"; anything else is left alone.
 export function withUnit(value) {
@@ -57,23 +57,23 @@ export class Inspector {
           ["copy", "Duplicate", () => this.editor.duplicate(node.id)],
           ["trash", "Delete", () => this.editor.remove(node.id)]
         ].map(([name, title, onclick]) =>
-          h("button", { type: "button", title, class: "w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900", html: icon(name), onclick })
+          h("button", { type: "button", title, class: "w-7 h-7 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100", html: icon(name), onclick })
         )
 
     const header = h(
       "div",
-      { class: "flex items-center gap-2 px-4 h-12 border-b border-gray-200 shrink-0" },
-      h("span", { class: "text-gray-400", html: icon(definition.icon, "w-4 h-4") }),
-      h("h2", { class: "font-semibold text-gray-900 truncate" }, label(node)),
+      { class: "flex items-center gap-2 px-4 h-12 border-b border-gray-200 dark:border-gray-700 shrink-0" },
+      h("span", { class: "text-gray-400 dark:text-gray-500", html: icon(definition.icon, "w-4 h-4") }),
+      h("h2", { class: "font-semibold text-gray-900 dark:text-gray-100 truncate" }, label(node)),
       h("div", { class: "ml-auto flex items-center gap-0.5" }, actions)
     )
 
     const groups = (definition.fields || []).map((group) => this.group(node, group))
     const locked = this.editor.lock && node.id !== doc.id && !this.editor.isFree(node.id)
-      ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), "Part of the layout")
+      ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), "Part of the layout")
       : null
     // A block's hint explains how to edit it, which a locked block can't be.
-    const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600" }, definition.hint) : null
+    const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-xs text-gray-600 dark:text-gray-300" }, definition.hint) : null
 
     this.element.replaceChildren(header, h("div", { class: "flex-1 overflow-y-auto pb-6" }, locked, hint, groups))
   }
@@ -83,10 +83,10 @@ export class Inspector {
     const open = this.openGroups.has(key) ? this.openGroups.get(key) : !group.collapsed
     const details = h(
       "details",
-      { class: "group/field border-b border-gray-100", open, ontoggle: (event) => this.openGroups.set(key, event.currentTarget.open) },
+      { class: "group/field border-b border-gray-100 dark:border-gray-700", open, ontoggle: (event) => this.openGroups.set(key, event.currentTarget.open) },
       h(
         "summary",
-        { class: "flex items-center gap-1.5 px-4 py-2.5 cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-800 list-none [&::-webkit-details-marker]:hidden" },
+        { class: "flex items-center gap-1.5 px-4 py-2.5 cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 list-none [&::-webkit-details-marker]:hidden" },
         h("span", { html: icon("chevron", "w-3 h-3 transition-transform group-open/field:rotate-90") }),
         group.title
       ),
@@ -105,20 +105,20 @@ export class Inspector {
       ? this.control(node, field, value, set)
       : h("fieldset", { disabled: true, class: "opacity-60" }, this.control(node, field, value, set))
     const expand = field.type === "code" && editable
-      ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "absolute right-0 top-0 rounded px-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50", onclick: () => this.expand(node, field) }, "Expand")
+      ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "absolute right-0 top-0 rounded px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.expand(node, field) }, "Expand")
       : null
     const adapter = editable && field.liquid && this.adapters.get(field.key)
     const variables = adapter
-      ? h("button", { type: "button", title: "Insert a variable", class: "absolute right-0 top-0 rounded px-1 font-mono text-[11px] font-medium text-blue-600 hover:bg-blue-50", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
+      ? h("button", { type: "button", title: "Insert a variable", class: "absolute right-0 top-0 rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
       : null
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
       { class: "relative block" },
-      h("span", { class: "mb-1 block text-xs font-medium text-gray-700" }, field.label),
+      h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label),
       expand || variables,
       control,
-      field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500" }, field.hint) : null
+      field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500 dark:text-gray-400" }, field.hint) : null
     )
   }
 
@@ -157,14 +157,14 @@ export class Inspector {
       case "segmented":
         return h(
           "div",
-          { class: "flex rounded-md border border-gray-300 overflow-hidden" },
+          { class: "flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden" },
           field.options.map((option) =>
             h(
               "button",
               {
                 type: "button",
                 title: value === option.value ? "Click again to use the default" : "",
-                class: `flex-1 px-2 py-1 text-xs border-l first:border-l-0 border-gray-300 ${value === option.value ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`,
+                class: `flex-1 px-2 py-1 text-xs border-l first:border-l-0 border-gray-300 dark:border-gray-600 ${value === option.value ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"}`,
                 onclick: (event) => {
                   event.preventDefault()
                   set(value === option.value ? "" : option.value)
@@ -182,11 +182,11 @@ export class Inspector {
           { class: "flex items-center gap-2" },
           h("input", {
             type: "checkbox",
-            class: "h-4 w-4 rounded border-gray-300 text-blue-600",
+            class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 dark:text-blue-400",
             checked: value === field.on,
             onchange: (event) => set(event.target.checked ? field.on : field.off)
           }),
-          h("span", { class: "text-xs text-gray-600" }, value === field.on ? "On" : "Off")
+          h("span", { class: "text-xs text-gray-600 dark:text-gray-300" }, value === field.on ? "On" : "Off")
         )
 
       case "spacing":
@@ -260,11 +260,11 @@ export class Inspector {
         "div",
         { class: "flex items-center gap-1.5" },
         select,
-        h("button", { type: "button", class: "shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50", disabled: uploading, onclick: () => file.click() }, uploading ? "Uploading…" : "Upload"),
+        h("button", { type: "button", class: "shrink-0 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50", disabled: uploading, onclick: () => file.click() }, uploading ? "Uploading…" : "Upload"),
         file
       ),
-      error ? h("p", { class: "mt-1 text-[11px] text-red-600", role: "alert" }, error) : null,
-      current ? h("img", { src: current.url, alt: "", class: "mt-2 max-h-24 rounded border border-gray-200" }) : null
+      error ? h("p", { class: "mt-1 text-[11px] text-red-600 dark:text-red-400", role: "alert" }, error) : null,
+      current ? h("img", { src: current.url, alt: "", class: "mt-2 max-h-24 rounded border border-gray-200 dark:border-gray-700" }) : null
     )
   }
 
@@ -280,7 +280,7 @@ export class Inspector {
     const dialog = h(
       "div",
       {
-        class: "absolute inset-0 z-40 flex items-center justify-center bg-gray-900/40 p-6",
+        class: "absolute inset-0 z-40 flex items-center justify-center bg-gray-900/40 dark:bg-black/60 p-6",
         onmousedown: (event) => event.target === dialog && close(),
         // Escape closes the dialog, not anything behind it
         onkeydown: (event) => {
@@ -291,13 +291,13 @@ export class Inspector {
       },
       h(
         "div",
-        { role: "dialog", "aria-label": field.label, class: "flex h-full max-h-[800px] w-full max-w-5xl flex-col gap-3 rounded-xl bg-white p-4 shadow-xl" },
+        { role: "dialog", "aria-label": field.label, class: "flex h-full max-h-[800px] w-full max-w-5xl flex-col gap-3 rounded-xl bg-white dark:bg-gray-800 p-4 shadow-xl" },
         h(
           "div",
           { class: "flex items-center gap-3" },
-          h("h3", { class: "text-sm font-semibold text-gray-900" }, label(node) === field.label ? field.label : `${label(node)} · ${field.label}`),
-          field.hint ? h("span", { class: "text-xs text-gray-500" }, field.hint) : null,
-          h("button", { type: "button", title: "Close", class: "ml-auto w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100", html: icon("close"), onclick: close })
+          h("h3", { class: "text-sm font-semibold text-gray-900 dark:text-gray-100" }, label(node) === field.label ? field.label : `${label(node)} · ${field.label}`),
+          field.hint ? h("span", { class: "text-xs text-gray-500 dark:text-gray-400" }, field.hint) : null,
+          h("button", { type: "button", title: "Close", class: "ml-auto w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700", html: icon("close"), onclick: close })
         ),
         input
       )
@@ -315,7 +315,7 @@ export class Inspector {
     })
     const swatch = h("input", {
       type: "color",
-      class: "h-7 w-8 shrink-0 cursor-pointer rounded border border-gray-300 bg-white p-0.5",
+      class: "h-7 w-8 shrink-0 cursor-pointer rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-0.5",
       value: /^#[0-9a-f]{6}$/i.test(value) ? value : "#ffffff",
       oninput: (event) => {
         text.value = event.target.value
@@ -342,7 +342,7 @@ export class Inspector {
             set(formatSpacing(values))
           }
         }),
-        h("span", { class: "block text-center text-[10px] text-gray-400" }, side)
+        h("span", { class: "block text-center text-[10px] text-gray-400 dark:text-gray-500" }, side)
       )
     )
     return h("span", { class: "grid grid-cols-4 gap-1" }, inputs)
@@ -356,7 +356,7 @@ export class Inspector {
     const rows = items.map((item, index) =>
       h(
         "div",
-        { class: "rounded-md border border-gray-200 bg-gray-50 p-2 space-y-1.5" },
+        { class: "rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 p-2 space-y-1.5" },
         field.item.map((part) =>
           part.type === "select"
             ? h(
@@ -379,13 +379,13 @@ export class Inspector {
           "div",
           { class: "flex justify-end gap-1" },
           h("button", {
-            type: "button", title: "Move up", class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:bg-gray-200 disabled:opacity-30", disabled: index === 0, html: icon("up", "w-3.5 h-3.5"), onclick: () => {
+            type: "button", title: "Move up", class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30", disabled: index === 0, html: icon("up", "w-3.5 h-3.5"), onclick: () => {
               const next = [...items]
                 ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
               update(next)
             }
           }),
-          h("button", { type: "button", title: "Remove", class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:bg-gray-200 hover:text-red-600", html: icon("trash", "w-3.5 h-3.5"), onclick: () => update(items.filter((_, i) => i !== index)) })
+          h("button", { type: "button", title: "Remove", class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-red-600 dark:hover:text-red-400", html: icon("trash", "w-3.5 h-3.5"), onclick: () => update(items.filter((_, i) => i !== index)) })
         )
       )
     )
@@ -393,7 +393,7 @@ export class Inspector {
       "div",
       { class: "space-y-2" },
       rows,
-      h("button", { type: "button", class: "w-full rounded-md border border-dashed border-gray-300 py-1.5 text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600", onclick: () => update([...items, { ...field.newItem }]) }, "Add")
+      h("button", { type: "button", class: "w-full rounded-md border border-dashed border-gray-300 dark:border-gray-600 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400", onclick: () => update([...items, { ...field.newItem }]) }, "Add")
     )
   }
 }
