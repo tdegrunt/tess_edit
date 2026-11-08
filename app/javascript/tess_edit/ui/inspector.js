@@ -109,7 +109,7 @@ export class Inspector {
       : null
     const adapter = editable && field.liquid && this.adapters.get(field.key)
     const variables = adapter
-      ? h("button", { type: "button", title: "Insert a variable", class: "absolute right-0 top-0 rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
+      ? h("button", { type: "button", title: "Insert a variable", class: "absolute right-0 top-0 whitespace-nowrap rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
       : null
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
@@ -146,7 +146,7 @@ export class Inspector {
       case "select":
         return h(
           "select",
-          { class: INPUT, onchange: (event) => set(event.target.value) },
+          { class: `${INPUT} pr-7`, onchange: (event) => set(event.target.value) },
           field.options.map((option) => {
             const optionValue = typeof option === "string" ? option : option.value
             const optionLabel = typeof option === "string" ? option || "Default" : option.label
@@ -244,7 +244,7 @@ export class Inspector {
     const select = h(
       "select",
       {
-        class: `${INPUT} min-w-0 flex-1`,
+        class: `${INPUT} min-w-0 flex-1 pr-7`,
         onchange: (event) => {
           const image = images.find((option) => option.id === event.target.value)
           if (image) this.editor.chooseImage(node.id, image, field)
@@ -361,7 +361,7 @@ export class Inspector {
           part.type === "select"
             ? h(
               "select",
-              { class: INPUT, onchange: (event) => update(items.map((it, i) => (i === index ? { ...it, [part.name]: event.target.value } : it))) },
+              { class: `${INPUT} pr-7`, onchange: (event) => update(items.map((it, i) => (i === index ? { ...it, [part.name]: event.target.value } : it))) },
               part.options.map((option) => h("option", { value: option, selected: option === item[part.name] }, option))
             )
             : this.variables(h("input", {

@@ -85,7 +85,7 @@ export class TextEditing {
     const style = h(
       "select",
       {
-        class: "h-7 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1.5 text-xs text-gray-800 dark:text-gray-200",
+        class: "h-7 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-0 pl-1.5 pr-7 text-xs text-gray-800 dark:text-gray-200",
         title: "Paragraph style",
         onchange: (event) => {
           const value = Number(event.target.value)
@@ -134,7 +134,7 @@ export class TextEditing {
         ? h("button", {
           type: "button",
           title: "Insert a variable",
-          class: `${BUTTON} w-auto px-1.5 font-mono text-xs`,
+          class: `${BUTTON.replace("w-7", "px-1.5")} whitespace-nowrap font-mono text-xs`,
           onmousedown: (event) => event.preventDefault(),
           onclick: (event) => this.menu.browse(this.adapter, event.currentTarget)
         }, "{ }")
