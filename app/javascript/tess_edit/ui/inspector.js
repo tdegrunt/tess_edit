@@ -4,6 +4,7 @@
 import { imageSource } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { find, getValue } from "tess_edit/core/document"
+import { translationCalls } from "tess_edit/core/translations"
 import { loopScope } from "tess_edit/core/variables"
 import { codeInput } from "tess_edit/ui/code_input"
 import { h } from "tess_edit/ui/dom"
@@ -39,6 +40,13 @@ export class Inspector {
     this.element = element
     this.openGroups = new Map()
     this.adapters = new Map()
+    this.inputs = new Map()
+    this.hints = []
+  }
+
+  // Again, when the translations or the editor's language change
+  refreshTranslations() {
+    this.hints.forEach((update) => update())
   }
 
   render() {
@@ -48,6 +56,8 @@ export class Inspector {
     const definition = getBlock(node.type)
     this.editor.variableMenu?.close()
     this.adapters = new Map()
+    this.inputs = new Map()
+    this.hints = []
 
     const actions =
       !this.editor.isFree(node.id)
@@ -105,19 +115,26 @@ export class Inspector {
       ? this.control(node, field, value, set)
       : h("fieldset", { disabled: true, class: "opacity-60" }, this.control(node, field, value, set))
     const expand = field.type === "code" && editable
-      ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "absolute right-0 top-0 rounded px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.expand(node, field) }, "Expand")
+      ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "rounded px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.expand(node, field) }, "Expand")
       : null
-    const adapter = editable && field.liquid && this.adapters.get(field.key)
+    const adapter = editable && field.liquid && this.editor.variables?.enabled && this.adapters.get(field.key)
     const variables = adapter
-      ? h("button", { type: "button", title: "Insert a variable", class: "absolute right-0 top-0 whitespace-nowrap rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
+      ? h("button", { type: "button", title: "Insert a variable", class: "whitespace-nowrap rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
       : null
+    // Liquid in text can be translated
+    const input = field.liquid === true && ["text", "textarea"].includes(field.type) && this.editor.translations?.enabled && this.inputs.get(field.key)
+    const translate = input && editable
+      ? h("button", { type: "button", title: "Make translatable: keep the selected text, or all of it, as a translation", class: "rounded px-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", html: icon("translate", "w-3.5 h-3.5"), onclick: () => this.makeTranslatable(input) })
+      : null
+    const tools = expand || variables || translate ? h("span", { class: "absolute right-0 top-0 flex items-center gap-0.5" }, expand, variables, translate) : null
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
       { class: "relative block" },
       h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label),
-      expand || variables,
+      tools,
       control,
+      input ? this.translationHint(input) : null,
       field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500 dark:text-gray-400" }, field.hint) : null
     )
   }
@@ -208,12 +225,62 @@ export class Inspector {
   // them: true for Liquid in text, "expression" for a condition, "collection"
   // for what a Loop goes over.
   variables(input, node, field) {
-    if (!this.editor.variables?.enabled) return input
+    this.inputs.set(field.key, input)
+    if (!this.editor.variableMenu) return input
     const mode = field.liquid === "expression" || field.liquid === "collection" ? field.liquid : "output"
     const adapter = inputAdapter(input, { mode, scope: loopScope(this.editor.doc, node.id) })
     suggestIn(this.editor.variableMenu, input, adapter)
     this.adapters.set(field.key, adapter)
     return input
+  }
+
+  // What the field's t filters say in the editor's language, each listing
+  // every language while pointed at
+  translationHint(input) {
+    const hint = h("span", { class: "mt-1 flex flex-wrap gap-1 empty:hidden" })
+    const update = () => {
+      const { translations, translationLocale } = this.editor
+      const calls = translationCalls(input.value)
+      translations.load(calls.map((call) => call.key))
+      hint.replaceChildren(
+        ...calls.map((call) => {
+          const locale = call.locale || translationLocale
+          const value = locale ? translations.value(call.key, locale) : null
+          const missing = translations.has(call.key) && (locale ? value === null : translations.missing(call.key).length > 0)
+          const text = value !== null ? `${locale.toUpperCase()}: ${value}` : locale && translations.has(call.key) ? `${call.key} · no ${locale.toUpperCase()} text` : call.key
+          const chip = h(
+            "span",
+            {
+              class: `max-w-full truncate rounded px-1.5 py-0.5 text-[11px] ${missing ? "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300" : "bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"}`,
+              "data-tess-key": call.key,
+              onmouseenter: () => this.editor.translationPopover.show(call.key, chip.getBoundingClientRect()),
+              onmouseleave: () => this.editor.translationPopover.scheduleHide()
+            },
+            text
+          )
+          return chip
+        })
+      )
+    }
+    input.addEventListener("input", update)
+    this.hints.push(update)
+    update()
+    return hint
+  }
+
+  // Keeps the selected text, or the whole value, as a translation and puts
+  // its t filter in its place
+  async makeTranslatable(input) {
+    const start = input.selectionStart ?? 0
+    const end = input.selectionEnd ?? 0
+    const whole = start === end
+    const text = whole ? input.value : input.value.slice(start, end)
+    if (!text.trim()) return this.editor.flash("Type the text to translate first.")
+    const tag = await this.editor.makeTranslatable(text)
+    if (!tag) return
+    if (whole) input.value = tag
+    else input.setRangeText(tag, start, end, "end")
+    input.dispatchEvent(new Event("input", { bubbles: true }))
   }
 
   // An image URL, or with the host's images (editor.media, core/media.js) a

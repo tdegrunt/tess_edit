@@ -11,6 +11,8 @@ const bundles = {
     banner: `@tiptap/core ${version("@tiptap/core")}, @tiptap/starter-kit, @tiptap/extension-text-align, @tiptap/extension-text-style (MIT)`,
     contents: [
       'export { Editor, Extension, Mark, Node, mergeAttributes } from "@tiptap/core"',
+      'export { Plugin, PluginKey } from "@tiptap/pm/state"',
+      'export { Decoration, DecorationSet } from "@tiptap/pm/view"',
       'export { StarterKit } from "@tiptap/starter-kit"',
       'export { TextAlign } from "@tiptap/extension-text-align"',
       'export { TextStyle, Color, FontSize, FontFamily } from "@tiptap/extension-text-style"'

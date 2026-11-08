@@ -10,8 +10,10 @@
 //                            Condition) or "collection" (a Loop's collection)
 //   scope                    the loop variables there (core/variables.js loopScope)
 //
-// See inputAdapter below and TextEditing for Tiptap's.
+// See inputAdapter below and TextEditing for Tiptap's. With the host's
+// translations it also suggests their keys while typing {{ '.
 
+import { keyCompletion, keyToken } from "tess_edit/core/translations"
 import { completion, liquidToken } from "tess_edit/core/variables"
 import { h } from "tess_edit/ui/dom"
 
@@ -41,6 +43,9 @@ export class VariableMenu {
 
   async suggesting(adapter) {
     const before = adapter.before()
+    const key = this.editor.translations?.enabled && adapter.mode === "output" && keyToken(before)
+    if (key) return this.suggestKeys(adapter, key)
+    if (!this.editor.variables?.enabled) return this.close()
     const token = liquidToken(before, adapter.mode === "output" ? "output" : "expression")
     if (!token) return this.close()
 
@@ -62,6 +67,29 @@ export class VariableMenu {
     if (!items.length || (items.length === 1 && items[0].name.toLowerCase() === partial && !items[0].children)) return this.close()
 
     this.show({ adapter, browse: false, items, index: 0, choose: (item) => this.complete(adapter, token, start, item) })
+  }
+
+  // The translation keys with what's typed, those that start with it first,
+  // labelled with their text in the editor's language
+  suggestKeys(adapter, token) {
+    const translations = this.editor.translations
+    const locale = this.editor.translationLocale || translations.locales[0]
+    const partial = token.partial.toLowerCase()
+    const keys = translations.suggestions.filter((key) => key.toLowerCase().includes(partial))
+    const sorted = [...keys.filter((key) => key.toLowerCase().startsWith(partial)), ...keys.filter((key) => !key.toLowerCase().startsWith(partial))]
+    if (!sorted.length || (sorted.length === 1 && sorted[0] === token.partial)) return this.close()
+    this.request++
+    const items = sorted.slice(0, 50).map((key) => ({ name: key, label: (locale && translations.value(key, locale)) || key }))
+    this.show({
+      adapter,
+      browse: false,
+      items,
+      index: 0,
+      choose: (item) => {
+        adapter.replace(token.start, adapter.before().length, keyCompletion(item.name, token.quote, adapter.after()))
+        this.close()
+      }
+    })
   }
 
   async complete(adapter, token, start, item) {

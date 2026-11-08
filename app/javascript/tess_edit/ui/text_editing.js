@@ -1,20 +1,30 @@
 // Inline rich-text editing with Tiptap, mounted inside the canvas iframe on the
 // text block's own element, plus the formatting toolbar above the canvas. With
 // the host's variables (`menu`, a ui/variable_menu.js VariableMenu) typing {{
-// suggests them, and the toolbar's { } button browses them.
+// suggests them, and the toolbar's { } button browses them. With the host's
+// translations (`editor.translations`, core/translations.js) a t filter shows
+// its text in the editor's language until the caret goes into it, and the
+// toolbar turns selected text into a translation.
 
-import { Color, Editor, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
+import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
+import { translationCalls } from "tess_edit/core/translations"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
 const BUTTON = "w-7 h-7 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
 const ACTIVE = "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+const TRANSLATIONS = new PluginKey("tessTranslations")
 
 export class TextEditing {
-  constructor(toolbar, { menu = null } = {}) {
+  constructor(toolbar, { menu = null, editor = null } = {}) {
     this.toolbar = toolbar
     this.menu = menu
+    this.editor = editor
     this.tiptap = null
+  }
+
+  get translating() {
+    return Boolean(this.editor?.translations?.enabled)
   }
 
   get active() {
@@ -38,7 +48,8 @@ export class TextEditing {
         }),
         TextStyle,
         Color,
-        TextAlign.configure({ types: ["heading", "paragraph"] })
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        ...(this.translating ? [translationsExtension(this)] : [])
       ],
       autofocus: "end",
       editorProps: { handleKeyDown: (view, event) => this.menu?.key(event) || false },
@@ -53,6 +64,27 @@ export class TextEditing {
     this.adapter = this.menu && tiptapAdapter(this.tiptap, scope)
     this.renderToolbar()
     return this.tiptap
+  }
+
+  // Again, when the translations or the editor's language change
+  refreshTranslations() {
+    if (this.tiptap && this.translating) this.tiptap.view.dispatch(this.tiptap.state.tr.setMeta(TRANSLATIONS, true))
+  }
+
+  // Keeps the selected text as a translation (see the editor's
+  // makeTranslatable) and puts its t filter in its place
+  async makeTranslatable() {
+    const tiptap = this.tiptap
+    const { selection, doc } = tiptap.state
+    if (selection.empty) return this.editor.flash("Select the text to translate first.")
+    // Inside the text: a selection of everything starts before the first paragraph
+    const from = Math.max(selection.from, 1)
+    const to = Math.min(selection.to, doc.content.size - 1)
+    const tag = await this.editor.makeTranslatable(doc.textBetween(from, to, " "))
+    if (!tag || this.tiptap !== tiptap) return
+    tiptap.view.dispatch(tiptap.state.tr.insertText(tag, from, to))
+    // After it, so its text shows
+    tiptap.chain().focus().setTextSelection(from + tag.length).run()
   }
 
   stop() {
@@ -130,7 +162,8 @@ export class TextEditing {
       button("list-ordered", "Numbered list", editor.isActive("orderedList"), () => chain().toggleOrderedList().run()),
       separator(),
       button("clear", "Clear formatting", false, () => chain().unsetAllMarks().clearNodes().run()),
-      this.menu
+      this.translating ? button("translate", "Make translatable: keep the selected text as a translation", false, () => this.makeTranslatable()) : null,
+      this.menu && this.editor?.variables?.enabled
         ? h("button", {
           type: "button",
           title: "Insert a variable",
@@ -176,4 +209,57 @@ function tiptapAdapter(editor, scope) {
       return { left: caret.left + frame.left, right: caret.right + frame.left, top: caret.top + frame.top, bottom: caret.bottom + frame.top }
     }
   }
+}
+
+// Shows each t filter's text in the editor's language, in place of its Liquid,
+// unless the caret or selection is inside it or it has no text there: then
+// the Liquid shows, marked (red when a language is missing). Pointing at
+// either lists every language (TranslationPopover, see Canvas#listen).
+function translationsExtension(editing) {
+  return Extension.create({
+    name: "tessTranslations",
+    addProseMirrorPlugins() {
+      return [new Plugin({ key: TRANSLATIONS, props: { decorations: (state) => translationDecorations(state, editing) } })]
+    }
+  })
+}
+
+function translationDecorations(state, editing) {
+  const { translations, translationLocale } = editing.editor
+  const { from, to } = state.selection
+  const decorations = []
+  state.doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true
+    // Every character and inline node takes one position
+    const text = node.textBetween(0, node.content.size, undefined, "\ufffc")
+    for (const call of translationCalls(text)) {
+      const start = pos + 1 + call.start
+      const end = pos + 1 + call.end
+      const locale = call.locale || translationLocale
+      const value = locale ? translations.value(call.key, locale) : null
+      const missing = translations.has(call.key) && (locale ? value === null : translations.missing(call.key).length > 0)
+      if ((from < end && to > start) || value === null) {
+        decorations.push(Decoration.inline(start, end, { class: `tess-t-raw${missing ? " tess-t-missing" : ""}`, "data-tess-key": call.key }))
+      } else {
+        decorations.push(Decoration.inline(start, end, { class: "tess-t-hidden" }))
+        const caret = start + call.text.indexOf(call.key) + call.key.length
+        decorations.push(Decoration.widget(start, (view) => translationChip(view, call.key, value, () => editing.tiptap?.chain().focus().setTextSelection(caret).run()), { side: -1, key: `t:${call.key}:${value}`, ignoreSelection: true }))
+      }
+    }
+    return false
+  })
+  return DecorationSet.create(state.doc, decorations)
+}
+
+function translationChip(view, key, value, edit) {
+  const chip = view.dom.ownerDocument.createElement("span")
+  chip.className = "tess-t"
+  chip.contentEditable = "false"
+  chip.dataset.tessKey = key
+  chip.textContent = value
+  chip.addEventListener("mousedown", (event) => {
+    event.preventDefault()
+    edit()
+  })
+  return chip
 }

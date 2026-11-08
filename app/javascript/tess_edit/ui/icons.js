@@ -53,7 +53,10 @@ const paths = {
   "align-right": '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
   "list-bullet": '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
   "list-ordered": '<path d="M10 6h10M10 12h10M10 18h10M4 4h1v4M4 14h2l-2 3h2"/>',
-  clear: '<path d="M5 6h12M11 6l-3 13M15 15l5 5M20 15l-5 5"/>'
+  clear: '<path d="M5 6h12M11 6l-3 13M15 15l5 5M20 15l-5 5"/>',
+  translate: '<path d="M4 5h8M8 3v2M10 5c0 4-3 7-6 8M6 9c1 2 3 4 6 4M13 21l4-9 4 9M14.5 18h5"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'
 }
 
 export function icon(name, className = "w-4 h-4") {

@@ -15,6 +15,10 @@
 //   variablesUrl  the variables a template can use, suggested while typing {{
 //                 and browsed with { } buttons (see core/variables.js), e.g.
 //                 Liquidum's /liquidum/variables?roots=…
+//   translationsUrl  the host's translations for Liquid's t filter ({{ '.greeting' | t }}),
+//                    shown in a language chosen in the top bar, listed and edited
+//                    while pointed at, and made from selected text (see
+//                    core/translations.js)
 //   lock        JSON: only the insides of some blocks and some root fields can
 //               change, e.g. {"except": ["content"], "fields": ["data.subject"]}
 //               (see core/lock.js)
@@ -33,12 +37,14 @@ import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
 import { COMPILE_URL, compile } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
+import { Translations, keysIn, suggestKey, translationTag, validKey } from "tess_edit/core/translations"
 import { Variables, loopScope } from "tess_edit/core/variables"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
 import { Inspector } from "tess_edit/ui/inspector"
 import { TextEditing } from "tess_edit/ui/text_editing"
 import { VariableMenu } from "tess_edit/ui/variable_menu"
+import { TranslationPopover } from "tess_edit/ui/translation_popover"
 import { renderBlocksPanel } from "tess_edit/ui/blocks_panel"
 import { debounce, h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -47,11 +53,12 @@ const TOOL = "w-8 h-8 flex items-center justify-center rounded-md text-gray-600 
 const TAB = "px-3 h-12 text-[13px] font-medium border-b-2 -mb-px"
 const PANELS = ["left", "split", "right"]
 const PANELS_KEY = "tess_edit:panels"
+const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
 // Two sidebars (256px + 320px) leave too little canvas below this editor width.
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, lock: String }
+  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
@@ -69,7 +76,10 @@ export default class extends Controller {
     this.requests = {}
     this.media = { enabled: Boolean(this.mediaUrlValue), images: [], uploading: false, error: null }
     this.variables = new Variables(this.variablesUrlValue)
-    this.variableMenu = this.variables.enabled ? new VariableMenu(this) : null
+    this.translations = new Translations(this.translationsUrlValue)
+    this.translationPopover = this.translations.enabled ? new TranslationPopover(this) : null
+    this.translationLocaleChoice = this.stored(TRANSLATION_LOCALE_KEY)
+    this.variableMenu = this.variables.enabled || this.translations.enabled ? new VariableMenu(this) : null
 
     this.scheduleCanvas = debounce(() => this.renderCanvas(), 60)
     this.scheduleOutputs = debounce(() => this.writeOutputs(), 300)
@@ -78,7 +88,71 @@ export default class extends Controller {
     this.renderAll()
     this.writeOutputs()
     if (this.media.enabled) this.loadMedia()
+    if (this.translations.enabled) {
+      this.translations.subscribe(() => this.showTranslations())
+      this.loadTranslations()
+    }
     this.element.tessEdit = this
+  }
+
+  // --- translations -------------------------------------------------------------
+
+  // The language translations show in: the one chosen in the top bar, else
+  // the host's first; null shows their Liquid ("Keys")
+  get translationLocale() {
+    const { locales } = this.translations
+    if (this.translationLocaleChoice === "") return null
+    return locales.includes(this.translationLocaleChoice) ? this.translationLocaleChoice : locales[0] || null
+  }
+
+  setTranslationLocale(locale) {
+    this.translationLocaleChoice = locale
+    try {
+      localStorage.setItem(TRANSLATION_LOCALE_KEY, locale)
+    } catch {}
+    this.showTranslations()
+  }
+
+  // The keys in the document the editor doesn't have yet
+  loadTranslations() {
+    if (this.translations.enabled) this.translations.load(keysIn(this.doc))
+  }
+
+  showTranslations() {
+    this.renderTopBar()
+    this.canvas.showTranslations()
+    this.textEditing.refreshTranslations()
+    this.inspector.refreshTranslations()
+    this.translationPopover?.refresh()
+  }
+
+  // Keeps a text as a translation in the editor's language (the host's first
+  // in "Keys"), under a key the user confirms, and gives its t filter; null
+  // when it isn't
+  async makeTranslatable(text) {
+    const translations = this.translations
+    const locale = this.translationLocale || translations.locales[0]
+    if (!locale) {
+      this.flash(translations.error || "There are no languages to translate into yet.")
+      return null
+    }
+    const answer = window.prompt(`The key for this ${locale.toUpperCase()} text. A key starting with a dot belongs to this template.`, suggestKey(text))
+    const key = answer?.trim()
+    if (!key) return null
+    if (!validKey(key)) {
+      this.flash("A key is made of letters, digits, _ and -, separated by dots, e.g. .order.thanks")
+      return null
+    }
+    await translations.load([key])
+    const existing = translations.value(key, locale)
+    if (existing !== null && existing !== text && !window.confirm(`${key} already says “${existing}” in ${locale.toUpperCase()}. Replace that?`)) return null
+    try {
+      await translations.save(key, locale, text)
+    } catch (error) {
+      this.flash(error.message)
+      return null
+    }
+    return translationTag(key)
   }
 
   async loadMedia() {
@@ -135,6 +209,7 @@ export default class extends Controller {
     Object.values(this.requests).forEach((request) => request.abort())
     this.textEditing?.stop()
     this.variableMenu?.close()
+    this.translationPopover?.hide({ force: true })
     this.closeMenu()
     this.resizeObserver?.disconnect()
     document.removeEventListener("mousedown", this.outsideClick)
@@ -224,7 +299,7 @@ export default class extends Controller {
     this.canvas = new Canvas(this, this.frame)
     this.tree = new Tree(this, this.treeElement)
     this.inspector = new Inspector(this, this.inspectorElement)
-    this.textEditing = new TextEditing(this.textToolbar, { menu: this.variableMenu })
+    this.textEditing = new TextEditing(this.textToolbar, { menu: this.variableMenu, editor: this })
     renderBlocksPanel(this, this.blocksElement)
     this.observeWidth()
 
@@ -302,8 +377,12 @@ export default class extends Controller {
   }
 
   storedPanels() {
+    return this.stored(PANELS_KEY)
+  }
+
+  stored(key) {
     try {
-      return localStorage.getItem(PANELS_KEY)
+      return localStorage.getItem(key)
     } catch {
       return null
     }
@@ -339,10 +418,12 @@ export default class extends Controller {
         )
       )
 
-    this.topBar.replaceChildren(
+    // replaceChildren would turn a null into the text "null", so only pass real elements.
+    this.topBar.replaceChildren(...[
       h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, "Email"),
       toggle(this.mode, [["edit", "edit", "Edit"], ["preview", "eye", "Preview the email as sent, with Liquid tags"]], (mode) => this.setMode(mode)),
       toggle(this.device, [["desktop", "desktop", "Desktop"], ["mobile", "mobile", "Mobile"]], (device) => this.setDevice(device)),
+      this.translations.enabled ? this.translationLocaleMenu() : null,
       h("div", { class: "flex-1" }),
       toggle(
         this.layout,
@@ -361,6 +442,26 @@ export default class extends Controller {
         { type: "button", class: "ml-2 flex items-center gap-1.5 h-8 rounded-md bg-gray-900 px-3 text-[13px] font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300", onclick: () => this.openCodeDialog() },
         h("span", { html: icon("export") }),
         "Code"
+      )
+    ].filter(Boolean))
+  }
+
+  // Which language translations show in on the canvas
+  translationLocaleMenu() {
+    const current = this.translationLocale || ""
+    return h(
+      "label",
+      { class: "ml-1 flex items-center gap-1 text-gray-500 dark:text-gray-400", title: "Show translations in" },
+      h("span", { html: icon("globe") }),
+      h(
+        "select",
+        {
+          class: "h-7 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-0 pl-1.5 pr-7 text-xs text-gray-800 dark:text-gray-200",
+          "aria-label": "Show translations in",
+          onchange: (event) => this.setTranslationLocale(event.target.value)
+        },
+        this.translations.locales.map((locale) => h("option", { value: locale, selected: locale === current }, locale.toUpperCase())),
+        h("option", { value: "", selected: current === "" }, "Keys")
       )
     )
   }
@@ -426,6 +527,7 @@ export default class extends Controller {
   }
 
   async writeOutputs() {
+    this.loadTranslations()
     const json = JSON.stringify(this.doc)
     const mjml = toMjml(this.doc)
     const result = await this.compileMjml(mjml, "outputs")

@@ -16,6 +16,7 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 - Drag from the Blocks panel onto the canvas or into the Layers tree; move blocks on the canvas (drag handle) or in the tree; plus buttons and empty-column placeholders open an "Add block" menu.
 - Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings.
 - Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
+- Your app's translations for Liquid's `t` filter (`{{ '.greeting' | t }}`) shown as their text in a language of your choice, with every language's text, missing ones marked, editable when pointed at, and selected text made translatable.
 - Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Esc).
 - Desktop and mobile preview, and a preview of the HTML as sent.
 - Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room.
@@ -173,6 +174,29 @@ The endpoint answers `GET` with the variables at `path` (the roots without one),
 
 A field of your own gets the `{ }` button with `liquid: true`, or `liquid: "expression"` (a condition) or `liquid: "collection"` (what a loop goes over) for Liquid without braces.
 
+### Translations
+
+To show and edit translations for Liquid's `t` filter, as [Liquidum](https://github.com/entdec/liquidum) has it (`{{ '.greeting' | t }}`, `{{ "order.shipped" | t: name: order.name }}`), give the editor an endpoint with `data-tess-edit-translations-url-value`. Then:
+
+- The top bar has a language menu. The canvas shows each `t` filter on a quoted key as its text in that language, or the Liquid when it has none (marked red when a language is missing it). "Keys" shows the Liquid everywhere. A filter that names a locale (`t: locale: 'nl'`) shows that one.
+- Pointing at one lists its text in every language. Each can be edited there, and the arrow opens where your app keeps it.
+- In text being edited on the canvas a filter shows as its text until the caret goes into it; a click on it does that.
+- The text toolbar, and settings that usually hold Liquid text, have a "Make translatable" button: it asks for a key (suggested from the text), saves the selected text (or the whole setting) as that key's text in the chosen language, and puts `{{ '<key>' | t }}` in its place. Below such a setting its filters show their text.
+- Typing `{{ '` suggests the keys, with their text.
+
+The endpoint answers, as JSON:
+
+- `GET` with the keys in the document, comma-separated in `keys`: the languages, the translations of those keys and of the keys to suggest, and the keys to suggest
+  ```json
+  {"locales": ["en", "nl"],
+   "translations": {".greeting": {"en": {"value": "Hello", "source": "Account › en", "url": "/locales/1/edit"}, "nl": null}},
+   "suggestions": [".greeting"]}
+  ```
+  A missing text is `null`; `source` says where a text comes from (shown when pointed at) and `url` where to edit it (both optional).
+- `PATCH` with `{"key": "…", "locale": "nl", "value": "…"}` (JSON, with the page's CSRF token): `{"key": "…", "translation": {"en": …, "nl": …}}`, or `{"errors": ["…"]}` with an error status
+
+Where the texts are kept, and what a key starting with a dot is relative to, is up to your app. The dummy app's `TranslationsController` keeps them in memory (`/?translations=1`).
+
 ### Blocks and custom blocks
 
 Every block is a plugin: one module in `app/javascript/tess_edit/blocks/` with its defaults, its Inspect fields, its Blocks panel tiles and a `render.mjml` hook. The built-in blocks are registered the same way a host app registers its own, so register yours before the editor connects:
@@ -215,7 +239,9 @@ cd test/dummy && bin/dev
 
 `/?media=1` gives the editor the demo's image endpoint (`MediaController`), so images can be chosen from a list, uploaded, or dragged onto the canvas from the desktop; uploads go to `test/dummy/tmp/media`. Without it, images are URLs only.
 
-`/?variables=1` gives the editor the demo's variables (`VariablesController`), an order's, to try the suggestions. The options combine, e.g. `/?lock=1&media=1&variables=1`.
+`/?variables=1` gives the editor the demo's variables (`VariablesController`), an order's, to try the suggestions.
+
+`/?translations=1` gives the editor the demo's translations (`TranslationsController`, in memory, in English, Dutch and German). The options combine, e.g. `/?lock=1&media=1&variables=1&translations=1`.
 
 Tests:
 
@@ -245,8 +271,9 @@ Ideas for later, not planned yet:
 
 - **Importing MJML.** Turn an existing MJML template into a TessEdit document, so designs made elsewhere can be edited here. Parts without a matching block could become HTML blocks.
 - **Images whose address is Liquid.** An image with a `src` like `{{ product.image_url }}` shows as a broken image on the canvas. It should show a placeholder there instead, and in Inspect say that the address is filled in when the email is sent.
-- **A translation block.** Text that differs per language in one design, e.g. a block with a version of its text per locale, so a host app doesn't need a design per language.
-- **Text extensions from the host app.** Tiptap (the vendored bundle exports `Node`, `Mark` and `Extension`) can be extended, but the editor's extensions, the email HTML of rich text (`export/richtext.js`) and the text toolbar are fixed. A call like `registerTextExtension({ extension, toHtml(node, children), button })` would add all three, as `registerBlock` does for blocks. A Liquid variable shown as a chip (`{{ customer.first_name }}`) would be a first example; a translation could be one too. Extensions that need ProseMirror itself (plugins, node views) also need those exported from the same bundle.
+- **A translation block.** Text that differs per language in one design, e.g. a block with a version of its text per locale, so a host app doesn't need a design per language. (Translations through the `t` filter are there, see Translations.)
+- **Translating with a service.** Fill in a key's missing languages with DeepL or an LLM, from the translations popover.
+- **Text extensions from the host app.** Tiptap (the vendored bundle exports `Node`, `Mark` and `Extension`) can be extended, but the editor's extensions, the email HTML of rich text (`export/richtext.js`) and the text toolbar are fixed. A call like `registerTextExtension({ extension, toHtml(node, children), button })` would add all three, as `registerBlock` does for blocks. A Liquid variable shown as a chip (`{{ customer.first_name }}`) would be a first example; a translation could be one too. The bundle exports ProseMirror's `Plugin`, `PluginKey`, `Decoration` and `DecorationSet` (used for translations); node views would need more.
 - **Dropping an image file where there's no image.** A file dropped on an empty spot in the canvas could add a new Image block there with the upload, instead of being refused.
 
 ## License

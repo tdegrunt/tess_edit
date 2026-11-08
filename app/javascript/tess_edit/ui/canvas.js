@@ -1,11 +1,13 @@
 // The editing canvas: an iframe showing the compiled email, with an overlay for
 // hover and selection outlines, block tools, plus buttons and drop indicators.
 // Elements are mapped back to blocks through the "tess-<id>" classes that the
-// editor-mode MJML puts on every element.
+// editor-mode MJML puts on every element. With the host's translations, t
+// filters show their text in the editor's language (see annotate).
 
 import { ancestors, canInsert, find, isDescendant, isHorizontal } from "tess_edit/core/document"
 import { imageFields } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
+import { translationCalls } from "tess_edit/core/translations"
 import { icon } from "tess_edit/ui/icons"
 
 const OVERLAY_CSS = `
@@ -34,6 +36,10 @@ a{cursor:default}
 .ProseMirror{outline:none;white-space:pre-wrap;word-wrap:break-word;cursor:text}
 .ProseMirror p{margin:0}
 .ProseMirror ul,.ProseMirror ol{margin:0;padding-left:1.5em}
+.tess-t,.tess-t-raw{border-radius:3px;background:rgba(37,99,235,.08);box-shadow:inset 0 -1px 0 rgba(37,99,235,.55)}
+.tess-t.tess-t-missing,.tess-t-raw.tess-t-missing{background:rgba(220,38,38,.08);box-shadow:inset 0 -1px 0 rgba(220,38,38,.65)}
+.ProseMirror .tess-t{cursor:pointer}
+.tess-t-hidden{display:none}
 `
 
 // A file dragged in from outside the browser (block drags set editor.drag)
@@ -75,8 +81,10 @@ export class Canvas {
     this.overlay.id = "tess-overlay"
     doc.body.append(this.overlay)
     this.win.scrollTo(0, scrollY)
-    if (mode === "edit") this.listen()
-    else doc.addEventListener("click", (event) => event.target.closest("a") && event.preventDefault(), true)
+    if (mode === "edit") {
+      this.listen()
+      this.annotate()
+    } else doc.addEventListener("click", (event) => event.target.closest("a") && event.preventDefault(), true)
     this.refresh()
   }
 
@@ -97,6 +105,60 @@ export class Canvas {
     this.win.addEventListener("scroll", () => this.editor.closeMenu(), { passive: true })
     this.win.addEventListener("resize", () => this.refresh())
     for (const image of doc.images) image.addEventListener("load", () => this.refresh(), { once: true })
+    // Translations list every language while pointed at
+    doc.addEventListener("mouseover", (event) => {
+      const chip = event.target.closest?.("[data-tess-key]")
+      if (chip) this.editor.translationPopover?.show(chip.dataset.tessKey, this.toParentRect(chip.getBoundingClientRect()))
+    })
+    doc.addEventListener("mouseout", (event) => event.target.closest?.("[data-tess-key]") && this.editor.translationPopover?.scheduleHide())
+  }
+
+  // --- translations ----------------------------------------------------------
+
+  // Wraps every t filter in the email's text in a span that shows its text
+  // (showTranslations), keeping the Liquid for when there's none
+  annotate() {
+    if (!this.editor.translations?.enabled) return
+    const doc = this.doc
+    const walker = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */)
+    const nodes = []
+    while (walker.nextNode()) {
+      const node = walker.currentNode
+      if (node.nodeValue.includes("{{") && !node.parentElement?.closest("#tess-overlay, script, style, title")) nodes.push(node)
+    }
+    for (const node of nodes) {
+      const text = node.nodeValue
+      const calls = translationCalls(text)
+      if (!calls.length) continue
+      const fragment = doc.createDocumentFragment()
+      let at = 0
+      for (const call of calls) {
+        fragment.append(text.slice(at, call.start))
+        const span = doc.createElement("span")
+        span.className = "tess-t"
+        Object.assign(span.dataset, { tessKey: call.key, tessCall: call.text }, call.locale ? { tessLocale: call.locale } : {})
+        fragment.append(span)
+        at = call.end
+      }
+      fragment.append(text.slice(at))
+      node.replaceWith(fragment)
+    }
+    this.showTranslations()
+  }
+
+  // The text in the editor's language (or the call's own), or the Liquid when
+  // there's none; red when a language is missing it
+  showTranslations() {
+    const translations = this.editor.translations
+    if (!translations?.enabled || !this.doc) return
+    for (const span of this.doc.querySelectorAll(".tess-t[data-tess-call]")) {
+      const key = span.dataset.tessKey
+      const locale = span.dataset.tessLocale || this.editor.translationLocale
+      const value = locale ? translations.value(key, locale) : null
+      span.textContent = value ?? span.dataset.tessCall
+      span.classList.toggle("tess-t-missing", translations.has(key) && (locale ? value === null : translations.missing(key).length > 0))
+    }
+    this.refresh()
   }
 
   // --- mapping between DOM and blocks -------------------------------------
