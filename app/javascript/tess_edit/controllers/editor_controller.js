@@ -5,6 +5,8 @@
 //             registered (see core/registry.js)
 //   document  JSON of the document to load (falls back to the json input, then a sample)
 //   sample    load the sample document when there is nothing else (default true)
+//   frame     a border with rounded corners around the editor (default true); a
+//             host that frames it itself, such as a card it fills, turns it off
 //   panels    "split" (Blocks and Layers left, Inspect right), "left" or "right" (all panels
 //             as tabs on one side). The default; a choice made in the editor's
 //             top bar is remembered per browser. Below NARROW_WIDTH the editor
@@ -66,7 +68,7 @@ const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
+  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
@@ -357,7 +359,7 @@ export default class extends Controller {
 
     this.root = h(
       "div",
-      { class: "tess-edit relative flex flex-col h-full min-h-[560px] overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 antialiased dark:[color-scheme:dark]", tabindex: "-1", onkeydown: (event) => this.onKeydown(event) },
+      { class: `tess-edit relative flex flex-col h-full min-h-[560px] overflow-hidden ${this.frameValue ? "rounded-lg border border-gray-200 dark:border-gray-700 " : ""}bg-gray-50 dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 antialiased dark:[color-scheme:dark]`, tabindex: "-1", onkeydown: (event) => this.onKeydown(event) },
       this.topBar,
       this.body
     )

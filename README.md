@@ -89,6 +89,8 @@ The editor loads the document from the `jsonInput` (or from `data-tess-edit-docu
 
 `data-tess-edit-panels-value` sets the default panel layout: `split` (Blocks and Layers on the left, Inspect on the right, the default), `left` or `right` (Blocks, Layers and Inspect as tabs in one sidebar on that side). People can switch with the buttons in the top bar; their choice is remembered in the browser. When the editor is narrower than 1000px, it puts all panels on the left so the canvas keeps its room, and goes back to the chosen layout when it is wide enough again.
 
+The editor has a border with rounded corners. A page that frames it itself, such as a card it fills, turns it off with `data-tess-edit-frame-value="false"`.
+
 Every change updates the inputs and dispatches `tess-edit:change` with `{ json, mjml, html, errors, document }` in `event.detail`. When the MJML can't be compiled, `html` is empty and `errors` says why; the editor shows the reason under the canvas. The controller instance is available as `element.tessEdit`, with `getDocument()`, `setDocument(json)` and `export()`.
 
 ### What gets stored
