@@ -23,17 +23,68 @@
 // A t filter on a quoted key, with what follows it in the tag (its arguments)
 const CALL = /\{\{-?\s*(["'])([^"'{}|]+?)\1\s*\|\s*t(?:ranslate)?\b((?:(?!\}\}).)*?)-?\}\}/g
 
-// The t filters in a text: [{ start, end, key, locale, text }]; locale when
-// the call names one (t: locale: 'nl')
+// The t filters in a text: [{ start, end, key, locale, args, text }]; locale
+// when the call names one (t: locale: 'nl'), args the names of its other
+// arguments, which fill the text's %{…} placeholders (t: name: user.name)
 export function translationCalls(text) {
   if (typeof text !== "string" || !text.includes("{{")) return []
-  return Array.from(text.matchAll(CALL), (match) => ({
-    start: match.index,
-    end: match.index + match[0].length,
-    key: match[2].trim(),
-    locale: match[3].match(/\blocale:\s*["']([\w-]+)["']/)?.[1] || null,
-    text: match[0]
-  }))
+  return Array.from(text.matchAll(CALL), (match) => {
+    const names = Array.from(match[3].matchAll(/(?:^\s*:|,)\s*(\w+)\s*:/g), (name) => name[1])
+    return {
+      start: match.index,
+      end: match.index + match[0].length,
+      key: match[2].trim(),
+      locale: match[3].match(/\blocale:\s*["']([\w-]+)["']/)?.[1] || null,
+      args: names.filter((name) => name !== "locale"),
+      text: match[0]
+    }
+  })
+}
+
+// The %{…} placeholders in a translation's text
+export function placeholders(value) {
+  return Array.from(String(value ?? "").matchAll(/%\{(\w+)\}/g), (match) => match[1])
+}
+
+// The placeholders a call doesn't give an argument for
+export function missingArguments(value, call) {
+  return [...new Set(placeholders(value))].filter((name) => !call.args?.includes(name))
+}
+
+// A text in parts: [{ text }, { placeholder: "name" }, …], to show the placeholders apart
+export function textParts(value) {
+  return String(value ?? "").split(/(%\{\w+\})/).filter(Boolean).map((part) => {
+    const placeholder = part.match(/^%\{(\w+)\}$/)
+    return placeholder ? { placeholder: placeholder[1] } : { text: part }
+  })
+}
+
+// Options of I18n's t, which can't be arguments' names
+const RESERVED = new Set(["locale", "scope", "default", "separator", "resolve", "object", "fallback", "fallback_in_progress", "format", "cascade", "throw", "raise", "deep_interpolation", "count"])
+
+// A text with Liquid in it, as a translation: its variables become
+// placeholders, given as arguments of the t filter.
+//   "Hi {{ customer.first_name }}!" → { text: "Hi %{first_name}!", args: [["first_name", "customer.first_name"]] }
+// Gives { error } for Liquid a translation can't hold: tags ({% … %}) and
+// filters ({{ total | money }}).
+export function toTranslation(text) {
+  if (/\{%/.test(text)) return { error: "Liquid tags ({% … %}) can't go into a translation. Select the text around them." }
+  const args = []
+  let error = null
+  const converted = String(text).replace(/\{\{-?\s*(.*?)\s*-?\}\}/g, (tag, expression) => {
+    if (!/^[A-Za-z_][\w]*(\.[\w]+|\[\d+\])*$/.test(expression)) {
+      error = `${tag} can't go into a translation, only variables like {{ customer.name }} can. Select the text around it.`
+      return tag
+    }
+    const existing = args.find(([, value]) => value === expression)
+    if (existing) return `%{${existing[0]}}`
+    const base = expression.split(".").pop().replace(/\W/g, "_")
+    let name = RESERVED.has(base) ? `${base}_value` : base
+    for (let n = 2; args.some(([other]) => other === name); n++) name = `${base}_${n}`
+    args.push([name, expression])
+    return `%{${name}}`
+  })
+  return error ? { error } : { text: converted, args }
 }
 
 // Every key in a document's texts and settings
@@ -63,9 +114,9 @@ export function validKey(key) {
   return /^\.?[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$/.test(key || "")
 }
 
-// The tag that translates a key
-export function translationTag(key) {
-  return `{{ '${key}' | t }}`
+// The tag that translates a key, with arguments for its placeholders: [[name, expression]]
+export function translationTag(key, args = []) {
+  return `{{ '${key}' | t${args.map(([name, expression], i) => `${i ? "," : ":"} ${name}: ${expression}`).join("")} }}`
 }
 
 // The key being typed at the caret, in a t filter to be: "Hi {{ '.gr" →

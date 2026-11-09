@@ -37,7 +37,7 @@ import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
 import { COMPILE_URL, compile } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
-import { Translations, keysIn, suggestKey, translationTag, validKey } from "tess_edit/core/translations"
+import { Translations, keysIn, suggestKey, toTranslation, translationTag, validKey } from "tess_edit/core/translations"
 import { Variables, loopScope } from "tess_edit/core/variables"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
@@ -128,12 +128,19 @@ export default class extends Controller {
 
   // Keeps a text as a translation in the editor's language (the host's first
   // in "Keys"), under a key the user confirms, and gives its t filter; null
-  // when it isn't
+  // when it isn't. Its Liquid variables become placeholders, given as the
+  // filter's arguments: "Hi {{ user.name }}" is kept as "Hi %{name}", in
+  // {{ '.hi' | t: name: user.name }}.
   async makeTranslatable(text) {
     const translations = this.translations
     const locale = this.translationLocale || translations.locales[0]
     if (!locale) {
       this.flash(translations.error || "There are no languages to translate into yet.")
+      return null
+    }
+    const translation = toTranslation(text)
+    if (translation.error) {
+      this.flash(translation.error)
       return null
     }
     const answer = window.prompt(`The key for this ${locale.toUpperCase()} text. A key starting with a dot belongs to this template.`, suggestKey(text))
@@ -145,14 +152,14 @@ export default class extends Controller {
     }
     await translations.load([key])
     const existing = translations.value(key, locale)
-    if (existing !== null && existing !== text && !window.confirm(`${key} already says “${existing}” in ${locale.toUpperCase()}. Replace that?`)) return null
+    if (existing !== null && existing !== translation.text && !window.confirm(`${key} already says “${existing}” in ${locale.toUpperCase()}. Replace that?`)) return null
     try {
-      await translations.save(key, locale, text)
+      await translations.save(key, locale, translation.text)
     } catch (error) {
       this.flash(error.message)
       return null
     }
-    return translationTag(key)
+    return translationTag(key, translation.args)
   }
 
   async loadMedia() {

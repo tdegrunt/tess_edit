@@ -73,15 +73,32 @@ class TranslationsTest < ApplicationSystemTestCase
     end
     accept_prompt(with: ".thanks_name") { find(".tess-edit button[title^='Make translatable']").click }
 
-    eventually { assert_equal "Thanks for your order, {{ customer.first_name }}!", TranslationsController.store.dig("en", ".thanks_name") }
+    # Its variable becomes a placeholder, filled by the filter's argument
+    eventually { assert_equal "Thanks for your order, %{first_name}!", TranslationsController.store.dig("en", ".thanks_name") }
     within_canvas do
-      assert_selector ".ProseMirror .tess-t", text: "Thanks for your order, {{ customer.first_name }}!"
+      assert_selector ".ProseMirror .tess-t:not(.tess-t-missing)", text: "Thanks for your order, first_name!"
+      assert_selector ".ProseMirror .tess-t .tess-t-arg", text: "first_name"
       # The caret goes into the Liquid with a click
       find(".ProseMirror .tess-t").click
-      assert_selector ".ProseMirror .tess-t-raw", text: "{{ '.thanks_name' | t }}"
+      assert_selector ".ProseMirror .tess-t-raw", text: "{{ '.thanks_name' | t: first_name: customer.first_name }}"
     end
     within_canvas { find(".ProseMirror").send_keys(:escape) }
-    within_canvas { assert_selector ".tess-t[data-tess-call]", text: "Thanks for your order, {{ customer.first_name }}!" }
+    within_canvas { assert_selector ".tess-t[data-tess-call]", text: "Thanks for your order, first_name!" }
+  end
+
+  test "a placeholder without an argument in the filter is marked" do
+    TranslationsController.store["en"][".hi"] = "Hi %{name}"
+    setting("Label").set("{{ '.hi' | t }}")
+    within_canvas { assert_selector ".tess-t.tess-t-missing[title*='%{name}']", text: "Hi name" }
+    setting("Label").set("{{ '.hi' | t: name: order.customer.name }}")
+    within_canvas { assert_selector ".tess-t:not(.tess-t-missing)", text: "Hi name" }
+  end
+
+  test "Liquid a translation can't hold isn't made translatable" do
+    setting("Label").set("Total {{ order.total | money }}")
+    field("Label").find("button[title^='Make translatable']").click
+    assert_text "can't go into a translation"
+    assert_equal "Total {{ order.total | money }}", setting("Label").value
   end
 
   test "without a translationsUrl there's no language menu or translate button" do

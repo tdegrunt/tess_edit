@@ -7,7 +7,8 @@
 // toolbar turns selected text into a translation.
 
 import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
-import { translationCalls } from "tess_edit/core/translations"
+import { missingArguments, translationCalls } from "tess_edit/core/translations"
+import { showText } from "tess_edit/ui/canvas"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
@@ -237,13 +238,14 @@ function translationDecorations(state, editing) {
       const end = pos + 1 + call.end
       const locale = call.locale || translationLocale
       const value = locale ? translations.value(call.key, locale) : null
-      const missing = translations.has(call.key) && (locale ? value === null : translations.missing(call.key).length > 0)
+      const unfilled = value === null ? [] : missingArguments(value, call)
+      const missing = unfilled.length > 0 || (translations.has(call.key) && (locale ? value === null : translations.missing(call.key).length > 0))
       if ((from < end && to > start) || value === null) {
         decorations.push(Decoration.inline(start, end, { class: `tess-t-raw${missing ? " tess-t-missing" : ""}`, "data-tess-key": call.key }))
       } else {
         decorations.push(Decoration.inline(start, end, { class: "tess-t-hidden" }))
         const caret = start + call.text.indexOf(call.key) + call.key.length
-        decorations.push(Decoration.widget(start, (view) => translationChip(view, call.key, value, () => editing.tiptap?.chain().focus().setTextSelection(caret).run()), { side: -1, key: `t:${call.key}:${value}`, ignoreSelection: true }))
+        decorations.push(Decoration.widget(start, (view) => translationChip(view, call.key, value, unfilled, () => editing.tiptap?.chain().focus().setTextSelection(caret).run()), { side: -1, key: `t:${call.key}:${value}:${unfilled}`, ignoreSelection: true }))
       }
     }
     return false
@@ -251,12 +253,13 @@ function translationDecorations(state, editing) {
   return DecorationSet.create(state.doc, decorations)
 }
 
-function translationChip(view, key, value, edit) {
+function translationChip(view, key, value, unfilled, edit) {
   const chip = view.dom.ownerDocument.createElement("span")
-  chip.className = "tess-t"
+  chip.className = unfilled.length ? "tess-t tess-t-missing" : "tess-t"
   chip.contentEditable = "false"
   chip.dataset.tessKey = key
-  chip.textContent = value
+  if (unfilled.length) chip.title = `No argument for ${unfilled.map((name) => `%{${name}}`).join(", ")} in the t filter`
+  showText(chip, value)
   chip.addEventListener("mousedown", (event) => {
     event.preventDefault()
     edit()

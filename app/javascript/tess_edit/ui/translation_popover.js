@@ -3,6 +3,7 @@
 // hint: missing ones stand out, each can be edited in place, and the arrow
 // opens where the host app keeps it.
 
+import { textParts } from "tess_edit/core/translations"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
@@ -82,7 +83,7 @@ export class TranslationPopover {
         : h(
           "span",
           { class: `min-w-0 flex-1 truncate ${value === null ? "italic text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200"}`, title: entry?.source ? `${value ?? ""}\n${entry.source}` : value || "" },
-          value === null ? "missing" : value || "(empty)"
+          value === null ? "missing" : value ? textParts(value).map((part) => part.text ?? h("span", { class: "rounded bg-blue-100 dark:bg-blue-900/50 px-1 text-[12px] text-blue-800 dark:text-blue-200" }, part.placeholder)) : "(empty)"
         )
       return h(
         "div",

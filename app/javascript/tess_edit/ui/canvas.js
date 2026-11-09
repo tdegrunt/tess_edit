@@ -7,7 +7,7 @@
 import { ancestors, canInsert, find, isDescendant, isHorizontal } from "tess_edit/core/document"
 import { imageFields } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
-import { translationCalls } from "tess_edit/core/translations"
+import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
 import { icon } from "tess_edit/ui/icons"
 
 const OVERLAY_CSS = `
@@ -39,6 +39,8 @@ a{cursor:default}
 .tess-t,.tess-t-raw{border-radius:3px;background:rgba(37,99,235,.08);box-shadow:inset 0 -1px 0 rgba(37,99,235,.55)}
 .tess-t.tess-t-missing,.tess-t-raw.tess-t-missing{background:rgba(220,38,38,.08);box-shadow:inset 0 -1px 0 rgba(220,38,38,.65)}
 .ProseMirror .tess-t{cursor:pointer}
+.tess-t-arg{border-radius:3px;padding:0 2px;background:rgba(37,99,235,.18);font-size:.9em}
+.tess-t-missing .tess-t-arg{background:rgba(220,38,38,.18)}
 .tess-t-hidden{display:none}
 `
 
@@ -136,7 +138,7 @@ export class Canvas {
         fragment.append(text.slice(at, call.start))
         const span = doc.createElement("span")
         span.className = "tess-t"
-        Object.assign(span.dataset, { tessKey: call.key, tessCall: call.text }, call.locale ? { tessLocale: call.locale } : {})
+        Object.assign(span.dataset, { tessKey: call.key, tessCall: call.text, tessArgs: call.args.join(",") }, call.locale ? { tessLocale: call.locale } : {})
         fragment.append(span)
         at = call.end
       }
@@ -155,8 +157,11 @@ export class Canvas {
       const key = span.dataset.tessKey
       const locale = span.dataset.tessLocale || this.editor.translationLocale
       const value = locale ? translations.value(key, locale) : null
-      span.textContent = value ?? span.dataset.tessCall
-      span.classList.toggle("tess-t-missing", translations.has(key) && (locale ? value === null : translations.missing(key).length > 0))
+      const unfilled = value === null ? [] : missingArguments(value, { args: span.dataset.tessArgs ? span.dataset.tessArgs.split(",") : [] })
+      if (value === null) span.textContent = span.dataset.tessCall
+      else showText(span, value)
+      span.title = unfilled.length ? `No argument for ${unfilled.map((name) => `%{${name}}`).join(", ")} in the t filter` : ""
+      span.classList.toggle("tess-t-missing", unfilled.length > 0 || (translations.has(key) && (locale ? value === null : translations.missing(key).length > 0)))
     }
     this.refresh()
   }
@@ -496,4 +501,18 @@ export class Canvas {
     this.indicator?.remove()
     this.indicator = null
   }
+}
+
+// A translation's text in an element, its %{…} placeholders apart
+export function showText(element, value) {
+  const doc = element.ownerDocument
+  element.replaceChildren(
+    ...textParts(value).map((part) => {
+      if (part.text !== undefined) return doc.createTextNode(part.text)
+      const placeholder = doc.createElement("span")
+      placeholder.className = "tess-t-arg"
+      placeholder.textContent = part.placeholder
+      return placeholder
+    })
+  )
 }

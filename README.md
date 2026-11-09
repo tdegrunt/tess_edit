@@ -181,7 +181,8 @@ To show and edit translations for Liquid's `t` filter, as [Liquidum](https://git
 - The top bar has a language menu. The canvas shows each `t` filter on a quoted key as its text in that language, or the Liquid when it has none (marked red when a language is missing it). "Keys" shows the Liquid everywhere. A filter that names a locale (`t: locale: 'nl'`) shows that one.
 - Pointing at one lists its text in every language. Each can be edited there, and the arrow opens where your app keeps it.
 - In text being edited on the canvas a filter shows as its text until the caret goes into it; a click on it does that.
-- The text toolbar, and settings that usually hold Liquid text, have a "Make translatable" button: it asks for a key (suggested from the text), saves the selected text (or the whole setting) as that key's text in the chosen language, and puts `{{ '<key>' | t }}` in its place. Below such a setting its filters show their text.
+- The text toolbar, and settings that usually hold Liquid text, have a "Make translatable" button: it asks for a key (suggested from the text), saves the selected text (or the whole setting) as that key's text in the chosen language, and puts `{{ '<key>' | t }}` in its place. Variables in the text become placeholders, given as the filter's arguments: "Hi {{ user.first_name }}" is saved as `Hi %{first_name}`, with `{{ '<key>' | t: first_name: user.first_name }}`; Liquid tags and filters can't go into a translation. Below such a setting its filters show their text.
+- Placeholders (`%{name}`) show apart in a text; one the filter has no argument for is marked.
 - Typing `{{ '` suggests the keys, with their text.
 
 The endpoint answers, as JSON:

@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
-import { Translations, keyCompletion, keyToken, keysIn, suggestKey, translationCalls, translationTag, validKey } from "tess_edit/core/translations"
+import { Translations, keyCompletion, keyToken, keysIn, missingArguments, placeholders, suggestKey, textParts, toTranslation, translationCalls, translationTag, validKey } from "tess_edit/core/translations"
 
 globalThis.window ||= { location: { href: "https://www.example.com/editor" } }
 globalThis.document ||= { querySelector: () => null }
@@ -103,4 +103,29 @@ test("saves a text, and says why it couldn't", async () => {
   assert.equal(translations.value(".thanks", "nl"), "Bedankt")
   assert.deepEqual(translations.suggestions, [".thanks"])
   await assert.rejects(translations.save(".thanks", "nl", ""), /can't be blank/)
+})
+
+test("a call's arguments, without its locale", () => {
+  const [call] = translationCalls("{{ '.hi' | t: name: user.name, locale: 'nl', account: user.account.name }}")
+  assert.deepEqual(call.args, ["name", "account"])
+  assert.deepEqual(translationCalls("{{ '.hi' | t }}")[0].args, [])
+})
+
+test("placeholders, and those a call doesn't fill", () => {
+  assert.deepEqual(placeholders("Hi %{name}, welcome to %{account}, %{name}"), ["name", "account", "name"])
+  assert.deepEqual(missingArguments("Hi %{name}, welcome to %{account}", { args: ["name"] }), ["account"])
+  assert.deepEqual(textParts("Hi %{name}!"), [{ text: "Hi " }, { placeholder: "name" }, { text: "!" }])
+})
+
+test("Liquid variables in a text become placeholders and arguments", () => {
+  assert.deepEqual(toTranslation("Thanks for your order, {{ customer.first_name }}!"), { text: "Thanks for your order, %{first_name}!", args: [["first_name", "customer.first_name"]] })
+  assert.deepEqual(toTranslation("{{ user.name }} and {{ order.customer.name }} and {{user.name}}"), {
+    text: "%{name} and %{name_2} and %{name}",
+    args: [["name", "user.name"], ["name_2", "order.customer.name"]]
+  })
+  assert.deepEqual(toTranslation("At {{ order.count }}").args, [["count_value", "order.count"]])
+  assert.deepEqual(toTranslation("No Liquid"), { text: "No Liquid", args: [] })
+  assert.match(toTranslation("Total {{ order.total | money }}").error, /money/)
+  assert.match(toTranslation("{% if paid %}Paid{% endif %}").error, /tags/)
+  assert.equal(translationTag(".thanks", [["first_name", "customer.first_name"], ["shop", "shop.name"]]), "{{ '.thanks' | t: first_name: customer.first_name, shop: shop.name }}")
 })
