@@ -48,7 +48,8 @@ class TranslationsTest < ApplicationSystemTestCase
 
   test "a field's text becomes a translation" do
     label = setting("Label")
-    accept_prompt(with: ".view_order") { field("Label").find("button[title^='Make translatable']").click }
+    field("Label").find("button[title^='Make translatable']").click
+    make_translatable(".view_order")
 
     eventually { assert_equal "{{ '.view_order' | t }}", label.value }
     assert_equal "View your order", TranslationsController.store.dig("en", ".view_order")
@@ -71,7 +72,9 @@ class TranslationsTest < ApplicationSystemTestCase
       find("td[class^='tess-']", text: "Thanks for your order,").double_click
       find(".ProseMirror").send_keys([select_all_key, "a"])
     end
-    accept_prompt(with: ".thanks_name") { find(".tess-edit button[title^='Make translatable']").click }
+    find(".tess-edit button[title^='Make translatable']").click
+    within("[role=dialog][aria-label='Make translatable']") { assert_selector "[data-tess-edit-translation-text] span", text: "first_name" }
+    make_translatable(".thanks_name")
 
     # Its variable becomes a placeholder, filled by the filter's argument
     eventually { assert_equal "Thanks for your order, %{first_name}!", TranslationsController.store.dig("en", ".thanks_name") }
@@ -108,7 +111,27 @@ class TranslationsTest < ApplicationSystemTestCase
     assert_no_selector ".tess-edit button[title^='Make translatable']"
   end
 
+  test "an existing key's text is only replaced when confirmed" do
+    field("Label").find("button[title^='Make translatable']").click
+    within("[role=dialog][aria-label='Make translatable']") do
+      fill_in "Key", with: ".greeting"
+      click_on "Save"
+      assert_text "already says “Hello” in EN"
+      click_on "Cancel"
+    end
+    assert_equal "Hello", TranslationsController.store.dig("en", ".greeting")
+    assert_equal "View your order", setting("Label").value
+  end
+
   private
+
+  def make_translatable(key)
+    within("[role=dialog][aria-label='Make translatable']") do
+      fill_in "Key", with: key
+      click_on "Save"
+    end
+    assert_no_selector "[role=dialog][aria-label='Make translatable']"
+  end
 
   # The browser's: a Mac's own Chrome, or Linux's through Selenium
   def select_all_key

@@ -37,7 +37,7 @@ import { starterDocument } from "tess_edit/core/starter"
 import { toMjml } from "tess_edit/export/mjml"
 import { COMPILE_URL, compile } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
-import { Translations, keysIn, suggestKey, toTranslation, translationTag, validKey } from "tess_edit/core/translations"
+import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
 import { Variables, loopScope } from "tess_edit/core/variables"
 import { Canvas } from "tess_edit/ui/canvas"
 import { Tree } from "tess_edit/ui/tree"
@@ -45,6 +45,7 @@ import { Inspector } from "tess_edit/ui/inspector"
 import { TextEditing } from "tess_edit/ui/text_editing"
 import { VariableMenu } from "tess_edit/ui/variable_menu"
 import { TranslationPopover } from "tess_edit/ui/translation_popover"
+import { askTranslationKey } from "tess_edit/ui/translate_dialog"
 import { renderBlocksPanel } from "tess_edit/ui/blocks_panel"
 import { debounce, h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -143,16 +144,16 @@ export default class extends Controller {
       this.flash(translation.error)
       return null
     }
-    const answer = window.prompt(`The key for this ${locale.toUpperCase()} text. A key starting with a dot belongs to this template.`, suggestKey(text))
-    const key = answer?.trim()
+    const key = await askTranslationKey(this.root, {
+      text: translation.text,
+      locale,
+      suggested: suggestKey(text),
+      existing: async (key) => {
+        await translations.load([key])
+        return translations.value(key, locale)
+      }
+    })
     if (!key) return null
-    if (!validKey(key)) {
-      this.flash("A key is made of letters, digits, _ and -, separated by dots, e.g. .order.thanks")
-      return null
-    }
-    await translations.load([key])
-    const existing = translations.value(key, locale)
-    if (existing !== null && existing !== translation.text && !window.confirm(`${key} already says “${existing}” in ${locale.toUpperCase()}. Replace that?`)) return null
     try {
       await translations.save(key, locale, translation.text)
     } catch (error) {
