@@ -9,7 +9,7 @@ import { starterDocument } from "tess_edit/core/starter"
 export default {
   key: "email",
   name: "Email",
-  root: "root",
+  root: "email",
   starter: starterDocument,
   devices: [
     { key: "desktop", icon: "desktop", title: "Desktop" },

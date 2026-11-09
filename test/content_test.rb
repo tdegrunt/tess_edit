@@ -25,12 +25,12 @@ class ContentTest < ActiveSupport::TestCase
   end
 
   test "a document's own nodes go in and come out of the layout's document" do
-    layout = {"type" => "root", "children" => [{"type" => "section", "children" => [{"type" => "content", "children" => [{"type" => "text"}]}]}]}
+    layout = {"type" => "email", "children" => [{"type" => "section", "children" => [{"type" => "content", "children" => [{"type" => "text"}]}]}]}
     own = [{"id" => "b1", "type" => "text", "data" => {"x" => 1}}]
     document = TessEdit::Content.document_with(layout, own)
     assert_equal own, TessEdit::Content.nodes(document)
     assert_equal [{"type" => "text"}], TessEdit::Content.nodes(layout), "the layout stays as it is"
-    assert_nil TessEdit::Content.nodes({"type" => "root", "children" => []})
-    assert_raises(TessEdit::Content::Error) { TessEdit::Content.document_with({"type" => "root"}, own) }
+    assert_nil TessEdit::Content.nodes({"type" => "email", "children" => []})
+    assert_raises(TessEdit::Content::Error) { TessEdit::Content.document_with({"type" => "email"}, own) }
   end
 end

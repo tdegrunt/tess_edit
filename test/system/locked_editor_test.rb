@@ -58,9 +58,9 @@ class LockedEditorTest < ApplicationSystemTestCase
     assert_equal %w[section content section], document_json["children"].map { |child| child["type"] }
   end
 
-  test "of the root only the subject and preview text can change" do
+  test "of the email only the subject and preview text can change" do
     click_on "Inspect"
-    assert_selector ".tess-edit h2", text: "Root"
+    assert_selector ".tess-edit h2", text: "Email"
     assert_not setting("Subject").disabled?
     assert_not setting("Preview text").disabled?
     assert setting("Width").disabled?

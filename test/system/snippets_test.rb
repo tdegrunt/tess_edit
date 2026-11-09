@@ -39,7 +39,7 @@ class SnippetsTest < ApplicationSystemTestCase
 
     copy = nil
     eventually { assert(copy = copy_of("bfoot1")) }
-    assert_equal "root", find_node(copy["id"])[1]["type"], "a section doesn't go in a column"
+    assert_equal "email", find_node(copy["id"])[1]["type"], "a section doesn't go in a column"
     assert_equal "bfoot3", copy.dig("children", 0, "children", 0, "origin")
   end
 

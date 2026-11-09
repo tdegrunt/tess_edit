@@ -10,7 +10,7 @@ class EditorTest < ApplicationSystemTestCase
     eventually do
       assert_includes output("html"), "{% for line in order.lines %}"
       assert_includes output("mjml"), "<mj-raw>{% if customer.orders_count == 1 %}</mj-raw>"
-      assert_equal "root", document_json["type"]
+      assert_equal "email", document_json["type"]
     end
     assert_no_match(/tess-/, output("html"))
   end
@@ -277,7 +277,7 @@ class EditorTest < ApplicationSystemTestCase
     visit "/?panels=right"
     assert_selector ".tess-edit main + aside"
     click_on "Inspect"
-    assert_selector ".tess-edit h2", text: "Root"
+    assert_selector ".tess-edit h2", text: "Email"
   end
 
   private

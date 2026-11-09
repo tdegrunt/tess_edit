@@ -198,8 +198,8 @@ export function getValue(node, key) {
 // `kit`, the document has to be one of that kit's.
 export function normalize(input, { kit } = {}) {
   const doc = typeof input === "string" ? JSON.parse(input) : clone(input)
-  // The email's root block was called "page" before; such documents still load.
-  if (doc?.type === "page") doc.type = "root"
+  // The email's root block was called "page", then "root"; such documents still load.
+  if (doc?.type === "page" || doc?.type === "root") doc.type = "email"
   const own = kitOf(doc)
   if (!own) throw new Error("Not a TessEdit document: the top node must be a root block")
   if (kit && own.key !== kit) throw new Error(`This is a document for the ${own.name} editor, not the ${getKit(kit)?.name || kit} one`)

@@ -1,9 +1,9 @@
-// The root of every document: renders the whole <mjml> document, with the
+// The root of an email: renders the whole <mjml> document, with the
 // email's subject, preview text and theme in <mj-head>.
 
 export default {
-  type: "root",
-  name: "Root",
+  type: "email",
+  name: "Email",
   icon: "root",
   roles: [],
   accepts: ["body", "wrapper"],

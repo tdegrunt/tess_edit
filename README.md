@@ -122,7 +122,7 @@ TessEdit.parent_controller = "Admin::BaseController"
 
 ```json
 {
-  "version": 1, "id": "b1x2y3z", "type": "root",
+  "version": 1, "id": "b1x2y3z", "type": "email",
   "attributes": { "width": "600px", "background-color": "#f3f4f6" },
   "data": { "subject": "...", "preheader": "...", "fontFamily": "..." },
   "children": [
@@ -135,7 +135,7 @@ TessEdit.parent_controller = "Admin::BaseController"
 }
 ```
 
-The top node is the `root` block, which renders the `<mjml>` document with the subject, preview text and theme. Documents from before its rename, with `"type": "page"`, still load. `attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a kit's own, can walk it.
+The top node is the `email` block, which renders the `<mjml>` document with the subject, preview text and theme. Documents from before its renames, with `"type": "page"` or `"type": "root"`, still load. `attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a kit's own, can walk it.
 
 ### Locking a layout
 
@@ -272,7 +272,7 @@ registerBlock({
 registerTessEdit(application)
 ```
 
-Roles say where a block may go: `body` (in the root or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks: `mjml` for emails, and a hook of its own for each kit. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
+Roles say where a block may go: `body` (in the email or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks: `mjml` for emails, and a hook of its own for each kit. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
 
 A select field's `options` can be a function of the editor, `options: (editor) => [...]`, for choices from your app. Give the editor those with `data-tess-edit-options-value` (JSON), which blocks read as `editor.options`.
 

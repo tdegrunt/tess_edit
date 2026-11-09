@@ -193,7 +193,7 @@ export class Canvas {
   rectOf(id) {
     const hit = find(this.editor.doc, id)
     if (!hit) return null
-    if (hit.node.type === "root") {
+    if (hit.node === this.editor.doc) {
       const body = this.doc.body
       const rect = body.getBoundingClientRect()
       return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.top + body.scrollHeight, width: rect.width, height: body.scrollHeight }
@@ -235,7 +235,7 @@ export class Canvas {
     if (this.hoverId && this.hoverId !== selectedId) {
       const hit = find(this.editor.doc, this.hoverId)
       const rect = hit && this.rectOf(this.hoverId)
-      if (rect && hit.node.type !== "root") {
+      if (rect && hit.node !== this.editor.doc) {
         const box = this.box(rect, "tess-hover")
         box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: getBlock(hit.node.type)?.name || hit.node.type }))
         this.overlay.append(box)
@@ -243,7 +243,7 @@ export class Canvas {
     }
 
     const hit = selectedId && find(this.editor.doc, selectedId)
-    if (!hit || hit.node.type === "root") return
+    if (!hit || hit.node === this.editor.doc) return
     const rect = this.rectOf(selectedId)
     if (!rect) return
     const box = this.box(rect, editingId === selectedId ? "tess-selected tess-editing" : "tess-selected")

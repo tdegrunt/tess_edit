@@ -1,5 +1,5 @@
 {
-  "version": 1, "id": "blroot", "type": "root",
+  "version": 1, "id": "blroot", "type": "email",
   "attributes": { "width": "600px", "background-color": "#f3f4f6" },
   "data": { "subject": "Your order {{ order.number }}", "preheader": "Thanks for shopping with us", "breakpoint": "480px", "fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "14px", "lineHeight": "1.6", "textColor": "#111827", "css": "" },
   "children": [

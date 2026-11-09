@@ -68,12 +68,13 @@ test("remove and setValue", () => {
 test("normalize accepts JSON and rejects unknown blocks", () => {
   const { doc } = sample()
   assert.deepEqual(normalize(JSON.stringify(doc)), doc)
-  assert.throws(() => normalize({ type: "root", children: [{ type: "carousel" }] }), /Unknown block type/)
+  assert.throws(() => normalize({ type: "email", children: [{ type: "carousel" }] }), /Unknown block type/)
   assert.throws(() => normalize({ type: "section" }), /must be a root block/)
 })
 
-test("normalize loads documents whose root is still called page", () => {
-  assert.equal(normalize({ type: "page", children: [] }).type, "root")
+test("normalize loads emails whose root is still called page or root", () => {
+  assert.equal(normalize({ type: "page", children: [] }).type, "email")
+  assert.equal(normalize({ type: "root", children: [] }).type, "email")
 })
 
 test("history coalesces changes with the same key", () => {
