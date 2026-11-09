@@ -27,6 +27,11 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 
   private
 
+  # The browser's: a Mac's own Chrome, or Linux's through Selenium
+  def select_all_key
+    (RUBY_PLATFORM.include?("darwin") && ENV["SELENIUM_URL"].blank?) ? :command : :control
+  end
+
   def within_canvas(&)
     within_frame(find("iframe[title='Email canvas']"), &)
   end

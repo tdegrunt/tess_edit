@@ -133,11 +133,6 @@ class TranslationsTest < ApplicationSystemTestCase
     assert_no_selector "[role=dialog][aria-label='Make translatable']"
   end
 
-  # The browser's: a Mac's own Chrome, or Linux's through Selenium
-  def select_all_key
-    (RUBY_PLATFORM.include?("darwin") && ENV["SELENIUM_URL"].blank?) ? :command : :control
-  end
-
   def language
     find("select[aria-label='Show translations in']")
   end

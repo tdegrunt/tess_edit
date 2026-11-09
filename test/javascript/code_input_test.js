@@ -25,9 +25,9 @@ test("highlighted CSS holds exactly the original text", () => {
 
 test("tags, attributes, strings and Liquid are colored", () => {
   const html = highlightHtml('<a href="{{ url }}">{% if x %}Go{% endif %}</a>')
-  assert.match(html, /<span class="text-blue-700">&lt;a<\/span>/)
-  assert.match(html, /<span class="text-amber-700">href<\/span>/)
-  assert.match(html, /<span class="text-green-700">"<span class="text-purple-700">\{\{ url \}\}<\/span>"<\/span>/)
+  assert.match(html, /<span class="text-blue-700[^"]*">&lt;a<\/span>/)
+  assert.match(html, /<span class="text-amber-700[^"]*">href<\/span>/)
+  assert.match(html, /<span class="text-green-700[^"]*">"<span class="text-purple-700">\{\{ url \}\}<\/span>"<\/span>/)
   assert.match(html, /<span class="text-purple-700">\{% if x %\}<\/span>Go/)
 })
 

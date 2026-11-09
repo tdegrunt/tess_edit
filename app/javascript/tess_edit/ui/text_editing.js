@@ -9,6 +9,7 @@
 import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
 import { missingArguments, translationCalls } from "tess_edit/core/translations"
 import { showText } from "tess_edit/ui/canvas"
+import { askText } from "tess_edit/ui/dialog"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
@@ -88,6 +89,22 @@ export class TextEditing {
     tiptap.chain().focus().setTextSelection(from + tag.length).run()
   }
 
+  // The selected text's link, in a dialog: an empty URL removes it
+  async editLink() {
+    const tiptap = this.tiptap
+    const previous = tiptap.getAttributes("link").href
+    const href = await askText(this.editor.root, {
+      title: previous ? "Edit link" : "Add link",
+      label: "URL",
+      value: previous || "https://",
+      hint: "Liquid is allowed, e.g. {{ order.url }}",
+      remove: Boolean(previous)
+    })
+    if (href === null || this.tiptap !== tiptap) return tiptap.commands.focus()
+    const chain = tiptap.chain().focus().extendMarkRange("link")
+    href ? chain.setLink({ href }).run() : chain.unsetLink().run()
+  }
+
   stop() {
     if (!this.tiptap) return null
     const json = this.tiptap.getJSON()
@@ -147,12 +164,7 @@ export class TextEditing {
       button("strike", "Strikethrough", editor.isActive("strike"), () => chain().toggleStrike().run()),
       color,
       separator(),
-      button("link", "Link", editor.isActive("link"), () => {
-        const previous = editor.getAttributes("link").href || "https://"
-        const href = window.prompt("Link URL (Liquid allowed, e.g. {{ order.url }})", previous)
-        if (href === null) return
-        href ? chain().extendMarkRange("link").setLink({ href }).run() : chain().extendMarkRange("link").unsetLink().run()
-      }),
+      button("link", "Link", editor.isActive("link"), () => this.editLink()),
       editor.isActive("link") ? button("unlink", "Remove link", false, () => chain().extendMarkRange("link").unsetLink().run()) : null,
       separator(),
       button("align-left", "Align left", editor.isActive({ textAlign: "left" }), () => chain().setTextAlign("left").run()),

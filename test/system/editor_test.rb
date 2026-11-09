@@ -40,6 +40,32 @@ class EditorTest < ApplicationSystemTestCase
     eventually { assert(blocks.any? { |type, text| type == "text" && text.to_s.include?("See you soon.") }) }
   end
 
+  test "a link is added, changed and removed in a dialog" do
+    within_canvas do
+      find("td[class^='tess-']", text: "We've received order").double_click
+      find(".ProseMirror").send_keys([select_all_key, "a"])
+    end
+    find(".tess-edit button[title='Link']").click
+    within("[role=dialog][aria-label='Add link']") do
+      assert_no_button "Remove"
+      fill_in "URL", with: "{{ order.url }}"
+      click_on "Save"
+    end
+    within_canvas { assert_selector ".ProseMirror a[href='{{ order.url }}']" }
+
+    find(".tess-edit button[title='Link']").click
+    within("[role=dialog][aria-label='Edit link']") do
+      assert_equal "{{ order.url }}", find_field("URL").value
+      find_field("URL").send_keys(:escape)
+    end
+    assert_no_selector "[role=dialog]"
+    within_canvas { assert_selector ".ProseMirror a[href='{{ order.url }}']" }
+
+    find(".tess-edit button[title='Link']").click
+    within("[role=dialog][aria-label='Edit link']") { click_on "Remove" }
+    within_canvas { assert_no_selector ".ProseMirror a" }
+  end
+
   test "clicking a tile adds the block after the selected one" do
     within_canvas { find("td[class^='tess-']", text: "View your order").click }
     click_on "Spacer"
