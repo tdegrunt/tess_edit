@@ -20,5 +20,7 @@ export default {
       ]
     }
   ],
-  render: { mjml: (node, { element }) => element("mj-divider", node) }
+  render: {
+    mjml: (node, { element }) => element("mj-divider", node)
+  }
 }

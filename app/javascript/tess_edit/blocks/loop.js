@@ -1,3 +1,5 @@
+const forTag = (node) => `{% for ${node.data.variable || "item"} in ${node.data.collection || "items"} %}`
+
 export default {
   type: "loop",
   name: "Loop",
@@ -18,6 +20,6 @@ export default {
   hint: "Repeats its blocks for each item: {% for variable in collection %}.",
   label: (node) => `For ${node.data.variable || "item"} in ${node.data.collection || "…"}`,
   render: {
-    mjml: (node, { liquid }) => liquid(node, `{% for ${node.data.variable || "item"} in ${node.data.collection || "items"} %}`, "{% endfor %}")
+    mjml: (node, { liquid }) => liquid(node, forTag(node), "{% endfor %}")
   }
 }

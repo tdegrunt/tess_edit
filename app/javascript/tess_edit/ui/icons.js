@@ -10,6 +10,7 @@ const paths = {
   heading: '<path d="M6 4v16M18 4v16M6 12h12"/>',
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
   button: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M9 12h6"/>',
+  content: '<rect x="3" y="4" width="18" height="16" rx="2" stroke-dasharray="3 2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
   divider: '<path d="M3 12h18"/><path d="M8 7h8M8 17h8" opacity=".4"/>',
   spacer: '<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>',
   social: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/>',

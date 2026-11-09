@@ -1,10 +1,13 @@
 // The document is a plain JSON tree:
 //   { id, type, attributes: {}, data: {}, children: [] }
-// `attributes` map one-to-one onto MJML attributes, `data` holds everything else
-// (rich text, Liquid expressions, link lists). All functions here are pure apart
+// `attributes` hold a block's styling, named after MJML's attributes (a kit
+// with other output maps them onto its own), `data` holds everything else
+// (rich text, Liquid expressions, link lists). A block copied from elsewhere,
+// such as a host's reusable content, may also have `origin`: the id of the
+// block it is a copy of (see renumber). All functions here are pure apart
 // from the mutating helpers, which change the tree they are given in place.
 
-import { getBlock, paletteItem, typesForRoles } from "tess_edit/core/registry"
+import { DEFAULT_KIT, getBlock, getKit, kitOf, paletteItem, typesForRoles } from "tess_edit/core/registry"
 
 export const VERSION = 1
 
@@ -30,8 +33,11 @@ export function createNode(type, overrides = {}) {
   }
 }
 
-export function createDocument() {
-  return { version: VERSION, ...createNode("root") }
+// An empty document of a kit (see core/registry.js), an email by default.
+export function createDocument(kit = DEFAULT_KIT) {
+  const definition = getKit(kit)
+  if (!definition) throw new Error(`Unknown kit: ${kit}`)
+  return { version: VERSION, ...createNode(definition.root) }
 }
 
 // Calls fn(node, parent, index, depth) for every node, depth first.
@@ -79,12 +85,34 @@ export function acceptedRoles(doc, parentId) {
   const accepts = getBlock(hit.node.type)?.accepts
   if (accepts !== "inherit") return accepts || []
   const owner = ancestors(doc, parentId).find((node) => getBlock(node.type)?.accepts !== "inherit")
-  return (owner ? getBlock(owner.type).accepts : getBlock("root").accepts).filter((role) => role !== "column")
+  return (owner ? getBlock(owner.type).accepts : getBlock(doc.type).accepts).filter((role) => role !== "column")
 }
 
-// The block types that may be placed directly inside the node with `parentId`.
-export function accepted(doc, parentId) {
-  return typesForRoles(acceptedRoles(doc, parentId))
+// The block types of the document's kit that may be placed directly inside
+// the node with `parentId`. A block that is `unique`, such as the Content
+// block, can't be added when the document has one, but it can be moved.
+export function accepted(doc, parentId, { moving = false } = {}) {
+  const types = typesForRoles(acceptedRoles(doc, parentId), kitOf(doc)?.key)
+  return moving ? types : types.filter((type) => !getBlock(type).unique || !findType(doc, type))
+}
+
+// The first node of a type, depth first
+export function findType(doc, type) {
+  let result = null
+  walk(doc, (node) => {
+    if (result) return false
+    if (node.type === type) result = node
+  })
+  return result
+}
+
+// The first type that keeps a node from going inside `parentId`, where the
+// types in `allowed` can go, or null when it fits: the node's own, or for a
+// container that takes what its parent takes ("inherit"), one of its children's.
+export function misfit(node, allowed) {
+  if (!allowed.includes(node.type)) return node.type
+  if (getBlock(node.type)?.accepts !== "inherit") return null
+  return node.children.find((child) => !allowed.includes(child.type))?.type || null
 }
 
 export function canInsert(doc, parentId, type) {
@@ -97,10 +125,14 @@ export function isHorizontal(doc, parentId) {
   return hit ? !!getBlock(hit.node.type)?.horizontal : false
 }
 
-// Gives a node and all of its descendants fresh ids, for duplicating and pasting.
-export function renumber(node) {
+// Gives a node and all of its descendants fresh ids, for duplicating and
+// pasting. The copy is new content, so it has no origin; with `origin` each
+// block's origin is the id of the block it is a copy of instead.
+export function renumber(node, { origin = false } = {}) {
   const copy = clone(node)
   walk(copy, (n) => {
+    if (origin) n.origin = n.id
+    else delete n.origin
     n.id = uid()
   })
   return copy
@@ -162,12 +194,15 @@ export function getValue(node, key) {
   return node[scope]?.[name]
 }
 
-// Light validation of a document read from storage or an import.
-export function normalize(input) {
+// Light validation of a document read from storage or an import. With a
+// `kit`, the document has to be one of that kit's.
+export function normalize(input, { kit } = {}) {
   const doc = typeof input === "string" ? JSON.parse(input) : clone(input)
-  // The root block was called "page" before; such documents still load.
+  // The email's root block was called "page" before; such documents still load.
   if (doc?.type === "page") doc.type = "root"
-  if (!doc || doc.type !== "root") throw new Error("Not a TessEdit document: the top node must be the root block")
+  const own = kitOf(doc)
+  if (!own) throw new Error("Not a TessEdit document: the top node must be a root block")
+  if (kit && own.key !== kit) throw new Error(`This is a document for the ${own.name} editor, not the ${getKit(kit)?.name || kit} one`)
   walk(doc, (node) => {
     if (!getBlock(node.type)) throw new Error(`Unknown block type: ${node.type}`)
     node.id ||= uid()
@@ -176,6 +211,21 @@ export function normalize(input) {
     node.children ||= []
   })
   doc.version ||= VERSION
+  return doc
+}
+
+// The Content block of a layout (see blocks/content.js): where the documents
+// using the layout put their own blocks.
+export function contentNode(doc) {
+  return findType(doc, "content")
+}
+
+// The layout with these blocks in its Content block, as a new document
+export function withContent(layout, nodes) {
+  const doc = clone(layout)
+  const content = contentNode(doc)
+  if (!content) throw new Error("The layout has no Content block")
+  content.children = clone(nodes || [])
   return doc
 }
 

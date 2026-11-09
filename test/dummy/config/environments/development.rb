@@ -45,4 +45,9 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # The demo can be shared through a tunnel, such as bb connect's, which
+  # hands requests on with another origin than the browser's
+  config.hosts << ".getbb.app"
+  config.action_controller.forgery_protection_origin_check = false
 end

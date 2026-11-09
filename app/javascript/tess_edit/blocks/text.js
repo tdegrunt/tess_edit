@@ -35,5 +35,7 @@ export default {
       create: ({ createNode }) => createNode("text", { attributes: { "font-size": "24px", "font-weight": "700", "line-height": "1.3" }, data: { content: doc("Heading") } })
     }
   ],
-  render: { mjml: (node, { element, richText }) => element("mj-text", node, richText(node.data.content)) }
+  render: {
+    mjml: (node, { element, richText }) => element("mj-text", node, richText(node.data.content))
+  }
 }

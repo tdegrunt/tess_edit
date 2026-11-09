@@ -28,5 +28,7 @@ export default {
     border
   ],
   label: (node) => `Button · ${node.data.content || ""}`,
-  render: { mjml: (node, { element, escapeText }) => element("mj-button", node, escapeText(node.data.content)) }
+  render: {
+    mjml: (node, { element, escapeText }) => element("mj-button", node, escapeText(node.data.content))
+  }
 }

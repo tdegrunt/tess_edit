@@ -2,6 +2,8 @@
 
 TessEdit is a drag-and-drop email editor for Rails, written in plain JavaScript with Stimulus. You build an email from blocks; the editor stores the design as JSON and exports [MJML](https://mjml.io) and responsive HTML. Blocks can hold [Liquid](https://shopify.github.io/liquid/), which survives into the HTML so it can be rendered at send time.
 
+What it makes is a kit: the email is built in, and your app can add its own, such as the demo's Note, with blocks of its own and TessEdit's (see [Kits](#kits)).
+
 The interface follows familiar layout: blocks and a layers tree on the left, the email in the middle, and Inspect, with the selected block's settings, on the right.
 
 ![TessEdit interface](docs/overview.png)
@@ -22,6 +24,9 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 - Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room.
 - Dark mode that follows the host app's.
 - Code dialog to view, copy or download the JSON, MJML and HTML, and to load JSON.
+- Kits: other kinds of documents, registered by your app, with its own blocks and output and TessEdit's blocks brought in.
+- Layouts: a Content block marks where the documents using a layout put their own blocks, and a lock keeps the rest of the layout as it is.
+- Palette sources: tiles from your app in the Blocks panel, such as saved snippets, inserted as a copy that remembers where it came from.
 
 ## Installation
 
@@ -130,7 +135,7 @@ TessEdit.parent_controller = "Admin::BaseController"
 }
 ```
 
-The top node is the `root` block, which renders the `<mjml>` document with the subject, preview text and theme. Documents from before its rename, with `"type": "page"`, still load. `attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a PDF renderer, can walk it.
+The top node is the `root` block, which renders the `<mjml>` document with the subject, preview text and theme. Documents from before its rename, with `"type": "page"`, still load. `attributes` map onto MJML attributes; `data` holds everything else. Text content is Tiptap (ProseMirror) JSON, so other renderers, such as a kit's own, can walk it.
 
 ### Locking a layout
 
@@ -141,7 +146,48 @@ To let people fill in one part of a design that is otherwise fixed, such as a te
   data-tess-edit-lock-value='<%= {except: ["content"], fields: ["data.subject", "data.preheader"]}.to_json %>'>
 ```
 
-Only what is inside blocks of the types in `except` can change: those blocks take new blocks, and everything in them can be edited, moved, duplicated and deleted. The blocks themselves stay where they are. Of the root, only the listed `fields` can change. Everything else still shows on the canvas and can be selected, with its settings disabled in Inspect and a lock in Layers. A tile clicked while a locked block is selected goes at the end of the first block it is allowed in, and the Code dialog shows the JSON without loading it. The editor still stores the whole document; taking the open part out of it is up to the host app. The `except` types are usually a custom block, like the demo's Content block in `test/dummy/app/javascript/blocks/content.js`.
+Only what is inside blocks of the types in `except` can change: those blocks take new blocks, and everything in them can be edited, moved, duplicated and deleted. The blocks themselves stay where they are. Of the root, only the listed `fields` can change. Everything else still shows on the canvas and can be selected, with its settings disabled in Inspect and a lock in Layers. A tile clicked while a locked block is selected goes at the end of the first block it is allowed in, and the Code dialog shows the JSON without loading it. The editor still stores the whole document; taking the open part out of it is up to the host app. The `except` type is usually `content`, the Content block (see Layouts).
+
+### Layouts
+
+The Content block (in the Layout category of the Blocks panel) marks where the documents using a layout put their own blocks; a layout has one. What a layout has inside it is example content to design the layout with. Outside the editor its contents are between two comments, in `<mj-raw>` tags in MJML:
+
+```html
+<!-- tess-edit:content --> … <!-- /tess-edit:content -->
+```
+
+A document using a layout stores its own blocks. `TessEdit::Content` puts them in and takes them out again, and puts a document's output into its layout's, so a document follows its layout when the layout changes:
+
+```ruby
+document = TessEdit::Content.document_with(layout.json, template.blocks)  # for the editor, locked to the Content block
+blocks = TessEdit::Content.nodes(JSON.parse(params[:json]))               # what to store when it is saved
+html = TessEdit::Content.merge(layout.html, TessEdit::Content.content_of(params[:html]))
+```
+
+### Palette sources
+
+A palette source adds a section of tiles from your app to the Blocks panel, such as saved snippets. People drag a tile onto the canvas or click it, and the source creates the node that goes in:
+
+```js
+import { registerPaletteSource, renumber } from "tess_edit"
+
+registerPaletteSource({
+  key: "snippets",
+  label: "Snippets",
+  // null leaves the section out, e.g. without the setting it needs
+  items: async (editor) => {
+    if (!editor.options.snippetsUrl) return null
+    const response = await fetch(editor.options.snippetsUrl)
+    return (await response.json()).snippets // [{ key, label, type, … }]
+  },
+  // The node to insert, here a copy of the snippet's block
+  create: async (item, editor) => renumber(item.block, { origin: true })
+})
+```
+
+An item's `type` says where the tile can go; a container with `accepts: "inherit"` goes where its children go, so a snippet with sections can't go into a column, and the editor says so. `renumber(node, { origin: true })` gives every copied block an `origin`, the id of the block it is a copy of, so your app can compare the copy with what it came from, block by block. A duplicated block is new content and has no origin. `data-tess-edit-options-value` passes settings such as `snippetsUrl` to sources and blocks, as `editor.options`.
+
+`data-tess-edit-blocks-value` limits the blocks people can add, e.g. `["text", "image"]`; blocks already in the document, and tiles from sources, aren't affected.
 
 ### Images
 
@@ -226,7 +272,32 @@ registerBlock({
 registerTessEdit(application)
 ```
 
-Roles say where a block may go: `body` (in the root or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks, so a later renderer (PDF) adds a hook per block next to `mjml`. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
+Roles say where a block may go: `body` (in the root or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks: `mjml` for emails, and a hook of its own for each kit. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
+
+A select field's `options` can be a function of the editor, `options: (editor) => [...]`, for choices from your app. Give the editor those with `data-tess-edit-options-value` (JSON), which blocks read as `editor.options`.
+
+## Kits
+
+What the editor makes is a kit: a root block, the blocks that name the kit in their `kits`, and what the canvas shows and the editor outputs. The email is the built-in kit and its reference. Your app registers its own with `registerKit` before its root block, and picks it with `data-tess-edit-kit-value`:
+
+```js
+import { createDocument, extendBlock, registerBlock, registerKit } from "tess_edit"
+
+registerKit({
+  key: "note", name: "Note", root: "note",
+  starter: () => createDocument("note"),
+  canvas: async (doc, { editor }) => ({ html: toNoteHtml(doc, { editor }), errors: [] }),  // with tess-<id> classes in the editor
+  outputs: async (doc) => ({ outputs: { html: toNoteHtml(doc) }, errors: [] })            // into the htmlInput
+})
+registerBlock({ type: "note", name: "Note", kits: ["note"], accepts: ["body", "content"], render: { note: … } })
+
+// TessEdit's own blocks, in the kit, with how they render in it
+extendBlock("text", { kits: ["note"], render: { note: (node, ctx) => … } })
+```
+
+A block is part of the email kit unless it says otherwise. `extendBlock` adds kits, render hooks and field groups to a block that is registered, also when another gem replaced it, so the kit can use TessEdit's Text, Image, Section, Loop, Condition, Content and others. The kit renders its documents itself, through its blocks' hooks; the canvas needs every block's element to have the class `tess-<id>`, and an empty container a placeholder with `tessph-<id>`. `core/registry.js` describes the definition. `kits/email.js` is the reference, and the demo's Note kit (`test/dummy/app/javascript/kits/note.js`) a small one of a host app's own.
+
+Loading a document into the editor of another kit fails with a message saying which editor it is for.
 
 ## Development
 
@@ -242,17 +313,23 @@ cd test/dummy && bin/dev
 
 `/?variables=1` gives the editor the demo's variables (`VariablesController`), an order's, to try the suggestions.
 
+`/?kit=note` designs a note: the demo's own kit (`app/javascript/kits/note.js`).
+
+`/?snippets=1` adds the demo's snippets source (`app/javascript/snippets.js`, `SnippetsController`): a greeting and a footer section.
+
+`/?blocks=text,image` only offers those blocks.
+
 `/?translations=1` gives the editor the demo's translations (`TranslationsController`, in memory, in English, Dutch and German). The options combine, e.g. `/?lock=1&media=1&variables=1&translations=1`.
 
 Tests:
 
 ```bash
-npm test               # JavaScript: document model, export, MJML snapshots (Node 22+)
+npm test               # JavaScript: document model, kits, export and MJML snapshots (Node 22+)
 bin/rails test         # Rails: engine, compile endpoint, MRML and Liquid rendering of the snapshots
 bin/rails test:system  # The editor in Chrome, through Selenium
 ```
 
-`npm test` compares the MJML of every block, and of the sample email, with the files in `test/javascript/snapshots`. The Rails tests compile those files with MRML and render the sample with Liquid. After an intended change in output, regenerate them and review the diff:
+`npm test` compares the MJML of every email block, and of the sample email, with the files in `test/javascript/snapshots`. The Rails tests compile those files with MRML and render the sample with Liquid. After an intended change in output, regenerate them and review the diff:
 
 ```bash
 UPDATE_SNAPSHOTS=1 npm test

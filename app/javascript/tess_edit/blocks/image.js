@@ -25,5 +25,7 @@ export default {
     },
     { title: "Border", collapsed: true, fields: [{ key: "attributes.border", label: "Border", type: "text" }, { key: "attributes.border-radius", label: "Radius", type: "size" }, { key: "attributes.container-background-color", label: "Background", type: "color" }] }
   ],
-  render: { mjml: (node, { element }) => element("mj-image", node) }
+  render: {
+    mjml: (node, { element }) => element("mj-image", node)
+  }
 }

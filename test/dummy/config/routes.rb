@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get "media", to: "media#index", as: :media
   post "media", to: "media#create"
   get "variables", to: "variables#index", as: :variables
+  get "snippets", to: "snippets#index", as: :snippets
   get "translations", to: "translations#index", as: :translations
   patch "translations", to: "translations#update"
   get "media/:name", to: "media#show", as: :media_file, constraints: {name: %r{[^/]+}}

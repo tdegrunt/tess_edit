@@ -1,5 +1,5 @@
-// Snapshot tests: the MJML each block exports, compared to files in
-// test/javascript/snapshots. The Rails tests compile these files with MRML
+// Snapshot tests: the MJML each email block exports, compared to files in
+// test/javascript/snapshots. The Rails tests compile the MJML files with MRML
 // (test/compile_test.rb) and render the sample with Liquid.
 //
 // After an intended change in output, regenerate and review the diff:
@@ -56,7 +56,7 @@ function documentWith(key) {
   return stableIds(doc)
 }
 
-for (const item of paletteItems()) {
+for (const item of paletteItems("email")) {
   test(`MJML for ${item.label}`, () => {
     const doc = documentWith(item.key)
     matchFile(path.join(snapshots, `${item.key}.mjml`), toMjml(doc))

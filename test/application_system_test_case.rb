@@ -32,8 +32,9 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     (RUBY_PLATFORM.include?("darwin") && ENV["SELENIUM_URL"].blank?) ? :command : :control
   end
 
-  def within_canvas(&)
-    within_frame(find("iframe[title='Email canvas']"), &)
+  # The canvas of the email editor, or of the kit with the given name
+  def within_canvas(kit = "Email", &)
+    within_frame(find("iframe[title='#{kit} canvas']"), &)
   end
 
   # Retries the block until its assertions pass, for the editor's debounced outputs.

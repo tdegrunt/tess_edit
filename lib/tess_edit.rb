@@ -3,6 +3,7 @@ require "stimulus-rails"
 require "mrml"
 require "tess_edit/version"
 require "tess_edit/engine"
+require "tess_edit/content"
 
 module TessEdit
   Result = Data.define(:html, :errors)

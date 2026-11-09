@@ -1,7 +1,7 @@
 // The Layers panel: the document as a collapsible tree that can be reordered by
 // dragging. Rows also take blocks dragged from the Blocks panel.
 
-import { canInsert, find, isDescendant } from "tess_edit/core/document"
+import { find, isDescendant } from "tess_edit/core/document"
 import { getBlock, isContainer, label } from "tess_edit/core/registry"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -93,7 +93,7 @@ export class Tree {
     const drag = this.editor.drag
     if (!drag) return null
     const doc = this.editor.doc
-    const ok = (parentId) => this.editor.canFill(parentId) && canInsert(doc, parentId, drag.type) && !(drag.kind === "move" && (parentId === drag.id || isDescendant(doc, drag.id, parentId)))
+    const ok = (parentId) => this.editor.canInsert(parentId, drag.type, { moving: drag.kind !== "new" }) && !(drag.kind === "move" && (parentId === drag.id || isDescendant(doc, drag.id, parentId)))
     const rect = event.currentTarget.getBoundingClientRect()
     const ratio = (event.clientY - rect.top) / rect.height
     const hit = find(doc, node.id)

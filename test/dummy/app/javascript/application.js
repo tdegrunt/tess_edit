@@ -1,7 +1,7 @@
 import "controllers"
 import { application } from "controllers/application"
-import { registerBlock, registerTessEdit } from "tess_edit"
-import content from "blocks/content"
+import { registerTessEdit } from "tess_edit"
+import "kits/note"
+import "snippets"
 
-registerBlock(content)
 registerTessEdit(application)

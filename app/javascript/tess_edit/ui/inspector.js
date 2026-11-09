@@ -164,7 +164,8 @@ export class Inspector {
         return h(
           "select",
           { class: `${INPUT} pr-7`, onchange: (event) => set(event.target.value) },
-          field.options.map((option) => {
+          // options can depend on the editor's settings: options(editor)
+          (typeof field.options === "function" ? field.options(this.editor) : field.options).map((option) => {
             const optionValue = typeof option === "string" ? option : option.value
             const optionLabel = typeof option === "string" ? option || "Default" : option.label
             return h("option", { value: optionValue, selected: optionValue === value }, optionLabel)

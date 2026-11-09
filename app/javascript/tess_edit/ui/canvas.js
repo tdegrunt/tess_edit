@@ -4,7 +4,7 @@
 // editor-mode MJML puts on every element. With the host's translations, t
 // filters show their text in the editor's language (see annotate).
 
-import { ancestors, canInsert, find, isDescendant, isHorizontal } from "tess_edit/core/document"
+import { ancestors, find, isDescendant, isHorizontal } from "tess_edit/core/document"
 import { imageFields } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
@@ -81,7 +81,9 @@ export class Canvas {
     doc.head.append(style)
     this.overlay = doc.createElement("div")
     this.overlay.id = "tess-overlay"
-    doc.body.append(this.overlay)
+    // Outside the body, which a kit may position (a sheet of paper), so the
+    // overlay's coordinates are the document's
+    doc.documentElement.append(this.overlay)
     this.win.scrollTo(0, scrollY)
     if (mode === "edit") {
       this.listen()
@@ -246,7 +248,7 @@ export class Canvas {
     if (!rect) return
     const box = this.box(rect, editingId === selectedId ? "tess-selected tess-editing" : "tess-selected")
     const free = this.editor.isFree(selectedId)
-    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? "Editing text · Esc to finish" : free ? label(hit.node) : `${label(hit.node)} · Layout` }))
+    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? "Editing text · Esc to finish" : free || !this.editor.lock ? label(hit.node) : `${label(hit.node)} · Layout` }))
 
     if (editingId !== selectedId) {
       const tools = this.doc.createElement("div")
@@ -384,13 +386,14 @@ export class Canvas {
   }
 
   // The nearest block, from the one under the pointer outwards, with an image
-  // field that can be edited
+  // field that can be edited. The root's (e.g. a page background) only when
+  // dropped on the page itself, not on a block in it.
   imageTarget(target) {
     if (!this.editor.media.enabled) return null
     const hit = this.hit(target)
     if (!hit) return null
     const doc = this.editor.doc
-    for (const node of [find(doc, hit.id).node, ...ancestors(doc, hit.id)]) {
+    for (const node of [find(doc, hit.id).node, ...ancestors(doc, hit.id).filter((node) => node !== doc)]) {
       const field = imageFields(getBlock(node.type)).find((field) => this.editor.canEditField(node.id, field.key))
       if (field) return { id: node.id, field }
     }
@@ -425,7 +428,7 @@ export class Canvas {
 
   allowed(parentId, drag) {
     const doc = this.editor.doc
-    if (!this.editor.canFill(parentId) || !canInsert(doc, parentId, drag.type)) return false
+    if (!this.editor.canInsert(parentId, drag.type, { moving: drag.kind !== "new" })) return false
     if (drag.kind === "move" && (parentId === drag.id || isDescendant(doc, drag.id, parentId))) return false
     return true
   }

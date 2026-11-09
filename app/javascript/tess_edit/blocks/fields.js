@@ -1,8 +1,10 @@
 // Field definitions shared by the built-in blocks, and usable by custom ones.
 // A field: { key: "attributes.padding" | "data.subject", label, type, ... }.
 // Types: text, textarea, code, size, color, select, segmented, toggle,
-// spacing and list; see ui/inspector.js. `liquid` gives a field a button to
-// insert the host's variables (see Inspector#variables).
+// spacing and list; see ui/inspector.js. A select's options can be a
+// function of the editor, options(editor), for choices the host gives.
+// `liquid` gives a field a button to insert the host's variables (see
+// Inspector#variables).
 
 export const ALIGN = [
   { value: "left", label: "Left" },

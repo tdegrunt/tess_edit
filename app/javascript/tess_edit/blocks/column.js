@@ -20,5 +20,7 @@ export default {
     },
     border
   ],
-  render: { mjml: (node, { container }) => container("mj-column", node) }
+  render: {
+    mjml: (node, { container }) => container("mj-column", node)
+  }
 }

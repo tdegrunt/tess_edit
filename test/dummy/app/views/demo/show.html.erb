@@ -4,19 +4,26 @@
   <div class="flex items-center gap-3">
     <h1 class="text-lg font-semibold text-gray-900">TessEdit</h1>
     <p class="text-sm text-gray-500">Drag blocks onto the canvas, select them to change their settings, double-click text to edit it.</p>
-    <%= form.submit "Submit form", class: "ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %>
+    <%= link_to params[:kit] == "note" ? "Email" : "Note", root_path(kit: (params[:kit] == "note") ? nil : "note"), class: "ml-auto text-sm text-blue-700 hover:underline" %>
+    <%= form.submit "Submit form", class: "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %>
   </div>
 
   <%# ?panels=left or ?panels=right sets the default panel layout. ?lock=1 opens
       a layout with only its Content block, subject and preview text editable.
       ?media=1 lets Image blocks choose and upload images (MediaController).
       ?variables=1 suggests an order template's Liquid variables (VariablesController).
-      ?translations=1 shows and edits translations for Liquid's t filter (TranslationsController). %>
+      ?translations=1 shows and edits translations for Liquid's t filter (TranslationsController).
+      ?kit=note designs a note instead of an email, the demo's own kit (app/javascript/kits/note.js).
+      ?snippets=1 offers snippets to insert as a copy (app/javascript/snippets.js, SnippetsController).
+      ?blocks=text,image only offers those blocks. %>
   <% locked = params[:lock].present? %>
   <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>"
+    <% if params[:kit].present? %>data-tess-edit-kit-value="<%= params[:kit] %>"<% end %>
     <% if params[:media].present? %>data-tess-edit-media-url-value="<%= media_path %>"<% end %>
     <% if params[:variables].present? %>data-tess-edit-variables-url-value="<%= variables_path %>"<% end %>
     <% if params[:translations].present? %>data-tess-edit-translations-url-value="<%= translations_path %>"<% end %>
+    <% if params[:snippets].present? %>data-tess-edit-options-value="<%= {snippetsUrl: snippets_path(kit: params[:kit].presence)}.to_json %>"<% end %>
+    <% if params[:blocks].present? %>data-tess-edit-blocks-value="<%= params[:blocks].split(",").to_json %>"<% end %>
     <% if locked %>
       data-tess-edit-document-value="<%= Rails.root.join("config/demo_layout.json").read %>"
       data-tess-edit-lock-value="<%= {except: ["content"], fields: ["data.subject", "data.preheader"]}.to_json %>"

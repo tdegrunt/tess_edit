@@ -1,6 +1,6 @@
 require "application_system_test_case"
 
-# The demo layout at /?lock=1: a header, the demo Content block and a footer,
+# The demo layout at /?lock=1: a header, a Content block and a footer,
 # with only the Content block's insides and the subject and preview text open.
 class LockedEditorTest < ApplicationSystemTestCase
   setup do
@@ -75,7 +75,7 @@ class LockedEditorTest < ApplicationSystemTestCase
     assert header.has_selector?("[title='Part of the layout']")
     assert_not_equal "true", header[:draggable]
     assert_equal "true", find("[role=treeitem]", text: "Hi {{ customer")[:draggable]
-    content = find("[role=treeitem]", text: "Template content")
+    content = find("[role=treeitem]", exact_text: "Content")
     assert_not_equal "true", content[:draggable]
     assert content.has_no_selector?("[title='Part of the layout']")
   end

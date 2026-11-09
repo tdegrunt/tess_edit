@@ -1,3 +1,5 @@
+const ifTag = (node) => `{% if ${node.data.expression || "true"} %}`
+
 export default {
   type: "condition",
   name: "Condition",
@@ -10,6 +12,6 @@ export default {
   hint: "Shows its blocks only when the condition is true: {% if expression %}.",
   label: (node) => `If ${node.data.expression || "…"}`,
   render: {
-    mjml: (node, { liquid }) => liquid(node, `{% if ${node.data.expression || "true"} %}`, "{% endif %}")
+    mjml: (node, { liquid }) => liquid(node, ifTag(node), "{% endif %}")
   }
 }

@@ -1,6 +1,8 @@
 // <div data-controller="tess-edit"> … </div>
 //
 // Values:
+//   kit       what the editor makes: "email" (the default), or a kit the host
+//             registered (see core/registry.js)
 //   document  JSON of the document to load (falls back to the json input, then a sample)
 //   sample    load the sample document when there is nothing else (default true)
 //   panels    "split" (Blocks and Layers left, Inspect right), "left" or "right" (all panels
@@ -8,8 +10,8 @@
 //             top bar is remembered per browser. Below NARROW_WIDTH the editor
 //             puts all panels on the left, whatever the choice, to leave room
 //             for the canvas.
-//   compileUrl  the endpoint that compiles MJML to HTML (default /tess_edit/compile,
-//               the engine mounted at /tess_edit)
+//   compileUrl  the endpoint that compiles the email kit's MJML to HTML (default
+//               /tess_edit/compile, the engine mounted at /tess_edit)
 //   mediaUrl    the host's images, chosen and uploaded in Image blocks (see
 //               core/media.js); without it images only have a URL
 //   variablesUrl  the variables a template can use, suggested while typing {{
@@ -22,20 +24,25 @@
 //   lock        JSON: only the insides of some blocks and some root fields can
 //               change, e.g. {"except": ["content"], "fields": ["data.subject"]}
 //               (see core/lock.js)
+//   blocks      JSON: the only block types that can be added, e.g. ["text", "image"];
+//               without it, all of the kit's
+//   options     JSON: anything a host's blocks need from the page, as
+//               editor.options, e.g. the choices of a select field
+//               (options: (editor) => editor.options.parties)
 // Targets (all optional, usually hidden inputs in a form):
-//   jsonInput, mjmlInput, htmlInput  kept up to date with every change
+//   jsonInput, mjmlInput, htmlInput  kept up to date with every change, with
+//                    the kit's outputs (an <output>Input target for each)
 // Events:
-//   tess-edit:change  detail: { json, mjml, html, errors, document }; html is
-//                     empty when the MJML could not be compiled, with errors saying why
+//   tess-edit:change  detail: { json, ...the kit's outputs, errors, document }:
+//                     for an email { json, mjml, html, errors, document }, with
+//                     html empty when the MJML could not be compiled and errors saying why
 
 import { Controller } from "@hotwired/stimulus"
-import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, getValue, insert, itemType, move, normalize, remove, setValue, walk } from "tess_edit/core/document"
+import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, findType, getValue, insert, itemType, misfit, move, normalize, remove, setValue, walk } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
 import { canEditField, canFill, isFree, parseLock } from "tess_edit/core/lock"
-import { getBlock, paletteItems } from "tess_edit/core/registry"
-import { starterDocument } from "tess_edit/core/starter"
-import { toMjml } from "tess_edit/export/mjml"
-import { COMPILE_URL, compile } from "tess_edit/export/compile"
+import { DEFAULT_KIT, getBlock, getKit, paletteItems, paletteSources } from "tess_edit/core/registry"
+import { COMPILE_URL } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
 import { Variables, loopScope } from "tess_edit/core/variables"
@@ -59,18 +66,27 @@ const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
 const NARROW_WIDTH = 1000
 
 export default class extends Controller {
-  static values = { document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String }
+  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput"]
 
   connect() {
+    this.kit = getKit(this.kitValue)
+    if (!this.kit) {
+      console.error(`TessEdit: unknown kit ${this.kitValue}, editing an email instead`)
+      this.kit = getKit(DEFAULT_KIT)
+    }
     this.lock = parseLock(this.lockValue)
+    this.allowedTypes = this.parseJson(this.blocksValue, "blocks")
+    this.options = this.parseJson(this.optionsValue, "options") || {}
+    // The host's tiles from palette sources (core/registry.js), by source key
+    this.sources = new Map()
     this.history = new History()
     this.doc = this.loadInitial()
     this.selectedId = this.doc.id
     this.editingId = null
     this.drag = null
     this.mode = "edit"
-    this.device = "desktop"
+    this.device = this.kit.devices?.[0]?.key || null
     this.leftTab = "blocks"
     this.panels = [this.storedPanels(), this.panelsValue].find((value) => PANELS.includes(value)) || "split"
     this.narrow = false
@@ -89,6 +105,7 @@ export default class extends Controller {
     this.renderAll()
     this.writeOutputs()
     if (this.media.enabled) this.loadMedia()
+    this.loadSources()
     if (this.translations.enabled) {
       this.translations.subscribe(() => this.showTranslations())
       this.loadTranslations()
@@ -163,6 +180,31 @@ export default class extends Controller {
     return translationTag(key, translation.args)
   }
 
+  parseJson(value, name) {
+    if (!value) return null
+    try {
+      return JSON.parse(value)
+    } catch (error) {
+      console.error(`TessEdit: the ${name} value is not JSON`, error)
+      return null
+    }
+  }
+
+  // The palette sources' tiles; a source whose items are null has none here
+  async loadSources() {
+    await Promise.all(
+      paletteSources().map(async (source) => {
+        try {
+          const items = await source.items(this)
+          if (items) this.sources.set(source.key, { source, items, error: null })
+        } catch (error) {
+          this.sources.set(source.key, { source, items: [], error: error.message })
+        }
+      })
+    )
+    if (this.sources.size) renderBlocksPanel(this, this.blocksElement)
+  }
+
   async loadMedia() {
     try {
       this.media.images = await fetchMedia(this.mediaUrlValue)
@@ -231,12 +273,12 @@ export default class extends Controller {
     const source = this.documentValue || (this.hasJsonInputTarget && this.jsonInputTarget.value)
     if (source && source.trim()) {
       try {
-        return normalize(source)
+        return normalize(source, { kit: this.kit.key })
       } catch (error) {
         console.error("TessEdit: could not load the document", error)
       }
     }
-    return this.sampleValue ? starterDocument() : createDocument()
+    return this.sampleValue ? this.kit.starter() : createDocument(this.kit.key)
   }
 
   // --- public API -------------------------------------------------------------
@@ -248,15 +290,15 @@ export default class extends Controller {
   setDocument(input) {
     this.stopEditing()
     this.history.record(JSON.stringify(this.doc))
-    this.doc = normalize(input)
+    this.doc = normalize(input, { kit: this.kit.key })
     this.selectedId = this.doc.id
     this.renderAll()
   }
 
+  // The JSON and the kit's outputs, e.g. { json, mjml, html, errors } for an email
   async export() {
-    const mjml = toMjml(this.doc)
-    const { html, errors } = await compile(mjml, { url: this.compileUrlValue })
-    return { json: JSON.stringify(this.doc), mjml, html: html || "", errors }
+    const { outputs, errors } = await this.kit.outputs(this.doc, { compileUrl: this.compileUrlValue })
+    return { json: JSON.stringify(this.doc), ...outputs, errors }
   }
 
   // --- locking ------------------------------------------------------------------
@@ -273,9 +315,29 @@ export default class extends Controller {
     return canEditField(this.doc, this.lock, id, key)
   }
 
-  // The block types that may be added to the node: none when it is locked.
+  // The block types that may be added to the node: none when it is locked,
+  // only the allowed ones when the host limits them.
   accepted(parentId) {
-    return this.canFill(parentId) ? accepted(this.doc, parentId) : []
+    if (!this.canFill(parentId)) return []
+    return accepted(this.doc, parentId).filter((type) => this.allows(type))
+  }
+
+  // Whether a block of the type can go in the node; with `moving`, a block
+  // that is in the document already, which can always move where it fits
+  // A palette source's tile counts as moving: the host gave it, so the allowed
+  // blocks don't apply.
+  canInsert(parentId, type, { moving = false } = {}) {
+    if (!moving) return this.accepted(parentId).includes(type)
+    return this.canFill(parentId) && accepted(this.doc, parentId, { moving }).includes(type)
+  }
+
+  allows(type) {
+    return !this.allowedTypes || this.allowedTypes.includes(type)
+  }
+
+  // The Blocks panel's tiles
+  paletteItems() {
+    return paletteItems(this.kit.key).filter((item) => this.allows(item.type))
   }
 
   // --- layout -------------------------------------------------------------------
@@ -288,7 +350,7 @@ export default class extends Controller {
     this.sidePanel = h("aside")
     this.inspectPanel = h("aside")
     this.textToolbar = h("div", { class: "hidden absolute left-1/2 top-3 z-20 -translate-x-1/2 flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-1.5 py-1 shadow-md" })
-    this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: "Email canvas" })
+    this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: `${this.kit.name} canvas` })
     this.frameWrap = h("div", { class: "relative h-full mx-auto" }, this.frame)
     this.topBar = h("div", { class: "flex items-center gap-1 h-12 px-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0" })
     this.body = h("div", { class: "flex flex-1 min-h-0" })
@@ -428,9 +490,9 @@ export default class extends Controller {
 
     // replaceChildren would turn a null into the text "null", so only pass real elements.
     this.topBar.replaceChildren(...[
-      h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, "Email"),
-      toggle(this.mode, [["edit", "edit", "Edit"], ["preview", "eye", "Preview the email as sent, with Liquid tags"]], (mode) => this.setMode(mode)),
-      toggle(this.device, [["desktop", "desktop", "Desktop"], ["mobile", "mobile", "Mobile"]], (device) => this.setDevice(device)),
+      h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, this.kit.name),
+      toggle(this.mode, [["edit", "edit", "Edit"], ["preview", "eye", this.kit.previewTitle || "Preview"]], (mode) => this.setMode(mode)),
+      this.kit.devices?.length ? toggle(this.device, this.kit.devices.map((device) => [device.key, device.icon, device.title]), (device) => this.setDevice(device)) : null,
       this.translations.enabled ? this.translationLocaleMenu() : null,
       h("div", { class: "flex-1" }),
       toggle(
@@ -500,51 +562,52 @@ export default class extends Controller {
 
   setDevice(device) {
     this.device = device
-    // Desktop fills the canvas area; mobile shows a full-height 375px frame in the middle of it.
-    const mobile = device === "mobile"
-    this.frameWrap.style.width = mobile ? "375px" : ""
-    this.frameWrap.classList.toggle("shadow-sm", mobile)
-    this.main.classList.toggle("px-4", mobile)
+    // A device without a width (desktop) fills the canvas area; one with a
+    // width (mobile, 375px) shows a full-height frame in the middle of it.
+    const width = this.kit.devices?.find((option) => option.key === device)?.width
+    this.frameWrap.style.width = width || ""
+    this.frameWrap.classList.toggle("shadow-sm", !!width)
+    this.main.classList.toggle("px-4", !!width)
     this.renderTopBar()
     setTimeout(() => this.canvas.refresh(), 250)
   }
 
   // --- rendering --------------------------------------------------------------
 
-  // Compiles on the server. A newer request on the same channel aborts the
-  // older one, which then resolves to null.
-  async compileMjml(mjml, channel) {
+  // Runs one of the kit's renderings, which may go to the server (the email's
+  // compiling). A newer run on the same channel aborts the older one, which
+  // then resolves to null.
+  async run(channel, render) {
     this.requests[channel]?.abort()
     const request = (this.requests[channel] = new AbortController())
-    const result = await compile(mjml, { url: this.compileUrlValue, signal: request.signal })
+    const result = await render({ compileUrl: this.compileUrlValue, signal: request.signal })
     return request.signal.aborted ? null : result
   }
 
   async renderCanvas() {
     if (this.editingId) return
-    const result = await this.compileMjml(toMjml(this.doc, { editor: this.mode === "edit" }), "canvas")
+    const result = await this.run("canvas", (options) => this.kit.canvas(this.doc, { ...options, editor: this.mode === "edit" }))
     if (!result || this.editingId) return
     this.showErrors(result.errors)
-    // Without HTML the canvas keeps the last email that compiled.
+    // Without HTML the canvas keeps the last document that rendered.
     if (result.html !== null) this.canvas.write(result.html, this.mode)
   }
 
   showErrors(errors) {
-    this.errorBar.textContent = errors.length ? `The email could not be compiled: ${errors.join("; ")}` : ""
+    this.errorBar.textContent = errors.length ? `${this.kit.errors}: ${errors.join("; ")}` : ""
     this.errorBar.classList.toggle("hidden", !errors.length)
   }
 
   async writeOutputs() {
     this.loadTranslations()
     const json = JSON.stringify(this.doc)
-    const mjml = toMjml(this.doc)
-    const result = await this.compileMjml(mjml, "outputs")
+    const result = await this.run("outputs", (options) => this.kit.outputs(this.doc, options))
     if (!result) return
-    const html = result.html || ""
-    if (this.hasJsonInputTarget) this.jsonInputTarget.value = json
-    if (this.hasMjmlInputTarget) this.mjmlInputTarget.value = mjml
-    if (this.hasHtmlInputTarget) this.htmlInputTarget.value = html
-    this.dispatch("change", { detail: { json, mjml, html, errors: result.errors, document: this.doc } })
+    const outputs = { json, ...result.outputs }
+    for (const [name, value] of Object.entries(outputs)) {
+      if (this[`has${name[0].toUpperCase()}${name.slice(1)}InputTarget`]) this[`${name}InputTarget`].value = value
+    }
+    this.dispatch("change", { detail: { ...outputs, errors: result.errors, document: this.doc } })
   }
 
   // Applies a change to the document as one undo step.
@@ -669,7 +732,9 @@ export default class extends Controller {
 
   drop(drag, parentId, index) {
     if (!drag || !this.canFill(parentId) || (drag.kind === "move" && !this.isFree(drag.id))) return
-    if (drag.kind === "new") {
+    if (drag.kind === "source") {
+      this.insertFromSource(drag.source, drag.item, { parentId, index })
+    } else if (drag.kind === "new") {
       const node = createFromPalette(drag.key)
       this.commit((doc) => insert(doc, parentId, index, node))
       this.select(node.id)
@@ -692,21 +757,53 @@ export default class extends Controller {
   // lock, at the end of the first unlocked block it fits in.
   addFromPalette(key) {
     const type = itemType(key)
+    const place = this.placeFor((parentId) => this.accepted(parentId).includes(type))
+    if (place) return this.insertAt(key, place.parentId, place.index)
+    const definition = getBlock(type)
+    if (definition?.unique && findType(this.doc, type)) return this.flash(`There is a ${definition.name} already; a document has one.`)
+    this.flash(`${definition?.name || key} has to go inside a column. Select one first, or drag it onto the canvas.`)
+  }
+
+  // Where a click on a tile adds a block, for blocks that `fits` a parent
+  placeFor(fits) {
     const chain = [find(this.doc, this.selectedId)?.node || this.doc, ...ancestors(this.doc, this.selectedId)]
-    if (this.accepted(chain[0].id).includes(type)) return this.insertAt(key, chain[0].id, chain[0].children.length)
+    if (fits(chain[0].id)) return { parentId: chain[0].id, index: chain[0].children.length }
     for (let i = 0; i < chain.length - 1; i++) {
-      if (this.accepted(chain[i + 1].id).includes(type)) return this.insertAt(key, chain[i + 1].id, chain[i + 1].children.indexOf(chain[i]) + 1)
+      if (fits(chain[i + 1].id)) return { parentId: chain[i + 1].id, index: chain[i + 1].children.indexOf(chain[i]) + 1 }
     }
-    if (this.accepted(this.doc.id).includes(type)) return this.insertAt(key, this.doc.id, this.doc.children.length)
+    if (fits(this.doc.id)) return { parentId: this.doc.id, index: this.doc.children.length }
     if (this.lock) {
       let target = null
       walk(this.doc, (node) => {
         if (target) return false
-        if (this.lock.except.includes(node.type) && this.accepted(node.id).includes(type)) target = node
+        if (this.lock.except.includes(node.type) && fits(node.id)) target = node
       })
-      if (target) return this.insertAt(key, target.id, target.children.length)
+      if (target) return { parentId: target.id, index: target.children.length }
     }
-    this.flash(`${getBlock(type)?.name || key} has to go inside a column. Select one first, or drag it onto the canvas.`)
+    return null
+  }
+
+  // Inserts what a palette source's tile creates (see core/registry.js) at a
+  // place, or where a click on a tile would add it
+  async insertFromSource(source, item, { parentId, index } = {}) {
+    let node
+    try {
+      node = await source.create(item, this)
+    } catch (error) {
+      this.flash(error.message)
+      return null
+    }
+    const name = item.label || getBlock(node.type)?.name || "This"
+    const fits = (id) => this.canFill(id) && !misfit(node, accepted(this.doc, id, { moving: true }))
+    const place = parentId ? { parentId, index } : this.placeFor(fits)
+    if (!place || !fits(place.parentId)) {
+      const type = place && misfit(node, accepted(this.doc, place.parentId, { moving: true }))
+      this.flash(type && type !== node.type ? `${name} can't go here: its ${getBlock(type)?.name || type} blocks don't fit.` : `${name} doesn't fit here. Select where it goes first, or drag it onto the canvas.`)
+      return null
+    }
+    this.commit((doc) => insert(doc, place.parentId, place.index, node))
+    this.select(node.id)
+    return node
   }
 
   openInsertMenu(parentId, index, rect) {
@@ -721,7 +818,7 @@ export default class extends Controller {
     }
     this.closeMenu()
     const allowed = this.accepted(parentId)
-    const items = paletteItems().filter((item) => allowed.includes(item.type))
+    const items = this.paletteItems().filter((item) => allowed.includes(item.type))
     if (!items.length) return
     this.menu = h(
       "div",
@@ -812,8 +909,8 @@ export default class extends Controller {
 
   async openCodeDialog(tab = "json") {
     this.stopEditing()
-    const { json, mjml, html, errors } = await this.export()
-    const contents = { json: JSON.stringify(JSON.parse(json), null, 2), mjml, html }
+    const { json, errors, ...outputs } = await this.export()
+    const contents = { json: JSON.stringify(JSON.parse(json), null, 2), ...outputs }
     const textarea = h("textarea", { class: "flex-1 w-full resize-none rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-3 font-mono text-xs text-gray-800 dark:text-gray-200 outline-none focus:border-blue-500", spellcheck: false })
     const status = h("span", { class: "text-xs text-gray-500 dark:text-gray-400" })
     const tabs = h("div", { class: "flex gap-1" })
@@ -836,9 +933,9 @@ export default class extends Controller {
       apply.classList.toggle("hidden", !loadable)
       status.className = "text-xs text-gray-500 dark:text-gray-400"
       status.textContent =
-        key === "json" ? (this.lock ? "The document. Parts of it are locked, so it can't be loaded here." : "The document. Edit and load it, or paste one in.") : key === "mjml" ? "Liquid loops and conditions are in <mj-raw> tags." : errors.length ? `The MJML could not be compiled: ${errors.join("; ")}` : "Liquid is left in place for rendering at send time."
+        key === "json" ? (this.lock ? "The document. Parts of it are locked, so it can't be loaded here." : "The document. Edit and load it, or paste one in.") : key === "html" && errors.length ? `${this.kit.errors}: ${errors.join("; ")}` : this.kit.notes?.[key] || ""
       tabs.replaceChildren(
-        ...["json", "mjml", "html"].map((name) =>
+        ...Object.keys(contents).map((name) =>
           h("button", { type: "button", class: `rounded-md px-3 py-1.5 text-xs font-medium ${name === tab ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}`, onclick: () => show(name) }, name.toUpperCase())
         )
       )
@@ -847,7 +944,7 @@ export default class extends Controller {
     const close = () => dialog.remove()
     const download = () => {
       const blob = new Blob([textarea.value], { type: tab === "json" ? "application/json" : tab === "html" ? "text/html" : "text/plain" })
-      const link = h("a", { href: URL.createObjectURL(blob), download: `email.${tab}` })
+      const link = h("a", { href: URL.createObjectURL(blob), download: `${this.kit.key}.${tab}` })
       link.click()
       URL.revokeObjectURL(link.href)
     }
