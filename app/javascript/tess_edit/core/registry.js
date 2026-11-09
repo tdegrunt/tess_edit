@@ -9,7 +9,8 @@
 //     accepts: undefined,              // roles it takes as children, "inherit", or undefined for a leaf
 //     defaults: () => ({ attributes: {}, data: {} }),
 //     fields: [{ title: "Product", fields: [{ key: "data.sku", label: "SKU", type: "text" }] }],
-//                                      // a field's visible: (node, editor) => boolean shows it only when it applies;
+//                                      // a field's visible: (node, editor) => boolean shows it only when it applies,
+//                                      // and a group only when one of its fields does;
 //                                      // imageField(key, label, idKey) (core/media.js) makes an image field;
 //                                      // a "code" field takes language: "html" (default) or "css"
 //     hint: "Shown at the top of Inspect.",

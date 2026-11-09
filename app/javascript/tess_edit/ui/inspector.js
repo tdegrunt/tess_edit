@@ -78,7 +78,8 @@ export class Inspector {
       h("div", { class: "ml-auto flex items-center gap-0.5" }, actions)
     )
 
-    const groups = (definition.fields || []).map((group) => this.group(node, group))
+    // A group shows when one of its fields applies (see visible below)
+    const groups = (definition.fields || []).filter((group) => group.fields.some((field) => !field.visible || field.visible(node, this.editor))).map((group) => this.group(node, group))
     const locked = this.editor.lock && node.id !== doc.id && !this.editor.isFree(node.id)
       ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), "Part of the layout")
       : null
