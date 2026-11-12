@@ -21,4 +21,10 @@ class KitWithoutBlocksTest < ApplicationSystemTestCase
     assert_text "9 / 160"
     within_canvas("Memo") { assert_text "Ada: Back soon" }
   end
+
+  test "a link the kit marks opens in a new tab" do
+    new_tab = window_opened_by { within_canvas("Memo") { click_on "Open a note" } }
+    within_window(new_tab) { assert_current_path "/?kit=note" }
+    assert_current_path "/?kit=memo"
+  end
 end

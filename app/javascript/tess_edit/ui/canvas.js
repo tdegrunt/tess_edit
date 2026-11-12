@@ -90,7 +90,13 @@ export class Canvas {
     if (mode === "edit") {
       this.listen()
       this.annotate()
-    } else doc.addEventListener("click", (event) => event.target.closest("a") && event.preventDefault(), true)
+    } else {
+      doc.addEventListener("click", (event) => {
+        if (!event.target.closest("a")) return
+        event.preventDefault()
+        this.openLink(event)
+      }, true)
+    }
     this.refresh()
   }
 
@@ -327,6 +333,7 @@ export class Canvas {
     if (this.editor.editingId && event.target.closest?.(".ProseMirror")) return
     if (event.target.closest?.("#tess-overlay")) return
     event.preventDefault()
+    if (this.openLink(event)) return
     if (this.free.swallowClick()) return
     const hit = this.hit(event.target)
     if (hit?.placeholder) {
@@ -340,6 +347,15 @@ export class Canvas {
       return
     }
     this.editor.select(hit ? hit.id : this.editor.doc.id, { reveal: true })
+  }
+
+  // A link a kit marks with data-tess-open, part of its canvas rather than of
+  // the document (a link to a designer), opens in a new tab
+  openLink(event) {
+    const link = event.target.closest?.("a[data-tess-open][href]")
+    if (!link) return false
+    window.open(link.href, "_blank", "noopener")
+    return true
   }
 
   onDoubleClick(event) {

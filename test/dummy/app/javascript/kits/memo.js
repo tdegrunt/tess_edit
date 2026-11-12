@@ -8,7 +8,7 @@ import { createDocument } from "tess_edit/core/document"
 import { escapeText } from "tess_edit/export/richtext"
 
 const preview = (doc, options = {}) =>
-  `<!doctype html><html><body class="tess-${doc.id}" style="margin:0;padding:32px;font-family:system-ui,sans-serif;background:#f3f4f6"><p style="max-width:280px;padding:10px 14px;border-radius:16px;background:#fff">${escapeText(options.from || "Memo")}: ${escapeText(doc.data.text)}</p></body></html>`
+  `<!doctype html><html><body class="tess-${doc.id}" style="margin:0;padding:32px;font-family:system-ui,sans-serif;background:#f3f4f6"><p style="max-width:280px;padding:10px 14px;border-radius:16px;background:#fff">${escapeText(options.from || "Memo")}: ${escapeText(doc.data.text)}</p><a data-tess-open href="/?kit=note">Open a note</a></body></html>`
 
 registerKit({
   key: "memo",

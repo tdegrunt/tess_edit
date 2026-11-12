@@ -330,7 +330,7 @@ A block is part of the email kit unless it says otherwise. `extendBlock` adds ki
 Loading a document into the editor of another kit fails with a message saying which editor it is for.
 
 
-A kit can leave out `blocks`: with `blocks: false` it is its root alone, such as a text message with its fields in Inspect, and the editor has no Blocks and Layers panels. Its `canvas` and `outputs` hooks get the editor's `options` and `element` too, for a canvas that previews from your app (`/?kit=memo` in the demo); the canvas renders again when `data-tess-edit-variables-url-value` changes. A field's `hint` can be a function of its value, `` hint: (value, node) => `${value.length} / 160` ``, kept up to date as it's typed. Code fields color `html`, `xml`, `css` and `yaml`.
+A kit can leave out `blocks`: with `blocks: false` it is its root alone, such as a text message with its fields in Inspect, and the editor has no Blocks and Layers panels. Its `canvas` and `outputs` hooks get the editor's `options` and `element` too, for a canvas that previews from your app (`/?kit=memo` in the demo), where a link with `data-tess-open` opens in a new tab instead of selecting; the canvas renders again when `data-tess-edit-variables-url-value` changes. A field's `hint` can be a function of its value, `` hint: (value, node) => `${value.length} / 160` ``, kept up to date as it's typed. Code fields color `html`, `xml`, `css` and `yaml`.
 ## Development
 
 The dummy app in `test/dummy` serves a demo page:

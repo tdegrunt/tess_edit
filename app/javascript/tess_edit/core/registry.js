@@ -53,7 +53,8 @@
 //                                      // the canvas's HTML, with the tess-<id> and tessph-<id>
 //                                      // classes when editor is true; null when aborted.
 //                                      // options are the editor's (data-tess-edit-options-value),
-//                                      // element its element, for a kit that reads its page
+//                                      // element its element, for a kit that reads its page;
+//                                      // a link with data-tess-open opens in a new tab
 //     outputs: async (doc, { compileUrl, signal, options, element }) => ({ outputs: { html: "…" }, errors }),
 //                                      // what the editor stores besides the JSON (the inputs,
 //                                      // the change event and the Code dialog); null when aborted
