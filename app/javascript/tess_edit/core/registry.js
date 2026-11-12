@@ -49,12 +49,16 @@
 //     starter: () => doc,              // the sample document
 //     devices: [{ key, icon, title, width }],  // optional: canvas widths in the top bar
 //     previewTitle: "…",               // the Preview button's title
-//     canvas: async (doc, { editor, compileUrl, signal }) => ({ html, errors }),
+//     canvas: async (doc, { editor, compileUrl, signal, options, element }) => ({ html, errors }),
 //                                      // the canvas's HTML, with the tess-<id> and tessph-<id>
-//                                      // classes when editor is true; null when aborted
-//     outputs: async (doc, { compileUrl, signal }) => ({ outputs: { html: "…" }, errors }),
+//                                      // classes when editor is true; null when aborted.
+//                                      // options are the editor's (data-tess-edit-options-value),
+//                                      // element its element, for a kit that reads its page
+//     outputs: async (doc, { compileUrl, signal, options, element }) => ({ outputs: { html: "…" }, errors }),
 //                                      // what the editor stores besides the JSON (the inputs,
 //                                      // the change event and the Code dialog); null when aborted
+//     blocks: false,                   // optional: a kit of its root alone, such as a text
+//                                      // message, has no Blocks and Layers panels
 //     notes: { html: "…" },            // optional: what each output is, in the Code dialog
 //     errors: "The email could not be compiled"  // shown before the reasons
 //   })

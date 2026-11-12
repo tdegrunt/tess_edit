@@ -14,6 +14,7 @@
       ?variables=1 suggests an order template's Liquid variables (VariablesController).
       ?translations=1 shows and edits translations for Liquid's t filter (TranslationsController).
       ?kit=note designs a note instead of an email, the demo's own kit (app/javascript/kits/note.js).
+      ?kit=memo writes a memo, a kit without blocks (app/javascript/kits/memo.js).
       ?snippets=1 offers snippets to insert as a copy (app/javascript/snippets.js, SnippetsController).
       ?slots=1 puts the page's own sender fields in the root's Inspect (app/javascript/slots.js).
       ?blocks=text,image only offers those blocks. %>
@@ -24,6 +25,7 @@
     <% if params[:variables].present? %>data-tess-edit-variables-url-value="<%= variables_path %>"<% end %>
     <% if params[:translations].present? %>data-tess-edit-translations-url-value="<%= translations_path %>"<% end %>
     <% if params[:snippets].present? %>data-tess-edit-options-value="<%= {snippetsUrl: snippets_path(kit: params[:kit].presence)}.to_json %>"<% end %>
+    <% if params[:kit] == "memo" %>data-tess-edit-options-value="<%= {from: "Ada"}.to_json %>"<% end %>
     <% if params[:blocks].present? %>data-tess-edit-blocks-value="<%= params[:blocks].split(",").to_json %>"<% end %>
     <% if locked %>
       data-tess-edit-document-value="<%= Rails.root.join("config/demo_layout.json").read %>"

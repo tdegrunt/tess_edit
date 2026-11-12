@@ -11,7 +11,8 @@
 //             as tabs on one side). The default; a choice made in the editor's
 //             top bar is remembered per browser. Below NARROW_WIDTH the editor
 //             puts all panels on the left, whatever the choice, to leave room
-//             for the canvas.
+//             for the canvas. A kit without blocks (blocks: false) has Inspect
+//             on the right only.
 //   compileUrl  the endpoint that compiles the email kit's MJML to HTML (default
 //               /tess_edit/compile, the engine mounted at /tess_edit)
 //   mediaUrl    the host's images, chosen and uploaded in Image blocks (see
@@ -135,6 +136,8 @@ export default class extends Controller {
       this.textEditing.menu = this.variableMenu
     }
     this.inspector.render()
+    // A kit's canvas may depend on them, like a preview with sample values
+    this.scheduleCanvas()
   }
 
   // The host's element for a slot field, if it gave one
@@ -427,6 +430,12 @@ export default class extends Controller {
     // Only the sidebars move: moving <main> would reload the canvas iframe and blank it.
     if (!this.main.isConnected) this.body.append(this.main)
     this.inspector?.freezeSlots()
+    if (!this.hasBlocks) {
+      this.inspectPanel.className = panelClass("border-l", "w-80")
+      if (this.inspectorElement.parentNode !== this.inspectPanel) this.inspectPanel.replaceChildren(this.inspectorElement)
+      if (this.main.nextSibling !== this.inspectPanel) this.main.after(this.inspectPanel)
+      return
+    }
     this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement)
     if (this.layout === "split") {
       this.sidePanel.className = panelClass("border-r", "w-64")
@@ -471,9 +480,15 @@ export default class extends Controller {
     this.resizeObserver.observe(this.root)
   }
 
-  // The layout in use: the chosen one, unless the editor is too narrow to split.
+  // The layout in use: the chosen one, unless the editor is too narrow to
+  // split, or the kit has no blocks
   get layout() {
+    if (!this.hasBlocks) return "split"
     return this.narrow && this.panels === "split" ? "left" : this.panels
+  }
+
+  get hasBlocks() {
+    return this.kit.blocks !== false
   }
 
   storedPanels() {
@@ -525,7 +540,8 @@ export default class extends Controller {
       this.kit.devices?.length ? toggle(this.device, this.kit.devices.map((device) => [device.key, device.icon, device.title]), (device) => this.setDevice(device)) : null,
       this.translations.enabled ? this.translationLocaleMenu() : null,
       h("div", { class: "flex-1" }),
-      toggle(
+      // Without blocks there are no panels to arrange
+      this.hasBlocks && toggle(
         this.layout,
         [
           ["left", "panels-left", "All panels on the left"],
@@ -534,7 +550,7 @@ export default class extends Controller {
         ],
         (panels) => this.setPanels(panels)
       ),
-      h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" }),
+      this.hasBlocks && h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" }),
       h("button", { type: "button", title: "Undo (⌘Z)", class: TOOL, disabled: !this.history.canUndo, html: icon("undo"), onclick: () => this.undo() }),
       h("button", { type: "button", title: "Redo (⇧⌘Z)", class: TOOL, disabled: !this.history.canRedo, html: icon("redo"), onclick: () => this.redo() }),
       h(
@@ -610,7 +626,7 @@ export default class extends Controller {
   async run(channel, render) {
     this.requests[channel]?.abort()
     const request = (this.requests[channel] = new AbortController())
-    const result = await render({ compileUrl: this.compileUrlValue, signal: request.signal })
+    const result = await render({ compileUrl: this.compileUrlValue, signal: request.signal, options: this.options, element: this.element })
     return request.signal.aborted ? null : result
   }
 

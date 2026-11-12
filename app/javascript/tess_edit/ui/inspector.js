@@ -175,15 +175,22 @@ export class Inspector {
       ? h("button", { type: "button", title: "Make translatable: keep the selected text, or all of it, as a translation", class: "rounded px-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", html: icon("translate", "w-3.5 h-3.5"), onclick: () => this.makeTranslatable(input) })
       : null
     const tools = expand || variables || translate ? h("span", { class: "absolute right-0 top-0 flex items-center gap-0.5" }, expand, variables, translate) : null
+    // A hint can be a function of the value, kept up to date as it's typed: hint(value, node)
+    const hint = field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500 dark:text-gray-400" }) : null
+    const showHint = () => {
+      const current = find(this.editor.doc, node.id)?.node || node
+      hint.textContent = typeof field.hint === "function" ? field.hint(getValue(current, field.key) ?? "", current) : field.hint
+    }
+    if (hint) showHint()
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
-      { class: "relative block" },
+      { class: "relative block", oninput: typeof field.hint === "function" ? showHint : null },
       h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label),
       tools,
       control,
       input ? this.translationHint(input) : null,
-      field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500 dark:text-gray-400" }, field.hint) : null
+      hint
     )
   }
 

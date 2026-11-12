@@ -1,5 +1,6 @@
 // A code field without an editor library: a textarea whose text is
-// transparent, over a copy of the text with HTML, CSS and Liquid colored.
+// transparent, over a copy of the text with HTML (or XML), CSS, YAML and
+// Liquid colored.
 // Both wrap the same way and scroll together, so the caret and selection of
 // the textarea line up with the colored text. Tab indents, Shift+Tab
 // outdents, and Enter keeps the line's indentation.
@@ -78,7 +79,17 @@ export function highlightCss(text) {
   ])
 }
 
-const HIGHLIGHT = { html: highlightHtml, css: highlightCss }
+export function highlightYaml(text) {
+  return tokenize(text, [
+    ["liquid", LIQUID],
+    ["comment", /(?:^|(?<=\s))#[^\n]*/],
+    ["string", /"(?:[^"\\\n]|\\.)*"|'[^'\n]*'/, (string) => span("string", liquidIn(string))],
+    ["property", /[A-Za-z_$][\w $.-]*(?=:(?:\s|$))/],
+    ["number", /\b(?:-?\d+(?:\.\d+)?|true|false|null)\b/]
+  ])
+}
+
+const HIGHLIGHT = { html: highlightHtml, xml: highlightHtml, css: highlightCss, yaml: highlightYaml }
 
 // Replaces the selection, keeping the textarea's own undo where the browser allows
 function insert(textarea, text) {
@@ -107,7 +118,7 @@ function onKeydown(event) {
   }
 }
 
-// value, language ("html" or "css"), oninput(value); class sizes the field
+// value, language ("html", "xml", "css" or "yaml"), oninput(value); class sizes the field
 export function codeInput({ value = "", language = "html", oninput, class: className = "min-h-32", readOnly = false }) {
   const highlight = HIGHLIGHT[language] || escape
   const colored = h("pre", { "aria-hidden": "true", class: `${BOX} pointer-events-none absolute inset-0 h-full overflow-hidden border-transparent bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200` })

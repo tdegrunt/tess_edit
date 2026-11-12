@@ -2,7 +2,9 @@
 // A field: { key: "attributes.padding" | "data.subject", label, type, ... }.
 // Types: text, textarea, code, size, color, select, segmented, toggle,
 // spacing, list and slot (an element of the host's); see ui/inspector.js. A select's options can be a
-// function of the editor, options(editor), for choices the host gives.
+// function of the editor, options(editor), for choices the host gives. A
+// field's hint can be a function of its value, hint(value, node), shown as
+// it's typed (a counter).
 // `liquid` gives a field a button to insert the host's variables (see
 // Inspector#variables).
 

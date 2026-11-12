@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { highlightCss, highlightHtml } from "tess_edit/ui/code_input"
+import { highlightCss, highlightHtml, highlightYaml } from "tess_edit/ui/code_input"
 
 // The colored copy must hold exactly the textarea's text, or the caret drifts
 const text = (html) => html.replace(/<span class="[^"]*">|<\/span>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
@@ -16,6 +16,14 @@ const SAMPLES = [
 
 test("highlighted HTML holds exactly the original text", () => {
   for (const sample of SAMPLES) assert.equal(text(highlightHtml(sample)), sample)
+})
+
+test("highlighted YAML holds exactly the original text, with its keys, strings and Liquid colored", () => {
+  const yaml = 'blocks:\n  - type: section # a comment\n    text: "Hi {{ user.name }}"\n    count: 3\nurl: https://example.com/#top'
+  assert.equal(text(highlightYaml(yaml)), yaml)
+  assert.match(highlightYaml(yaml), /<span class="text-blue-700[^"]*">blocks<\/span>:/)
+  assert.match(highlightYaml(yaml), /<span class="text-gray-400[^"]*"># a comment<\/span>/)
+  assert.match(highlightYaml(yaml), /<span class="text-purple-700">\{\{ user.name \}\}<\/span>/)
 })
 
 test("highlighted CSS holds exactly the original text", () => {
