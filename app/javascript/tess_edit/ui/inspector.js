@@ -275,7 +275,7 @@ export class Inspector {
     if (!slot) {
       const element = this.editor.slot(field.slot)
       const summary = h("span", { class: "min-w-0 flex-1 truncate text-[13px] text-gray-700 dark:text-gray-300" })
-      const button = h("button", { type: "button", class: "shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", "aria-expanded": "false", onclick: () => this.toggleSlot(slot) })
+      const button = h("button", { type: "button", class: "ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", "aria-expanded": "false", onclick: () => this.toggleSlot(slot) })
       const holder = h("div", { class: "pt-1" })
       slot = {
         field,
