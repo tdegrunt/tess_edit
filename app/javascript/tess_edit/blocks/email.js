@@ -22,7 +22,7 @@ export default {
   }),
   fields: [
     {
-      title: "Email",
+      title: "Message",
       fields: [
         { key: "data.subject", label: "Subject", type: "text", liquid: true },
         { key: "data.preheader", label: "Preview text", type: "text", liquid: true, hint: "Shown after the subject in most inboxes." }

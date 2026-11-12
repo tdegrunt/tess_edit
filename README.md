@@ -294,7 +294,7 @@ A `slot` field shows an element of your page in Inspect, for settings that aren'
 
 ```js
 extendBlock("email", {
-  fields: [{ title: "When", before: "Email", fields: [{
+  fields: [{ title: "When", before: "Message", fields: [{
     key: "trigger", label: "Trigger", type: "slot", slot: "trigger",
     summary: (element) => element.querySelector("select").selectedOptions[0]?.text,  // shown while collapsed
     open: (element) => Boolean(element.querySelector("[role=alert]"))             // open at first, e.g. with errors

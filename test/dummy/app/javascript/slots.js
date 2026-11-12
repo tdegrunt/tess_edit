@@ -8,7 +8,7 @@ extendBlock("email", {
   fields: [
     {
       title: "Sender",
-      before: "Email",
+      before: "Message",
       fields: [
         {
           key: "sender",
