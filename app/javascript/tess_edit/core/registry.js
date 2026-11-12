@@ -23,6 +23,9 @@
 //                                      // data.x and data.y, dragged on the canvas (ui/free_layout.js)
 //     resize: { width: "data.width", height: "data.height" },
 //                                      // optional, in a free layout: the keys of its size, for a resize handle
+//     resizeChildren: { width: "data.width" },
+//                                      // optional, on a free container: the same for all of its children,
+//                                      // or a function of the child; unit: "mm" keeps sizes as "52mm"
 //     render: { mjml: (node, ctx) => "<mj-text …>" } // one per format of its kits:
 //                                      // mjml (export/mjml.js), html (export/html.js)
 //   })

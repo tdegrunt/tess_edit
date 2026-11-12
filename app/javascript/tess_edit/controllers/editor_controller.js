@@ -773,7 +773,7 @@ export default class extends Controller {
     const child = freeChild(this.doc, this.selectedId)
     if (!child || !this.isFree(child.node.id)) return false
     const { node } = child
-    this.place(node.id, { "data.x": Math.max(0, number(node.data?.x) + dx), "data.y": Math.max(0, number(node.data?.y) + dy) }, { coalesce: `${node.id}:nudge` })
+    this.place(node.id, { "data.x": number(node.data?.x) + dx, "data.y": number(node.data?.y) + dy }, { coalesce: `${node.id}:nudge` })
     return true
   }
 
