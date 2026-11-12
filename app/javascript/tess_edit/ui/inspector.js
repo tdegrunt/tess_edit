@@ -7,9 +7,10 @@
 //   { key: "trigger", label: "When", type: "slot", slot: "trigger",
 //     summary: (element) => "Account · created", open: (element) => false }
 //
-// Its values are the host's form fields, not part of the document. It shows
-// collapsed to its summary, with a button to edit it; open(element) opens it
-// at first, e.g. when it has errors. The element is never recreated, so the
+// Its values are the host's form fields, not part of the document. With a
+// summary it shows collapsed to that, with a button to edit it, and
+// open(element) opens it at first, e.g. when it has errors; without one it
+// always shows. The element is never recreated, so the
 // host's Stimulus controllers in it keep their state: it and its group stay
 // in Inspect, hidden while another block is selected (see place in ui/dom.js).
 
@@ -282,7 +283,7 @@ export class Inspector {
         summary,
         button,
         holder,
-        open: Boolean(field.open?.(element)),
+        open: !field.summary || Boolean(field.open?.(element)),
         wrapper: h("div", { class: "block" }, h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label), h("div", { class: "flex items-center gap-2" }, summary, button), holder)
       }
       // Its only move: it reconnects, with what was typed so far
@@ -303,6 +304,7 @@ export class Inspector {
   showSlot(slot) {
     const { open, field, element, button, holder, summary } = slot
     holder.hidden = !open
+    button.parentElement.hidden = !field.summary
     button.textContent = open ? "Done" : "Edit"
     button.setAttribute("aria-expanded", String(open))
     summary.hidden = open

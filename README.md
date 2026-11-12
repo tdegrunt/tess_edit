@@ -302,7 +302,7 @@ extendBlock("email", {
 })
 ```
 
-The field shows collapsed to its summary, with a button to edit it. Its values are your form fields, submitted with the form; without the element the field doesn't show. The element moves into Inspect once and stays there, hidden while another block is selected, so your Stimulus controllers in it keep their state. Combining or splitting the panels moves it again: its controllers reconnect then, with the values typed and chosen written into the fields' attributes first. The demo has one at `/?slots=1` (`test/dummy/app/javascript/slots.js`).
+With a `summary` the field shows collapsed to it, with a button to edit it; without one the element always shows. Its values are your form fields, submitted with the form; without the element the field doesn't show. The element moves into Inspect once and stays there, hidden while another block is selected, so your Stimulus controllers in it keep their state. Combining or splitting the panels moves it again: its controllers reconnect then, with the values typed and chosen written into the fields' attributes first. The demo has one at `/?slots=1` (`test/dummy/app/javascript/slots.js`).
 
 A select field's `options` can be a function of the editor, `options: (editor) => [...]`, for choices from your app. Give the editor those with `data-tess-edit-options-value` (JSON), which blocks read as `editor.options`.
 
