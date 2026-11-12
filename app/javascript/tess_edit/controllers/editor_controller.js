@@ -49,6 +49,7 @@ import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
 import { Variables, loopScope } from "tess_edit/core/variables"
 import { Canvas } from "tess_edit/ui/canvas"
+import { freeChild, number } from "tess_edit/ui/free_layout"
 import { Tree } from "tess_edit/ui/tree"
 import { Inspector } from "tess_edit/ui/inspector"
 import { TextEditing } from "tess_edit/ui/text_editing"
@@ -66,6 +67,13 @@ const PANELS_KEY = "tess_edit:panels"
 const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
 // Two sidebars (256px + 320px) leave too little canvas below this editor width.
 const NARROW_WIDTH = 1000
+const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+
+// A new block where it was let go in a free layout
+function placed(node, at) {
+  if (at) node.data = { ...node.data, x: at.x, y: at.y }
+  return node
+}
 
 export default class extends Controller {
   static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
@@ -732,18 +740,41 @@ export default class extends Controller {
     this.tree.clearMarker()
   }
 
-  drop(drag, parentId, index) {
+  // `at` is where in a free layout (ui/free_layout.js) it was let go: { x, y }
+  drop(drag, parentId, index, at = null) {
     if (!drag || !this.canFill(parentId) || (drag.kind === "move" && !this.isFree(drag.id))) return
     if (drag.kind === "source") {
-      this.insertFromSource(drag.source, drag.item, { parentId, index })
+      this.insertFromSource(drag.source, drag.item, { parentId, index, at })
     } else if (drag.kind === "new") {
-      const node = createFromPalette(drag.key)
+      const node = placed(createFromPalette(drag.key), at)
       this.commit((doc) => insert(doc, parentId, index, node))
       this.select(node.id)
     } else {
-      this.commit((doc) => move(doc, drag.id, parentId, index))
+      this.commit((doc) => {
+        move(doc, drag.id, parentId, index)
+        if (at) placed(find(doc, drag.id).node, at)
+      })
       this.select(drag.id)
     }
+  }
+
+  // Sets several values of a block as one undo step, such as its x and y
+  // when it is dragged in a free layout; a run of them on the same block
+  // (arrow-key nudges) as one, with `coalesce`
+  place(id, values, { coalesce = null } = {}) {
+    const editable = Object.entries(values).filter(([key, value]) => key && key !== "undefined" && value !== undefined && this.canEditField(id, key))
+    if (!editable.length) return
+    if (this.editingId) this.stopEditing()
+    this.commit((doc) => editable.forEach(([key, value]) => setValue(doc, id, key, value)), { coalesce })
+  }
+
+  // Moves the selection in a free layout by whole units
+  nudge(dx, dy) {
+    const child = freeChild(this.doc, this.selectedId)
+    if (!child || !this.isFree(child.node.id)) return false
+    const { node } = child
+    this.place(node.id, { "data.x": Math.max(0, number(node.data?.x) + dx), "data.y": Math.max(0, number(node.data?.y) + dy) }, { coalesce: `${node.id}:nudge` })
+    return true
   }
 
   insertAt(key, parentId, index) {
@@ -787,10 +818,10 @@ export default class extends Controller {
 
   // Inserts what a palette source's tile creates (see core/registry.js) at a
   // place, or where a click on a tile would add it
-  async insertFromSource(source, item, { parentId, index } = {}) {
+  async insertFromSource(source, item, { parentId, index, at = null } = {}) {
     let node
     try {
-      node = await source.create(item, this)
+      node = placed(await source.create(item, this), at)
     } catch (error) {
       this.flash(error.message)
       return null
@@ -904,6 +935,9 @@ export default class extends Controller {
     } else if (event.key === "Escape") {
       this.closeMenu()
       this.selectParent()
+    } else if (ARROWS[event.key]) {
+      const [dx, dy] = ARROWS[event.key].map((step) => step * (event.shiftKey ? 10 : 1))
+      if (this.nudge(dx, dy)) event.preventDefault()
     }
   }
 

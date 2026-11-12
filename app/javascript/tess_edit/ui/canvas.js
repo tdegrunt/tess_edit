@@ -8,6 +8,7 @@ import { ancestors, find, isDescendant, isHorizontal } from "tess_edit/core/docu
 import { imageFields } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
+import { FREE_CSS, FreeLayout } from "tess_edit/ui/free_layout"
 import { icon } from "tess_edit/ui/icons"
 
 const OVERLAY_CSS = `
@@ -58,6 +59,7 @@ export class Canvas {
     this.frame = frame
     this.hoverId = null
     this.mode = "edit"
+    this.free = new FreeLayout(this)
   }
 
   get doc() {
@@ -77,7 +79,7 @@ export class Canvas {
     doc.write(html)
     doc.close()
     const style = doc.createElement("style")
-    style.textContent = OVERLAY_CSS
+    style.textContent = OVERLAY_CSS + FREE_CSS
     doc.head.append(style)
     this.overlay = doc.createElement("div")
     this.overlay.id = "tess-overlay"
@@ -96,6 +98,7 @@ export class Canvas {
     const doc = this.doc
     doc.addEventListener("mousemove", (event) => this.onMove(event))
     doc.addEventListener("mouseleave", () => this.setHover(null))
+    doc.addEventListener("pointerdown", (event) => this.free.onPointerDown(event))
     doc.addEventListener("click", (event) => this.onClick(event), true)
     doc.addEventListener("dblclick", (event) => this.onDoubleClick(event))
     doc.addEventListener("dragover", (event) => this.onDragOver(event))
@@ -230,6 +233,7 @@ export class Canvas {
     if (!this.overlay) return
     this.overlay.replaceChildren()
     if (this.mode !== "edit") return
+    this.free.drawGuides(this.overlay)
     const { selectedId, editingId } = this.editor
 
     if (this.hoverId && this.hoverId !== selectedId) {
@@ -250,7 +254,10 @@ export class Canvas {
     const free = this.editor.isFree(selectedId)
     box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? "Editing text · Esc to finish" : free || !this.editor.lock ? label(hit.node) : `${label(hit.node)} · Layout` }))
 
-    if (editingId !== selectedId) {
+    const handle = this.free.handle(selectedId)
+    if (handle) box.append(handle)
+
+    if (editingId !== selectedId && !this.free.dragging) {
       const tools = this.doc.createElement("div")
       tools.className = "tess-tools"
       tools.innerHTML = [
@@ -311,7 +318,7 @@ export class Canvas {
   // --- events ---------------------------------------------------------------
 
   onMove(event) {
-    if (this.editor.drag) return
+    if (this.editor.drag || this.free.dragging) return
     const hit = this.hit(event.target)
     this.setHover(hit && !hit.placeholder ? hit.id : null)
   }
@@ -320,6 +327,7 @@ export class Canvas {
     if (this.editor.editingId && event.target.closest?.(".ProseMirror")) return
     if (event.target.closest?.("#tess-overlay")) return
     event.preventDefault()
+    if (this.free.swallowClick()) return
     const hit = this.hit(event.target)
     if (hit?.placeholder) {
       const rect = this.toParentRect(hit.element.getBoundingClientRect())
@@ -343,7 +351,7 @@ export class Canvas {
     if (isFileDrag(event, this.editor)) return this.onFileDragOver(event)
     const drag = this.editor.drag
     if (!drag) return
-    const target = this.dropTarget(event.clientX, event.clientY, drag)
+    const target = this.free.dropTarget(event.clientX, event.clientY, drag) || this.dropTarget(event.clientX, event.clientY, drag)
     if (!target) {
       this.hideIndicator()
       return
@@ -358,9 +366,9 @@ export class Canvas {
     const drag = this.editor.drag
     if (!drag) return
     event.preventDefault()
-    const target = this.dropTarget(event.clientX, event.clientY, drag)
+    const target = this.free.dropTarget(event.clientX, event.clientY, drag) || this.dropTarget(event.clientX, event.clientY, drag)
     this.hideIndicator()
-    if (target) this.editor.drop(drag, target.parentId, target.index)
+    if (target) this.editor.drop(drag, target.parentId, target.index, target.at)
     this.editor.endDrag()
   }
 

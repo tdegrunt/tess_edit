@@ -19,6 +19,10 @@
 //     palette: [{ key, label, icon, category, create: ({ createNode }) => node }],  // optional
 //     kits: ["email"],                 // the kits it is part of, default ["email"]
 //     unique: true,                    // optional: at most one per document, like Content
+//     layout: "free",                  // optional, on a container: its children are placed by
+//                                      // data.x and data.y, dragged on the canvas (ui/free_layout.js)
+//     resize: { width: "data.width", height: "data.height" },
+//                                      // optional, in a free layout: the keys of its size, for a resize handle
 //     render: { mjml: (node, ctx) => "<mj-text …>" } // one per format of its kits:
 //                                      // mjml (export/mjml.js), html (export/html.js)
 //   })
