@@ -15,6 +15,7 @@
       ?translations=1 shows and edits translations for Liquid's t filter (TranslationsController).
       ?kit=note designs a note instead of an email, the demo's own kit (app/javascript/kits/note.js).
       ?snippets=1 offers snippets to insert as a copy (app/javascript/snippets.js, SnippetsController).
+      ?slots=1 puts the page's own sender fields in the root's Inspect (app/javascript/slots.js).
       ?blocks=text,image only offers those blocks. %>
   <% locked = params[:lock].present? %>
   <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>"
@@ -31,5 +32,11 @@
     <%= hidden_field_tag :json, nil, data: { tess_edit_target: "jsonInput" } %>
     <%= hidden_field_tag :mjml, nil, data: { tess_edit_target: "mjmlInput" } %>
     <%= hidden_field_tag :html, nil, data: { tess_edit_target: "htmlInput" } %>
+    <% if params[:slots].present? %>
+      <div class="space-y-2" data-tess-edit-target="slot" data-tess-edit-slot="sender" hidden>
+        <%= select_tag :sender_team, options_for_select([["Sales", "sales"], ["Support", "support"]]), class: "w-full rounded-md border border-gray-300 px-2 py-1 text-[13px]", "aria-label": "Team" %>
+        <%= text_field_tag :sender_name, nil, class: "w-full rounded-md border border-gray-300 px-2 py-1 text-[13px]", placeholder: "Name", "aria-label": "Name" %>
+      </div>
+    <% end %>
   </div>
 <% end %>

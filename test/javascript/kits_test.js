@@ -42,6 +42,15 @@ test("extendBlock adds a kit, render hooks and fields to a block, and keeps the 
   assert.throws(() => extendBlock("nothing", {}), /No block nothing/)
 })
 
+test("extendBlock adds fields to a group with the same title, and puts a new group before another", () => {
+  registerBlock({ type: "badge", name: "Badge", roles: ["content"], fields: [{ title: "Badge", fields: [{ key: "data.a" }] }, { title: "Style", fields: [] }], render: { mjml: () => "" } })
+  extendBlock("badge", { fields: [{ title: "Badge", fields: [{ key: "data.b" }] }, { title: "When", before: "Badge", fields: [{ key: "data.c" }] }] })
+  const badge = getBlock("badge")
+  assert.deepEqual(badge.fields.map((group) => group.title), ["When", "Badge", "Style"])
+  assert.deepEqual(badge.fields[1].fields.map((field) => field.key), ["data.a", "data.b"])
+  assert.equal("before" in badge.fields[0], false)
+})
+
 test("a kit's output comes from the hooks it added", async () => {
   const doc = getKit("note").starter()
   doc.children.push(createNode("condition", { data: { expression: "vip" }, children: [createNode("divider")] }))

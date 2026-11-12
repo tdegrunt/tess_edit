@@ -18,7 +18,8 @@
 //               core/media.js); without it images only have a URL
 //   variablesUrl  the variables a template can use, suggested while typing {{
 //                 and browsed with { } buttons (see core/variables.js), e.g.
-//                 Liquidum's /liquidum/variables?roots=…
+//                 Liquidum's /liquidum/variables?roots=…; a host can change it,
+//                 e.g. when the class a template is for changes
 //   translationsUrl  the host's translations for Liquid's t filter ({{ '.greeting' | t }}),
 //                    shown in a language chosen in the top bar, listed and edited
 //                    while pointed at, and made from selected text (see
@@ -34,6 +35,8 @@
 // Targets (all optional, usually hidden inputs in a form):
 //   jsonInput, mjmlInput, htmlInput  kept up to date with every change, with
 //                    the kit's outputs (an <output>Input target for each)
+//   slot             an element of the host's, named by data-tess-edit-slot,
+//                    that a "slot" field shows in Inspect (see ui/inspector.js)
 // Events:
 //   tess-edit:change  detail: { json, ...the kit's outputs, errors, document }:
 //                     for an email { json, mjml, html, errors, document }, with
@@ -77,7 +80,7 @@ function placed(node, at) {
 
 export default class extends Controller {
   static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
-  static targets = ["jsonInput", "mjmlInput", "htmlInput"]
+  static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot"]
 
   connect() {
     this.kit = getKit(this.kitValue)
@@ -121,6 +124,22 @@ export default class extends Controller {
       this.loadTranslations()
     }
     this.element.tessEdit = this
+  }
+
+  // Points the editor at other variables (variablesUrl), once it's connected
+  variablesUrlValueChanged() {
+    if (!this.variables) return
+    this.variables = new Variables(this.variablesUrlValue)
+    if (!this.variableMenu && this.variables.enabled) {
+      this.variableMenu = new VariableMenu(this)
+      this.textEditing.menu = this.variableMenu
+    }
+    this.inspector.render()
+  }
+
+  // The host's element for a slot field, if it gave one
+  slot(name) {
+    return this.slotTargets.find((element) => element.dataset.tessEditSlot === name) || null
   }
 
   // --- translations -------------------------------------------------------------
@@ -407,6 +426,7 @@ export default class extends Controller {
     const panelClass = (border, width) => `${width} shrink-0 flex flex-col ${border} border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 min-h-0`
     // Only the sidebars move: moving <main> would reload the canvas iframe and blank it.
     if (!this.main.isConnected) this.body.append(this.main)
+    this.inspector?.freezeSlots()
     this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement)
     if (this.layout === "split") {
       this.sidePanel.className = panelClass("border-r", "w-64")

@@ -220,6 +220,8 @@ The endpoint answers `GET` with the variables at `path` (the roots without one),
 
 `children` says a variable has variables of its own, at the path with its name added; a `collection` is a list of them, and its path goes into its elements (`order.order_lines.product`). The editor offers a collection's `first`, `last` and `size`, and inside a Loop block (`{% for line in order.order_lines %}`) its variable, `line`, asking for `order.order_lines.…` for it. An unknown path answers 404. [Liquidum](https://github.com/entdec/liquidum)'s `/liquidum/variables` answers this way from your drops; the dummy app's `VariablesController` is a fixed example (`/?variables=1`).
 
+The endpoint can change while the editor is open, say when the record a template is for changes: set `data-tess-edit-variables-url-value` again and the editor asks the new one.
+
 A field of your own gets the `{ }` button with `liquid: true`, or `liquid: "expression"` (a condition) or `liquid: "collection"` (what a loop goes over) for Liquid without braces.
 
 ### Translations
@@ -275,6 +277,32 @@ registerTessEdit(application)
 ```
 
 Roles say where a block may go: `body` (in the email or a wrapper, like sections and heroes), `wrapper`, `column` (in a section) and `content` (in a column or hero). A container lists the roles it takes in `accepts`; Loop and Condition use `"inherit"`. The full definition, and the helpers a render hook gets (`element`, `container`, `children`, `liquid`, `attrs`, `richText`, ...), are described at the top of `core/registry.js` and `export/mjml.js`. Blocks render only through their `render` hooks: `mjml` for emails, and a hook of its own for each kit. Stored documents don't change; a document with a block type that isn't registered fails `normalize`.
+
+`extendBlock(type, { fields })` adds fields to a block that is registered: a group with the title of one of its groups adds to that one, any other goes last, or before the group its `before` names.
+
+#### Your own form fields in Inspect
+
+A `slot` field shows an element of your page in Inspect, for settings that aren't part of the document, such as a template's trigger in your own form fields. Render the element inside the editor, hidden, as a `slot` target named by `data-tess-edit-slot`:
+
+```erb
+<div data-controller="tess-edit">
+  <div data-tess-edit-target="slot" data-tess-edit-slot="trigger" hidden>
+    <%= form.select :event, … %>
+  </div>
+</div>
+```
+
+```js
+extendBlock("email", {
+  fields: [{ title: "When", before: "Email", fields: [{
+    key: "trigger", label: "Trigger", type: "slot", slot: "trigger",
+    summary: (element) => element.querySelector("select").selectedOptions[0]?.text,  // shown while collapsed
+    open: (element) => Boolean(element.querySelector("[role=alert]"))             // open at first, e.g. with errors
+  }] }]
+})
+```
+
+The field shows collapsed to its summary, with a button to edit it. Its values are your form fields, submitted with the form; without the element the field doesn't show. The element moves into Inspect once and stays there, hidden while another block is selected, so your Stimulus controllers in it keep their state. Combining or splitting the panels moves it again: its controllers reconnect then, with the values typed and chosen written into the fields' attributes first. The demo has one at `/?slots=1` (`test/dummy/app/javascript/slots.js`).
 
 A select field's `options` can be a function of the editor, `options: (editor) => [...]`, for choices from your app. Give the editor those with `data-tess-edit-options-value` (JSON), which blocks read as `editor.options`.
 

@@ -128,6 +128,20 @@ class VariablesTest < ApplicationSystemTestCase
     assert_no_selector ".tess-edit button[title='Insert a variable']"
   end
 
+  test "the editor takes other variables when the host changes its variablesUrl" do
+    visit "/"
+    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    assert_selector ".tess-edit h2", text: "Button · View your order"
+    assert_no_button "{ }"
+
+    page.execute_script("document.querySelector('[data-controller=tess-edit]').dataset.tessEditVariablesUrlValue = '/variables'")
+    assert_selector "[data-tess-edit-panel='inspect'] button", text: "{ }"
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{{ or")
+    assert_option "order"
+  end
+
   private
 
   # Waits for an option with this variable name in the menu

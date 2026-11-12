@@ -1,5 +1,17 @@
 // The Inspect panel: renders the selected block's fields from its
 // definition (blocks/*.js, via core/registry.js) and writes changes back through the editor.
+//
+// A "slot" field shows an element of the host's, rendered with the page:
+//
+//   <div data-tess-edit-target="slot" data-tess-edit-slot="trigger" hidden>…form fields…</div>
+//   { key: "trigger", label: "When", type: "slot", slot: "trigger",
+//     summary: (element) => "Account · created", open: (element) => false }
+//
+// Its values are the host's form fields, not part of the document. It shows
+// collapsed to its summary, with a button to edit it; open(element) opens it
+// at first, e.g. when it has errors. The element is never recreated, so the
+// host's Stimulus controllers in it keep their state: it and its group stay
+// in Inspect, hidden while another block is selected (see place in ui/dom.js).
 
 import { imageSource } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
@@ -7,7 +19,7 @@ import { find, getValue } from "tess_edit/core/document"
 import { translationCalls } from "tess_edit/core/translations"
 import { loopScope } from "tess_edit/core/variables"
 import { codeInput } from "tess_edit/ui/code_input"
-import { h } from "tess_edit/ui/dom"
+import { freeze, h, place } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 import { inputAdapter, suggestIn } from "tess_edit/ui/variable_menu"
 
@@ -42,6 +54,17 @@ export class Inspector {
     this.adapters = new Map()
     this.inputs = new Map()
     this.hints = []
+    // Groups with a slot, and the slots, by key: kept, never rendered again
+    this.keptGroups = new Map()
+    this.slots = new Map()
+    this.header = h("div", { class: "flex items-center gap-2 px-4 h-12 border-b border-gray-200 dark:border-gray-700 shrink-0" })
+    this.body = h("div", { class: "flex-1 overflow-y-auto pb-6" })
+    this.element.append(this.header, this.body)
+  }
+
+  // Before Inspect moves (see the editor's arrangePanels)
+  freezeSlots() {
+    this.slots.forEach(({ element }) => freeze(element))
   }
 
   // Again, when the translations or the editor's language change
@@ -70,29 +93,45 @@ export class Inspector {
           h("button", { type: "button", title, class: "w-7 h-7 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100", html: icon(name), onclick })
         )
 
-    const header = h(
-      "div",
-      { class: "flex items-center gap-2 px-4 h-12 border-b border-gray-200 dark:border-gray-700 shrink-0" },
+    this.header.replaceChildren(
       h("span", { class: "text-gray-400 dark:text-gray-500", html: icon(definition.icon, "w-4 h-4") }),
       h("h2", { class: "font-semibold text-gray-900 dark:text-gray-100 truncate" }, label(node)),
       h("div", { class: "ml-auto flex items-center gap-0.5" }, actions)
     )
 
-    // A group shows when one of its fields applies (see visible below)
-    const groups = (definition.fields || []).filter((group) => group.fields.some((field) => !field.visible || field.visible(node, this.editor))).map((group) => this.group(node, group))
+    // A group shows when one of its fields applies (see shows below)
+    const groups = (definition.fields || []).filter((group) => group.fields.some((field) => this.shows(node, field))).map((group) => this.group(node, group))
     const locked = this.editor.lock && node.id !== doc.id && !this.editor.isFree(node.id)
       ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), "Part of the layout")
       : null
     // A block's hint explains how to edit it, which a locked block can't be.
     const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-xs text-gray-600 dark:text-gray-300" }, definition.hint) : null
 
-    this.element.replaceChildren(header, h("div", { class: "flex-1 overflow-y-auto pb-6" }, locked, hint, groups))
+    place(this.body, [locked, hint, ...groups].filter(Boolean), new Set([...this.keptGroups.values()].map((kept) => kept.details)))
+  }
+
+  // A field's visible(node, editor) shows it only when it applies; a slot
+  // only when the host gave its element
+  shows(node, field) {
+    if (field.type === "slot" && !this.editor.slot(field.slot)) return false
+    return !field.visible || field.visible(node, this.editor)
   }
 
   group(node, group) {
     const key = `${node.type}:${group.title}`
     const open = this.openGroups.has(key) ? this.openGroups.get(key) : !group.collapsed
-    const details = h(
+    const fields = group.fields.filter((field) => this.shows(node, field)).map((field) => this.field(node, field))
+    const kept = this.keptGroups.get(key) || (group.fields.some((field) => field.type === "slot") ? this.keepGroup(key, group) : null)
+    if (kept) {
+      kept.details.open = open
+      place(kept.list, fields, new Set([...this.slots.values()].map((slot) => slot.wrapper)))
+      return kept.details
+    }
+    return this.groupElement(key, group, open, h("div", { class: "px-4 pb-4 space-y-3" }, fields))
+  }
+
+  groupElement(key, group, open, list) {
+    return h(
       "details",
       { class: "group/field border-b border-gray-100 dark:border-gray-700", open, ontoggle: (event) => this.openGroups.set(key, event.currentTarget.open) },
       h(
@@ -101,13 +140,20 @@ export class Inspector {
         h("span", { html: icon("chevron", "w-3 h-3 transition-transform group-open/field:rotate-90") }),
         group.title
       ),
-      // A field's visible(node, editor) shows it only when it applies
-      h("div", { class: "px-4 pb-4 space-y-3" }, group.fields.filter((field) => !field.visible || field.visible(node, this.editor)).map((field) => this.field(node, field)))
+      list
     )
-    return details
+  }
+
+  keepGroup(key, group) {
+    const list = h("div", { class: "px-4 pb-4 space-y-3" })
+    const kept = { details: this.groupElement(key, group, !group.collapsed, list), list }
+    this.keptGroups.set(key, kept)
+    return kept
   }
 
   field(node, field) {
+    if (field.type === "slot") return this.slot(field)
+
     const value = getValue(node, field.key) ?? ""
     const set = (next, options = {}) => this.editor.setValue(node.id, field.key, next, options)
     // A fieldset disables every input and button of a locked field at once.
@@ -220,6 +266,47 @@ export class Inspector {
       default:
         return this.variables(h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "", oninput: (event) => set(event.target.value) }), node, field)
     }
+  }
+
+  // The host's element, collapsed to its summary until edited
+  slot(field) {
+    let slot = this.slots.get(field.slot)
+    if (!slot) {
+      const element = this.editor.slot(field.slot)
+      const summary = h("span", { class: "min-w-0 flex-1 truncate text-[13px] text-gray-700 dark:text-gray-300" })
+      const button = h("button", { type: "button", class: "shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", "aria-expanded": "false", onclick: () => this.toggleSlot(slot) })
+      const holder = h("div", { class: "pt-1" })
+      slot = {
+        field,
+        element,
+        summary,
+        button,
+        holder,
+        open: Boolean(field.open?.(element)),
+        wrapper: h("div", { class: "block" }, h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label), h("div", { class: "flex items-center gap-2" }, summary, button), holder)
+      }
+      // Its only move: it reconnects, with what was typed so far
+      freeze(element)
+      holder.append(element)
+      element.hidden = false
+      this.slots.set(field.slot, slot)
+    }
+    this.showSlot(slot)
+    return slot.wrapper
+  }
+
+  toggleSlot(slot) {
+    slot.open = !slot.open
+    this.showSlot(slot)
+  }
+
+  showSlot(slot) {
+    const { open, field, element, button, holder, summary } = slot
+    holder.hidden = !open
+    button.textContent = open ? "Done" : "Edit"
+    button.setAttribute("aria-expanded", String(open))
+    summary.hidden = open
+    summary.textContent = open ? "" : field.summary?.(element) || ""
   }
 
   // Suggests the host's Liquid variables (editor.variables) while typing {{ in

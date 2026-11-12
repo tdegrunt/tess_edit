@@ -65,8 +65,9 @@
 //
 //   extendBlock("text", { kits: ["note"], render: { note: (node, ctx) => "<div>…</div>" } })
 //
-// which adds the kits and render hooks (and any fields, in groups of their
-// own) to the block as it is registered, also when another gem replaced it.
+// which adds the kits and render hooks (and any fields, to its groups or in
+// groups of their own) to the block as it is registered, also when another
+// gem replaced it.
 
 import { builtinBlocks, builtinCategories } from "tess_edit/blocks/builtin"
 import { builtinKits } from "tess_edit/kits/builtin"
@@ -154,7 +155,9 @@ export function registerBlock(definition) {
   return definitions.get(type)
 }
 
-// Adds kits, render hooks and field groups to a registered block
+// Adds kits, render hooks and field groups to a registered block. A group
+// with the title of one it has adds its fields to that one; a new group goes
+// last, or before the group its `before` names.
 export function extendBlock(type, { kits = [], render = {}, fields = [] } = {}) {
   const definition = definitions.get(type)
   if (!definition) throw new Error(`No block ${type} to extend`)
@@ -162,9 +165,17 @@ export function extendBlock(type, { kits = [], render = {}, fields = [] } = {}) 
     ...definition,
     kits: [...new Set([...definition.kits, ...kits])],
     render: { ...definition.render, ...render },
-    fields: [...(definition.fields || []), ...fields]
+    fields: fields.reduce(addGroup, definition.fields || [])
   })
   return definitions.get(type)
+}
+
+function addGroup(groups, { before, ...group }) {
+  if (groups.some((existing) => existing.title === group.title)) {
+    return groups.map((existing) => (existing.title === group.title ? { ...existing, fields: [...existing.fields, ...group.fields] } : existing))
+  }
+  const index = groups.findIndex((existing) => existing.title === before)
+  return index < 0 ? [...groups, group] : [...groups.slice(0, index), group, ...groups.slice(index)]
 }
 
 export function getBlock(type) {
