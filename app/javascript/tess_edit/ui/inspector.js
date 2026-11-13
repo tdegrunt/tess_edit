@@ -16,6 +16,7 @@
 
 import { imageSource } from "tess_edit/core/media"
 import { getBlock, label } from "tess_edit/core/registry"
+import { fontOptions } from "tess_edit/blocks/fields"
 import { find, getValue } from "tess_edit/core/document"
 import { translationCalls } from "tess_edit/core/translations"
 import { loopScope } from "tess_edit/core/variables"
@@ -226,6 +227,9 @@ export class Inspector {
             return h("option", { value: optionValue, selected: optionValue === value }, optionLabel)
           })
         )
+
+      case "font":
+        return this.font(field, value, set)
 
       case "segmented":
         return h(
@@ -474,6 +478,24 @@ export class Inspector {
     )
     this.editor.root.append(dialog)
     input.textarea.focus()
+  }
+
+  // The host's fonts (options.fonts) or common ones, each shown in itself
+  font(field, value, set) {
+    return h(
+      "select",
+      {
+        class: `${INPUT} pr-7`,
+        style: value ? `font-family: ${value}` : "",
+        onchange: (event) => {
+          event.target.style.fontFamily = event.target.value
+          set(event.target.value)
+        }
+      },
+      fontOptions(this.editor.options?.fonts, value, field.placeholder).map((option) =>
+        h("option", { value: option.value, selected: option.value === (value || ""), style: option.value ? `font-family: ${option.value}` : "" }, option.label)
+      )
+    )
   }
 
   color(value, set) {

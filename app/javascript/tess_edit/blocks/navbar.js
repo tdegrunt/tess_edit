@@ -33,7 +33,7 @@ export default {
       fields: [
         { key: "data.color", label: "Color", type: "color" },
         { key: "data.fontSize", label: "Font size", type: "size" },
-        { key: "data.fontFamily", label: "Font family", type: "text", placeholder: "Inherit" },
+        { key: "data.fontFamily", label: "Font family", type: "font", placeholder: "Inherit" },
         { key: "data.linkPadding", label: "Padding", type: "spacing" }
       ]
     }

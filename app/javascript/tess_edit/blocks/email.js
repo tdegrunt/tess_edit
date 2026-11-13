@@ -39,7 +39,7 @@ export default {
     {
       title: "Theme",
       fields: [
-        { key: "data.fontFamily", label: "Font family", type: "text" },
+        { key: "data.fontFamily", label: "Font family", type: "font" },
         { key: "data.fontSize", label: "Font size", type: "size" },
         { key: "data.lineHeight", label: "Line height", type: "text" },
         { key: "data.textColor", label: "Text color", type: "color" }
