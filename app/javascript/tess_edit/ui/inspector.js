@@ -249,7 +249,8 @@ export class Inspector {
           )
         )
 
-      case "toggle":
+      case "toggle": {
+        const state = h("span", { class: "text-xs text-gray-600 dark:text-gray-300" }, value === field.on ? "On" : "Off")
         return h(
           "span",
           { class: "flex items-center gap-2" },
@@ -257,10 +258,14 @@ export class Inspector {
             type: "checkbox",
             class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 dark:text-blue-400",
             checked: value === field.on,
-            onchange: (event) => set(event.target.checked ? field.on : field.off)
+            onchange: (event) => {
+              set(event.target.checked ? field.on : field.off)
+              state.textContent = event.target.checked ? "On" : "Off"
+            }
           }),
-          h("span", { class: "text-xs text-gray-600 dark:text-gray-300" }, value === field.on ? "On" : "Off")
+          state
         )
+      }
 
       case "spacing":
         return this.spacing(value, set)
