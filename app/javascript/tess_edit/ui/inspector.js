@@ -21,6 +21,7 @@ import { find, getValue } from "tess_edit/core/document"
 import { translationCalls } from "tess_edit/core/translations"
 import { loopScope } from "tess_edit/core/variables"
 import { codeInput } from "tess_edit/ui/code_input"
+import { FontPicker } from "tess_edit/ui/font_picker"
 import { freeze, h, place } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 import { inputAdapter, suggestIn } from "tess_edit/ui/variable_menu"
@@ -480,22 +481,10 @@ export class Inspector {
     input.textarea.focus()
   }
 
-  // The host's fonts (options.fonts) or common ones, each shown in itself
+  // The host's fonts (options.fonts) or common ones, each shown in itself (ui/font_picker.js)
   font(field, value, set) {
-    return h(
-      "select",
-      {
-        class: `${INPUT} pr-7`,
-        style: value ? `font-family: ${value}` : "",
-        onchange: (event) => {
-          event.target.style.fontFamily = event.target.value
-          set(event.target.value)
-        }
-      },
-      fontOptions(this.editor.options?.fonts, value, field.placeholder).map((option) =>
-        h("option", { value: option.value, selected: option.value === (value || ""), style: option.value ? `font-family: ${option.value}` : "" }, option.label)
-      )
-    )
+    const options = fontOptions(this.editor.options?.fonts, value, field.placeholder)
+    return new FontPicker(this.editor, { options, value, input: INPUT, choose: set }).button
   }
 
   color(value, set) {
