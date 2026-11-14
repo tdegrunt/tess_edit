@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { accepted, createDocument, createFromPalette, insert, itemType, normalize } from "tess_edit/core/document"
-import { categories, getBlock, isContainer, paletteItems, registerBlock, registerCategory } from "tess_edit/core/registry"
+import { categories, fieldType, getBlock, inlinePart, inlineParts, isContainer, paletteItems, registerBlock, registerCategory, registerFieldType } from "tess_edit/core/registry"
 import { toMjml } from "tess_edit/export/mjml"
 
 registerCategory({ key: "shop", label: "Shop", order: 40 })
@@ -54,4 +54,23 @@ test("registerBlock checks the definition", () => {
   assert.throws(() => registerBlock({ type: "x", name: "X", roles: ["content"] }), /render\.mjml/)
   assert.throws(() => registerBlock({ type: "x", name: "X", render: { mjml: () => "" } }), /roles/)
   assert.throws(() => registerBlock({ name: "X" }), /type/)
+})
+
+test("a block's inline parts, with richText as the shorthand of one", () => {
+  registerBlock({ type: "question", name: "Question", roles: ["content"], inline: [{ key: "data.label", plain: true }, { key: "data.description" }], render: { mjml: () => "" } })
+  assert.deepEqual(inlineParts("question").map((part) => part.key), ["data.label", "data.description"])
+  assert.equal(inlinePart("question", "data.label").plain, true)
+  assert.deepEqual(inlineParts("text"), [{ key: "data.content" }])
+  assert.deepEqual(inlineParts("divider"), [])
+  assert.throws(() => registerBlock({ type: "x", name: "X", roles: ["content"], inline: [{ plain: true }], render: { mjml: () => "" } }), /key/)
+})
+
+test("a host registers a field type of its own, not one of TessEdit's", () => {
+  const render = (node, field, value) => ({ value })
+  registerFieldType("rules", render)
+  assert.equal(fieldType("rules"), render)
+  assert.equal(fieldType("text"), undefined)
+  assert.throws(() => registerFieldType("text", render), /TessEdit's own/)
+  assert.throws(() => registerFieldType("rules"), /render/)
+  assert.throws(() => registerFieldType("", render), /name/)
 })

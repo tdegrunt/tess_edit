@@ -15,7 +15,13 @@
 //                                      // a "code" field takes language: "html" (default) or "css"
 //     hint: "Shown at the top of Inspect.",
 //     label: (node) => `Product · ${node.data.sku}`,   // optional, for Layers and the canvas
-//     richText: "data.content",        // optional: a Tiptap JSON value edited on the canvas by double-click
+//     richText: "data.content",        // optional: a Tiptap JSON value edited on the canvas by double-click,
+//                                      // on the block's own element; the shorthand of one inline part
+//     inline: [{ key: "data.label", plain: true }, { key: "data.description" }],
+//                                      // optional: the parts edited on the canvas, each on the element
+//                                      // its render marks with data-tess-edit-field="<key>" in the
+//                                      // editor, so the rest of the block stays as it is. A plain part
+//                                      // is one line of text, a string; the others are Tiptap JSON
 //     palette: [{ key, label, icon, category, create: ({ createNode }) => node }],  // optional
 //     kits: ["email"],                 // the kits it is part of, default ["email"]
 //     unique: true,                    // optional: at most one per document, like Content
@@ -81,6 +87,7 @@ const definitions = new Map()
 const categoryList = new Map()
 const kitList = new Map()
 const sourceList = new Map()
+const fieldTypeList = new Map()
 
 export const DEFAULT_KIT = "email"
 
@@ -156,8 +163,45 @@ export function registerBlock(definition) {
     ...item,
     type
   }))
-  definitions.set(type, { roles: [], kits: [DEFAULT_KIT], ...definition, palette })
+  const inline = definition.inline ?? (definition.richText ? [{ key: definition.richText }] : [])
+  if (inline.some((part) => !part?.key)) throw new Error(`Block ${type} needs a key for each inline part`)
+  definitions.set(type, { roles: [], kits: [DEFAULT_KIT], ...definition, palette, inline })
   return definitions.get(type)
+}
+
+// The parts of a block edited on the canvas (see `inline`)
+export function inlineParts(type) {
+  return getBlock(type)?.inline || []
+}
+
+export function inlinePart(type, key) {
+  return inlineParts(type).find((part) => part.key === key)
+}
+
+// The field types of ui/inspector.js
+export const FIELD_TYPES = ["text", "textarea", "code", "size", "color", "select", "font", "segmented", "toggle", "spacing", "list", "image", "slot"]
+
+// A field type of the host's, for what TessEdit's own can't do, such as
+// parts that depend on each other:
+//
+//   registerFieldType("rules", (node, field, value, set, editor) => element)
+//
+// It renders the control under the field's label in Inspect: value is the
+// field's value (undefined when it has none), set(next) stores a new one as
+// an undo step. Inspect doesn't render the field again after a set, so the
+// element keeps its focus and updates itself; it renders all fields again
+// when another block is selected or the document changes otherwise. A
+// locked field's element is disabled through a fieldset around it.
+// Registering a type again replaces it; TessEdit's own can't be.
+export function registerFieldType(type, render) {
+  if (!type || typeof type !== "string") throw new Error("A field type needs a name")
+  if (FIELD_TYPES.includes(type)) throw new Error(`Field type ${type} is TessEdit's own`)
+  if (typeof render !== "function") throw new Error(`Field type ${type} needs render(node, field, value, set, editor)`)
+  fieldTypeList.set(type, render)
+}
+
+export function fieldType(type) {
+  return fieldTypeList.get(type)
 }
 
 // Adds kits, render hooks and field groups to a registered block. A group

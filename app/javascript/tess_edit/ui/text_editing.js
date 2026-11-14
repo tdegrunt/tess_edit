@@ -5,6 +5,10 @@
 // translations (`editor.translations`, core/translations.js) a t filter shows
 // its text in the editor's language until the caret goes into it, and the
 // toolbar turns selected text into a translation.
+//
+// A plain part (a block's inline part with plain: true, see core/registry.js)
+// is one line of text, edited on its element itself, with no toolbar or
+// marks: Enter or leaving it finishes (finish).
 
 import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
 import { missingArguments, translationCalls } from "tess_edit/core/translations"
@@ -23,6 +27,7 @@ export class TextEditing {
     this.menu = menu
     this.editor = editor
     this.tiptap = null
+    this.plain = null
   }
 
   get translating() {
@@ -30,7 +35,37 @@ export class TextEditing {
   }
 
   get active() {
-    return !!this.tiptap
+    return !!this.tiptap || !!this.plain
+  }
+
+  // One line of text on the element itself: onUpdate gets it as it's typed,
+  // finish when Enter is pressed or the element left
+  startPlain(element, value, onUpdate, finish) {
+    this.stop()
+    const text = () => element.textContent.replace(/\s*\n\s*/g, " ")
+    const listeners = {
+      input: () => onUpdate(text()),
+      keydown: (event) => {
+        if (event.key !== "Enter") return
+        // Not to the editor, which would start editing again
+        event.preventDefault()
+        event.stopPropagation()
+        finish()
+      },
+      blur: () => finish()
+    }
+    element.textContent = value ?? ""
+    element.contentEditable = "plaintext-only"
+    element.classList.add("tess-plain")
+    for (const [name, listener] of Object.entries(listeners)) element.addEventListener(name, listener)
+    this.plain = { element, listeners, text }
+    element.focus()
+    const range = element.ownerDocument.createRange()
+    range.selectNodeContents(element)
+    range.collapse(false)
+    element.ownerDocument.getSelection().removeAllRanges()
+    element.ownerDocument.getSelection().addRange(range)
+    return element
   }
 
   // scope: the loop variables of the block (core/variables.js loopScope)
@@ -106,6 +141,7 @@ export class TextEditing {
   }
 
   stop() {
+    if (this.plain) return this.stopPlain()
     if (!this.tiptap) return null
     const json = this.tiptap.getJSON()
     this.menu?.close()
@@ -114,6 +150,15 @@ export class TextEditing {
     this.toolbar.replaceChildren()
     this.toolbar.classList.add("hidden")
     return json
+  }
+
+  stopPlain() {
+    const { element, listeners, text } = this.plain
+    this.plain = null
+    for (const [name, listener] of Object.entries(listeners)) element.removeEventListener(name, listener)
+    element.removeAttribute("contenteditable")
+    element.classList.remove("tess-plain")
+    return text()
   }
 
   renderToolbar() {

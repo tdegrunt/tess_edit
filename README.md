@@ -16,7 +16,7 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 - Blocks: Section (1-4 columns), Column, Wrapper, Hero, Text, Heading, Image, Button, Divider, Spacer, Social, Navbar and raw HTML.
 - Liquid blocks: **Loop** (`{% for line in order.lines %}`) and **Condition** (`{% if order.total > 100 %}`) wrap other blocks.
 - Drag from the Blocks panel onto the canvas or into the Layers tree; move blocks on the canvas (drag handle) or in the tree; plus buttons and empty-column placeholders open an "Add block" menu.
-- Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings.
+- Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings. A block can have several texts edited on the canvas, rich or a plain line, such as a question's label and its description.
 - Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
 - Your app's translations for Liquid's `t` filter (`{{ '.greeting' | t }}`) shown as their text in a language of your choice, with every language's text, missing ones marked, editable when pointed at, and selected text made translatable.
 - Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Esc).
@@ -280,6 +280,21 @@ Roles say where a block may go: `body` (in the email or a wrapper, like sections
 
 `extendBlock(type, { fields })` adds fields to a block that is registered: a group with the title of one of its groups adds to that one, any other goes last, or before the group its `before` names.
 
+#### Texts edited on the canvas
+
+A block's `richText: "data.content"` is a Tiptap value edited on the block's own element, by clicking a selected block or double-clicking it. A block with more texts, or with other content around its text, declares its parts with `inline` instead, and marks the element of each with `data-tess-edit-field` in the editor:
+
+```js
+registerBlock({
+  type: "question",
+  inline: [{ key: "data.label", plain: true }, { key: "data.description" }],
+  render: { form: (node, { editor }) => `<label${editor ? ' data-tess-edit-field="data.label"' : ""}>${node.data.label}</label> <input> …` },
+  …
+})
+```
+
+The text editor is mounted on that element only, so the rest of the block, such as an input, stays as it is. A `plain` part is one line of text, stored as a string: no toolbar or marks, and Enter or leaving it finishes. The others are rich text as above, finished with Esc. A part can also be a field in Inspect, so both ways work. The demo's Note kit has a Card block with both (`test/dummy/app/javascript/kits/note.js`).
+
 #### Your own form fields in Inspect
 
 A `slot` field shows an element of your page in Inspect, for settings that aren't part of the document, such as a template's trigger in your own form fields. Render the element inside the editor, hidden, as a `slot` target named by `data-tess-edit-slot`:
@@ -303,6 +318,24 @@ extendBlock("email", {
 ```
 
 With a `summary` the field shows collapsed to it, with a button to edit it; without one the element always shows. Its values are your form fields, submitted with the form; without the element the field doesn't show. The element moves into Inspect once and stays there, hidden while another block is selected, so your Stimulus controllers in it keep their state. Combining or splitting the panels moves it again: its controllers reconnect then, with the values typed and chosen written into the fields' attributes first. The demo has one at `/?slots=1` (`test/dummy/app/javascript/slots.js`).
+
+#### Field types of your own
+
+For a field TessEdit's types can't make, such as one whose parts depend on each other, register a type of your own and use it in a block's `fields`:
+
+```js
+import { registerFieldType } from "tess_edit"
+
+registerFieldType("rules", (node, field, value, set, editor) => {
+  const element = document.createElement("div")
+  // … inputs that call set(next) with the field's new value
+  return element
+})
+
+registerBlock({ …, fields: [{ title: "Show when", fields: [{ key: "data.rules", label: "Rules", type: "rules" }] }] })
+```
+
+The element goes under the field's label in Inspect. `value` is the field's value (`undefined` when it has none) and `set(next)` stores a new one as an undo step. Inspect doesn't render the field again after a `set`, so the element keeps its focus and updates itself; it renders it again when another block is selected or the document changes otherwise. A locked field's element is disabled through a fieldset. TessEdit's own types can't be replaced. The demo's Card block has one, `stars`.
 
 A select field's `options` can be a function of the editor, `options: (editor) => [...]`, for choices from your app. Give the editor those with `data-tess-edit-options-value` (JSON), which blocks read as `editor.options`. Font family fields are a select of `editor.options.fonts`: CSS font families as text, `"Maytra"` or `"'EB Garamond', serif"`, or `{ value, label }`; without them, common web fonts (`fields.FONTS`). A font a design has that isn't among them stays selected. The field lists each font in itself, with a search box, so your page needs the fonts too, such as `@font-face` rules: a browser loads a font only once it's used, and the list shows fonts as they scroll into view.
 

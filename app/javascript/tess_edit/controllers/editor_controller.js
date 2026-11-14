@@ -47,7 +47,7 @@ import { Controller } from "@hotwired/stimulus"
 import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, findType, getValue, insert, itemType, misfit, move, normalize, remove, setValue, walk } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
 import { canEditField, canFill, isFree, parseLock } from "tess_edit/core/lock"
-import { DEFAULT_KIT, getBlock, getKit, paletteItems, paletteSources } from "tess_edit/core/registry"
+import { DEFAULT_KIT, getBlock, getKit, inlinePart, inlineParts, paletteItems, paletteSources } from "tess_edit/core/registry"
 import { COMPILE_URL } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
@@ -98,6 +98,7 @@ export default class extends Controller {
     this.doc = this.loadInitial()
     this.selectedId = this.doc.id
     this.editingId = null
+    this.editingPart = null
     this.drag = null
     this.mode = "edit"
     this.device = this.kit.devices?.[0]?.key || null
@@ -711,23 +712,28 @@ export default class extends Controller {
     this.select(siblings[Math.min(hit.index, siblings.length - 1)]?.id || hit.parent.id)
   }
 
-  startEditing(id) {
+  // Edits an inline part of a block on the canvas: the one with this key,
+  // or its first (see `inline` in core/registry.js)
+  startEditing(id, key = null) {
     const hit = find(this.doc, id)
-    const key = hit && getBlock(hit.node.type)?.richText
-    if (!key || this.mode !== "edit" || !this.isFree(id)) return
-    if (this.editingId === id) return
+    const part = hit && (key ? inlinePart(hit.node.type, key) : inlineParts(hit.node.type)[0])
+    if (!part || this.mode !== "edit" || !this.canEditField(id, part.key)) return
+    if (this.editingId === id && this.editingPart?.key === part.key) return
     this.stopEditing()
     this.select(id)
-    const container = this.canvas.textContainer(id)
+    const container = this.canvas.textContainer(id, part.key)
     if (!container) return
     this.editingId = id
+    this.editingPart = part
     this.editSnapshot = JSON.stringify(this.doc)
-    this.textEditing.start(container, getValue(hit.node, key), (json) => {
-      setValue(this.doc, id, key, json)
+    const update = (value) => {
+      setValue(this.doc, id, part.key, value)
       this.tree.render()
       this.canvas.refresh()
       this.scheduleOutputs()
-    }, { scope: loopScope(this.doc, id) })
+    }
+    if (part.plain) this.textEditing.startPlain(container, getValue(hit.node, part.key), update, () => this.stopEditing())
+    else this.textEditing.start(container, getValue(hit.node, part.key), update, { scope: loopScope(this.doc, id) })
     this.canvas.refresh()
   }
 
@@ -735,6 +741,7 @@ export default class extends Controller {
     if (!this.editingId) return
     this.textEditing.stop()
     this.editingId = null
+    this.editingPart = null
     if (this.editSnapshot !== JSON.stringify(this.doc)) this.history.record(this.editSnapshot)
     this.editSnapshot = null
     this.renderTopBar()
@@ -965,7 +972,7 @@ export default class extends Controller {
         event.preventDefault()
         this.remove(this.selectedId)
       }
-    } else if (event.key === "Enter" && getBlock(find(this.doc, this.selectedId)?.node.type)?.richText) {
+    } else if (event.key === "Enter" && inlineParts(find(this.doc, this.selectedId)?.node.type).length) {
       event.preventDefault()
       this.startEditing(this.selectedId)
     } else if (event.key === "Escape") {

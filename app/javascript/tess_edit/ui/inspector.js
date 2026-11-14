@@ -15,7 +15,7 @@
 // in Inspect, hidden while another block is selected (see place in ui/dom.js).
 
 import { imageSource } from "tess_edit/core/media"
-import { getBlock, label } from "tess_edit/core/registry"
+import { fieldType, getBlock, label } from "tess_edit/core/registry"
 import { fontOptions } from "tess_edit/blocks/fields"
 import { find, getValue } from "tess_edit/core/document"
 import { translationCalls } from "tess_edit/core/translations"
@@ -197,6 +197,10 @@ export class Inspector {
   }
 
   control(node, field, value, set) {
+    // A host's own (registerFieldType in core/registry.js)
+    const custom = fieldType(field.type)
+    if (custom) return custom(node, field, getValue(node, field.key), set, this.editor)
+
     switch (field.type) {
       case "textarea":
         return this.variables(h("textarea", { class: `${INPUT} min-h-32`, rows: 4, value, oninput: (event) => set(event.target.value) }), node, field)

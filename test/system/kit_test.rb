@@ -47,4 +47,41 @@ class KitTest < ApplicationSystemTestCase
     setting("Title").fill_in(with: "Shopping list")
     eventually { assert_includes output("html"), "<title>Shopping list</title>" }
   end
+
+  test "a block's parts are each edited on the canvas, a plain one as one line" do
+    within(".tess-edit") { click_on "Card" }
+    within_canvas("Note") do
+      find("strong[data-tess-edit-field='data.title']").double_click
+      title = find("strong[data-tess-edit-field='data.title'][contenteditable]")
+      title.send_keys(:end, " for you", :enter)
+      assert_no_selector "[contenteditable]"
+
+      find("[data-tess-edit-field='data.body']").double_click
+      find(".ProseMirror").send_keys(:end, ", and more")
+      find(".ProseMirror").send_keys(:escape)
+      assert_no_selector ".ProseMirror"
+    end
+    eventually do
+      assert_includes output("html"), "<strong>A card for you</strong>"
+      assert_includes output("html"), "Its text, and more"
+    end
+    assert_equal "A card for you", setting("Title").value
+  end
+
+  test "the kit's root has a part edited on the canvas too" do
+    within_canvas("Note") do
+      find("h1", text: "A note").click
+      find("h1[contenteditable]").send_keys(:end, " to self", :enter)
+      assert_no_selector "[contenteditable]"
+    end
+    eventually { assert_includes output("html"), "<title>A note to self</title>" }
+    assert_equal "A note to self", setting("Title").value
+  end
+
+  test "a field type of the host's edits its value" do
+    within(".tess-edit") { click_on "Card" }
+    within("[data-tess-edit-panel='inspect']") { click_on "5 stars" }
+    eventually { assert_includes output("html"), "★★★★★" }
+    within("[data-tess-edit-panel='inspect']") { assert_selector "button[title='5 stars'][aria-pressed='true']" }
+  end
 end

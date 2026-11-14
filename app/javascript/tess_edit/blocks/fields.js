@@ -1,7 +1,8 @@
 // Field definitions shared by the built-in blocks, and usable by custom ones.
 // A field: { key: "attributes.padding" | "data.subject", label, type, ... }.
 // Types: text, textarea, code, size, color, select, font, segmented, toggle,
-// spacing, list and slot (an element of the host's); see ui/inspector.js. A
+// spacing, list and slot (an element of the host's); see ui/inspector.js,
+// and the host's own, registerFieldType (core/registry.js). A
 // font field is a select of the host's fonts, the editor's options.fonts, or
 // FONTS without them. A select's options can be a
 // function of the editor, options(editor), for choices the host gives. A

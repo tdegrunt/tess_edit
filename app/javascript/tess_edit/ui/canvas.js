@@ -22,6 +22,7 @@ body{min-height:100vh;margin:0}
 .tess-label{position:absolute;bottom:100%;left:0;background:#2563eb;color:#fff;padding:3px 6px;border-radius:4px 4px 0 0;white-space:nowrap}
 .tess-hover .tess-label{background:#60a5fa}
 .tess-editing .tess-label{background:#f59e0b}
+.tess-plain{outline:none;cursor:text}
 .tess-inside .tess-label,.tess-inside .tess-tools{bottom:auto;top:0;border-radius:0 0 4px 4px}
 .tess-tools{position:absolute;bottom:100%;right:0;display:flex;gap:1px;pointer-events:auto;background:#2563eb;border-radius:4px 4px 0 0;padding:1px}
 .tess-tools [data-tool]{cursor:pointer;color:#fff;width:22px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:none;border:0;padding:0}
@@ -218,9 +219,27 @@ export class Canvas {
     return { left, top, right, bottom, width: right - left, height: bottom - top }
   }
 
-  textContainer(id) {
+  // Where an inline part is edited: the element its render marks with
+  // data-tess-edit-field, or for the richText shorthand the block's own
+  textContainer(id, key) {
     const cell = this.doc?.querySelector(`.tess-${id}`)
+    const part = this.partElement(cell, key)
+    if (part) return part
+    if (key !== getBlock(find(this.editor.doc, id)?.node.type)?.richText) return null
     return cell?.querySelector(":scope > div") || cell
+  }
+
+  partElement(cell, key) {
+    return [...(cell?.querySelectorAll("[data-tess-edit-field]") || [])].find((element) => element.dataset.tessEditField === key)
+  }
+
+  // The inline part of a block at a clicked element: a marked one, or the
+  // richText shorthand's anywhere in the block
+  partAt(target, id) {
+    const definition = getBlock(find(this.editor.doc, id)?.node.type)
+    const marked = target.closest?.("[data-tess-edit-field]")
+    if (marked && this.hit(marked)?.id === id && definition?.inline.some((part) => part.key === marked.dataset.tessEditField)) return marked.dataset.tessEditField
+    return definition?.richText || null
   }
 
   // --- overlay ---------------------------------------------------------------
@@ -258,7 +277,7 @@ export class Canvas {
     if (!rect) return
     const box = this.box(rect, editingId === selectedId ? "tess-selected tess-editing" : "tess-selected")
     const free = this.editor.isFree(selectedId)
-    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? "Editing text · Esc to finish" : free || !this.editor.lock ? label(hit.node) : `${label(hit.node)} · Layout` }))
+    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? `Editing text · ${this.editor.editingPart?.plain ? "Enter" : "Esc"} to finish` : free || !this.editor.lock ? label(hit.node) : `${label(hit.node)} · Layout` }))
 
     const handle = this.free.handle(selectedId)
     if (handle) box.append(handle)
@@ -330,7 +349,7 @@ export class Canvas {
   }
 
   onClick(event) {
-    if (this.editor.editingId && event.target.closest?.(".ProseMirror")) return
+    if (this.editor.editingId && event.target.closest?.(".ProseMirror, .tess-plain")) return
     if (event.target.closest?.("#tess-overlay")) return
     event.preventDefault()
     if (this.openLink(event)) return
@@ -342,8 +361,9 @@ export class Canvas {
       this.editor.openInsertMenu(hit.id, 0, rect)
       return
     }
-    if (hit && hit.id === this.editor.selectedId && getBlock(find(this.editor.doc, hit.id).node.type)?.richText) {
-      this.editor.startEditing(hit.id)
+    const part = hit && hit.id === this.editor.selectedId && this.partAt(event.target, hit.id)
+    if (part) {
+      this.editor.startEditing(hit.id, part)
       return
     }
     this.editor.select(hit ? hit.id : this.editor.doc.id, { reveal: true })
@@ -360,7 +380,8 @@ export class Canvas {
 
   onDoubleClick(event) {
     const hit = this.hit(event.target)
-    if (hit && !hit.placeholder && getBlock(find(this.editor.doc, hit.id).node.type)?.richText) this.editor.startEditing(hit.id)
+    const part = hit && !hit.placeholder && this.partAt(event.target, hit.id)
+    if (part) this.editor.startEditing(hit.id, part)
   }
 
   onDragOver(event) {

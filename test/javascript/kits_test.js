@@ -22,8 +22,9 @@ test("a kit only offers its own blocks", () => {
   const note = paletteItems("note").map((item) => item.type)
   for (const type of ["text", "image", "divider", "loop", "condition", "content"]) assert.ok(email.includes(type) && note.includes(type), type)
   for (const type of ["section", "hero", "button", "social"]) assert.ok(email.includes(type) && !note.includes(type), type)
+  assert.ok(note.includes("card") && !email.includes("card"))
   const doc = createDocument("note")
-  assert.deepEqual(accepted(doc, doc.id).sort(), ["condition", "content", "divider", "image", "loop", "text"])
+  assert.deepEqual(accepted(doc, doc.id).sort(), ["card", "condition", "content", "divider", "image", "loop", "text"])
 })
 
 test("extendBlock adds a kit, render hooks and fields to a block, and keeps the rest", () => {
@@ -149,4 +150,13 @@ test("a layout takes a document's own blocks in its Content block", () => {
   assert.equal(doc.children[0].id, section.id)
   assert.match(toMjml(doc), /<mj-raw><!-- tess-edit:content --><\/mj-raw>\n\s*<mj-section/)
   assert.throws(() => withContent(createDocument(), own), /no Content block/)
+})
+
+test("a block marks its inline parts in the editor only", () => {
+  const doc = createDocument("note")
+  const card = insert(doc, doc.id, 0, createFromPalette("card"))
+  const editor = toNoteHtml(doc, { editor: true })
+  assert.match(editor, new RegExp(`<div class="tess-${card.id}"[^>]*><strong data-tess-edit-field="data.title">A card</strong>`))
+  assert.match(editor, /<div data-tess-edit-field="data.body"><p[^>]*>Its text<\/p><\/div>/)
+  assert.doesNotMatch(toNoteHtml(doc), /data-tess-edit-field/)
 })
