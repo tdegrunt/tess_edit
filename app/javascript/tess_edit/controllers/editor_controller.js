@@ -119,6 +119,10 @@ export default class extends Controller {
     this.build()
     this.renderAll()
     this.writeOutputs()
+    // The form it's in waits for the outputs still to be written (beforeSubmit)
+    this.form = this.element.closest("form")
+    this.beforeSubmit = this.beforeSubmit.bind(this)
+    this.form?.addEventListener("submit", this.beforeSubmit, true)
     if (this.media.enabled) this.loadMedia()
     this.loadSources()
     if (this.translations.enabled) {
@@ -287,6 +291,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.form?.removeEventListener("submit", this.beforeSubmit, true)
     this.scheduleCanvas.cancel()
     this.scheduleOutputs.cancel()
     Object.values(this.requests).forEach((request) => request.abort())
@@ -645,7 +650,34 @@ export default class extends Controller {
     this.errorBar.classList.toggle("hidden", !errors.length)
   }
 
-  async writeOutputs() {
+  // A submit while the outputs are still to be written, or being written,
+  // waits for them and then goes on, so the form sends the document as it
+  // is, also right after a change
+  beforeSubmit(event) {
+    if (this.resubmitting || (!this.scheduleOutputs.pending() && !this.writing)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    const submitter = event.submitter
+    // Submitted again in a task of its own: during this submit event's, the
+    // browser ignores it
+    Promise.resolve(this.scheduleOutputs.flush() || this.writing).then(() => setTimeout(() => {
+      this.resubmitting = true
+      try {
+        this.form.requestSubmit(submitter?.form === this.form ? submitter : undefined)
+      } finally {
+        this.resubmitting = false
+      }
+    }))
+  }
+
+  writeOutputs() {
+    const writing = (this.writing = this.write().finally(() => {
+      if (this.writing === writing) this.writing = null
+    }))
+    return writing
+  }
+
+  async write() {
     this.loadTranslations()
     const json = JSON.stringify(this.doc)
     const result = await this.run("outputs", (options) => this.kit.outputs(this.doc, options))
@@ -830,14 +862,15 @@ export default class extends Controller {
 
   // Clicking a tile: add inside the selection when it fits, otherwise after the
   // nearest ancestor that fits, otherwise at the end of the root, or with a
-  // lock, at the end of the first unlocked block it fits in.
+  // lock, at the end of the first unlocked block it fits in, or without one,
+  // at the end of the last block it fits in (a form's last page, say).
   addFromPalette(key) {
     const type = itemType(key)
     const place = this.placeFor((parentId) => this.accepted(parentId).includes(type))
     if (place) return this.insertAt(key, place.parentId, place.index)
     const definition = getBlock(type)
     if (definition?.unique && findType(this.doc, type)) return this.flash(`There is a ${definition.name} already; a document has one.`)
-    this.flash(`${definition?.name || key} has to go inside a column. Select one first, or drag it onto the canvas.`)
+    this.flash(`${definition?.name || key} doesn't fit anywhere yet. Add a block it goes in first, or drag it onto the canvas.`)
   }
 
   // Where a click on a tile adds a block, for blocks that `fits` a parent
@@ -855,8 +888,13 @@ export default class extends Controller {
         if (this.lock.except.includes(node.type) && fits(node.id)) target = node
       })
       if (target) return { parentId: target.id, index: target.children.length }
+      return null
     }
-    return null
+    let last = null
+    walk(this.doc, (node) => {
+      if (fits(node.id)) last = node
+    })
+    return last ? { parentId: last.id, index: last.children.length } : null
   }
 
   // Inserts what a palette source's tile creates (see core/registry.js) at a

@@ -43,6 +43,13 @@ class KitTest < ApplicationSystemTestCase
     eventually { assert_includes output("html"), "<hr>" }
   end
 
+  test "a form submitted right after a change sends it" do
+    setting("Title").fill_in(with: "Sent at once")
+    click_on "Submit form"
+    assert_text "title"
+    assert_equal "Sent at once", JSON.parse(page.text)["title"]
+  end
+
   test "the kit's root has its own settings" do
     setting("Title").fill_in(with: "Shopping list")
     eventually { assert_includes output("html"), "<title>Shopping list</title>" }

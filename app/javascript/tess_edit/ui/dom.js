@@ -24,13 +24,26 @@ export function h(tag, props = {}, ...children) {
   return element
 }
 
+// pending() says whether a call is waiting; flush() makes it now
 export function debounce(fn, wait) {
-  let timer
+  let timer = null
+  let waiting = null
   const debounced = (...args) => {
     clearTimeout(timer)
-    timer = setTimeout(() => fn(...args), wait)
+    waiting = args
+    timer = setTimeout(debounced.flush, wait)
   }
-  debounced.cancel = () => clearTimeout(timer)
+  debounced.cancel = () => {
+    clearTimeout(timer)
+    timer = waiting = null
+  }
+  debounced.pending = () => waiting !== null
+  debounced.flush = () => {
+    if (!waiting) return undefined
+    const args = waiting
+    debounced.cancel()
+    return fn(...args)
+  }
   return debounced
 }
 

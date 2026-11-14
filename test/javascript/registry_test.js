@@ -65,6 +65,14 @@ test("a block's inline parts, with richText as the shorthand of one", () => {
   assert.throws(() => registerBlock({ type: "x", name: "X", roles: ["content"], inline: [{ plain: true }], render: { mjml: () => "" } }), /key/)
 })
 
+test("an inline part of each item of a list, with a * in its key", () => {
+  registerBlock({ type: "choice", name: "Choice", roles: ["content"], inline: [{ key: "data.label", plain: true }, { key: "data.options.*.label", plain: true }], render: { mjml: () => "" } })
+  assert.deepEqual(inlinePart("choice", "data.options.12.label"), { key: "data.options.12.label", plain: true })
+  assert.equal(inlinePart("choice", "data.options.x.label"), undefined)
+  assert.equal(inlinePart("choice", "data.options.1.value"), undefined)
+  assert.equal(inlinePart("choice", "data.label").key, "data.label")
+})
+
 test("a host registers a field type of its own, not one of TessEdit's", () => {
   const render = (node, field, value) => ({ value })
   registerFieldType("rules", render)

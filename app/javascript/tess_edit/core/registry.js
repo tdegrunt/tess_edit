@@ -174,8 +174,15 @@ export function inlineParts(type) {
   return getBlock(type)?.inline || []
 }
 
+// The part with this key; a part whose key has a * stands for that part of
+// each item of a list, e.g. "data.options.*.label" for "data.options.2.label"
 export function inlinePart(type, key) {
-  return inlineParts(type).find((part) => part.key === key)
+  const part = inlineParts(type).find((candidate) => candidate.key === key || (candidate.key.includes("*") && keyPattern(candidate.key).test(key || "")))
+  return part && { ...part, key }
+}
+
+function keyPattern(key) {
+  return new RegExp(`^${key.split("*").map((piece) => piece.replace(/[.]/g, "\\.")).join("\\d+")}$`)
 }
 
 // The field types of ui/inspector.js

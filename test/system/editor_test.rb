@@ -311,4 +311,21 @@ class EditorTest < ApplicationSystemTestCase
   def raw_html
     document_json["children"].find { |node| node["id"] == "bhtml" }&.dig("data", "html")
   end
+
+  test "a clicked tile that doesn't fit near the selection goes in the last block it fits in" do
+    columns = -> { blocks_of(document_json, "column") }
+    dividers = columns.call.sum { |column| column["children"].count { |child| child["type"] == "divider" } }
+    within(".tess-edit") { click_on "Divider" }
+    eventually do
+      assert_equal "divider", columns.call.last["children"].last["type"]
+      assert_equal dividers + 1, columns.call.sum { |column| column["children"].count { |child| child["type"] == "divider" } }
+    end
+  end
+
+  private
+
+  def blocks_of(node, type)
+    [(node if node["type"] == type), *Array(node["children"]).flat_map { |child| blocks_of(child, type) }].compact
+  end
 end
+

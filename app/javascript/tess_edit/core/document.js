@@ -175,14 +175,20 @@ export function duplicate(doc, id) {
   return copy
 }
 
-// Sets a value on a node. `key` is "attributes.padding" or "data.subject".
+// Sets a value on a node. `key` is "attributes.padding" or "data.subject",
+// or deeper into a list, "data.options.0.label" (an inline part of each item,
+// see `inline` in core/registry.js).
 // An empty string removes an attribute, so MJML falls back to its default.
 export function setValue(doc, id, key, value) {
   const hit = find(doc, id)
   if (!hit) return
-  const [scope, name] = key.split(".")
+  const [scope, name, ...rest] = key.split(".")
   hit.node[scope] ||= {}
-  if (scope === "attributes" && (value === "" || value === null || value === undefined)) {
+  if (rest.length) {
+    let target = hit.node[scope][name]
+    for (const step of rest.slice(0, -1)) target = target?.[step]
+    if (target && typeof target === "object") target[rest.at(-1)] = value
+  } else if (scope === "attributes" && (value === "" || value === null || value === undefined)) {
     delete hit.node[scope][name]
   } else {
     hit.node[scope][name] = value
@@ -190,8 +196,7 @@ export function setValue(doc, id, key, value) {
 }
 
 export function getValue(node, key) {
-  const [scope, name] = key.split(".")
-  return node[scope]?.[name]
+  return key.split(".").reduce((value, step) => value?.[step], node)
 }
 
 // Light validation of a document read from storage or an import. With a

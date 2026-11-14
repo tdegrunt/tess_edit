@@ -6,7 +6,7 @@
 
 import { ancestors, find, isDescendant, isHorizontal } from "tess_edit/core/document"
 import { imageFields } from "tess_edit/core/media"
-import { getBlock, label } from "tess_edit/core/registry"
+import { getBlock, inlinePart, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
 import { FREE_CSS, FreeLayout } from "tess_edit/ui/free_layout"
 import { icon } from "tess_edit/ui/icons"
@@ -238,7 +238,7 @@ export class Canvas {
   partAt(target, id) {
     const definition = getBlock(find(this.editor.doc, id)?.node.type)
     const marked = target.closest?.("[data-tess-edit-field]")
-    if (marked && this.hit(marked)?.id === id && definition?.inline.some((part) => part.key === marked.dataset.tessEditField)) return marked.dataset.tessEditField
+    if (marked && this.hit(marked)?.id === id && definition && inlinePart(definition.type, marked.dataset.tessEditField)) return marked.dataset.tessEditField
     return definition?.richText || null
   }
 

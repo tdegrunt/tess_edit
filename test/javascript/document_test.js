@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { accepted, canInsert, createDocument, createNode, duplicate, find, insert, move, normalize, remove, setValue } from "tess_edit/core/document"
+import { accepted, canInsert, createDocument, createNode, duplicate, find, getValue, insert, move, normalize, remove, setValue } from "tess_edit/core/document"
 import { createFromPalette } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
 
@@ -63,6 +63,18 @@ test("remove and setValue", () => {
   assert.ok(!("color" in text.attributes))
   remove(doc, text.id)
   assert.equal(left.children.length, 1)
+})
+
+test("a value deeper in a list, such as an option's label", () => {
+  const { doc, text } = sample()
+  text.data.options = [{ label: "Bad", value: "bad" }, { label: "Good", value: "good" }]
+  assert.equal(getValue(text, "data.options.1.label"), "Good")
+  setValue(doc, text.id, "data.options.1.label", "Great")
+  assert.deepEqual(text.data.options[1], { label: "Great", value: "good" })
+  // Not an item that isn't there
+  setValue(doc, text.id, "data.options.5.label", "Nope")
+  assert.equal(text.data.options.length, 2)
+  assert.equal(getValue(text, "data.options.5.label"), undefined)
 })
 
 test("normalize accepts JSON and rejects unknown blocks", () => {

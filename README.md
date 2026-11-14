@@ -19,6 +19,7 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 - Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings. A block can have several texts edited on the canvas, rich or a plain line, such as a question's label and its description.
 - Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
 - Your app's translations for Liquid's `t` filter (`{{ '.greeting' | t }}`) shown as their text in a language of your choice, with every language's text, missing ones marked, editable when pointed at, and selected text made translatable.
+- Clicking a tile in the Blocks panel adds the block in or after the selection, or else at the end of the last block it fits in.
 - Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Esc).
 - Desktop and mobile preview, and a preview of the HTML as sent.
 - Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room.
@@ -102,6 +103,8 @@ Every change updates the inputs and dispatches `tess-edit:change` with `{ json, 
 | `html` | The MJML compiled to HTML on the server, with Liquid left in place. |
 
 Render the HTML with Liquid when sending. A host app can also store only the JSON or MJML and compile on its own with `TessEdit.compile(mjml)`.
+
+The fields are written a moment after each change. A form submitted before that, such as a Save clicked right after typing, waits for them and then goes on, also with Turbo.
 
 ### Compiling
 
@@ -293,7 +296,7 @@ registerBlock({
 })
 ```
 
-The text editor is mounted on that element only, so the rest of the block, such as an input, stays as it is. A `plain` part is one line of text, stored as a string: no toolbar or marks, and Enter or leaving it finishes. The others are rich text as above, finished with Esc. A part can also be a field in Inspect, so both ways work. The demo's Note kit has a Card block with both (`test/dummy/app/javascript/kits/note.js`).
+The text editor is mounted on that element only, so the rest of the block, such as an input, stays as it is. A `plain` part is one line of text, stored as a string: no toolbar or marks, and Enter or leaving it finishes. The others are rich text as above, finished with Esc. A part can also be a field in Inspect, so both ways work. A key with a `*` stands for that part of each item of a list: `{ key: "data.options.*.label", plain: true }` makes every option's label editable, each marked with its own key (`data-tess-edit-field="data.options.0.label"`). The demo's Note kit has a Card block with both (`test/dummy/app/javascript/kits/note.js`).
 
 #### Your own form fields in Inspect
 
