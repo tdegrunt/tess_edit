@@ -23,6 +23,7 @@ body{min-height:100vh;margin:0}
 .tess-hover .tess-label{background:#60a5fa}
 .tess-editing .tess-label{background:#f59e0b}
 .tess-plain{outline:none;cursor:text}
+.tess-plain:empty{display:inline-block;min-width:1px}
 .tess-inside .tess-label,.tess-inside .tess-tools{bottom:auto;top:0;border-radius:0 0 4px 4px}
 .tess-tools{position:absolute;bottom:100%;right:0;display:flex;gap:1px;pointer-events:auto;background:#2563eb;border-radius:4px 4px 0 0;padding:1px}
 .tess-tools [data-tool]{cursor:pointer;color:#fff;width:22px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:none;border:0;padding:0}

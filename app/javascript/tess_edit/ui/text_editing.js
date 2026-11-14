@@ -59,12 +59,18 @@ export class TextEditing {
     element.classList.add("tess-plain")
     for (const [name, listener] of Object.entries(listeners)) element.addEventListener(name, listener)
     this.plain = { element, listeners, text }
-    element.focus()
+    // Where it is: Safari scrolls to the caret, which in an empty inline
+    // element it puts at the top of the page (hence also .tess-plain:empty's
+    // box, in canvas.js)
+    const win = element.ownerDocument.defaultView
+    const { scrollX, scrollY } = win
+    element.focus({ preventScroll: true })
     const range = element.ownerDocument.createRange()
     range.selectNodeContents(element)
     range.collapse(false)
     element.ownerDocument.getSelection().removeAllRanges()
     element.ownerDocument.getSelection().addRange(range)
+    if (win.scrollX !== scrollX || win.scrollY !== scrollY) win.scrollTo(scrollX, scrollY)
     return element
   }
 
