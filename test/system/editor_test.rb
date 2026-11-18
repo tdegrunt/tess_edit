@@ -263,6 +263,30 @@ class EditorTest < ApplicationSystemTestCase
     page.current_window.resize_to(*original) if original
   end
 
+  test "a phone-width editor has its panels in a sheet below the canvas" do
+    original = page.current_window.size
+    page.current_window.resize_to(400, original[1])
+
+    assert_no_selector ".tess-edit aside"
+    assert_no_selector "[title='All panels on the left']"
+    find("[title='Show panels']").click
+    assert_selector ".tess-edit main + aside", count: 1
+    assert_button "Inspect"
+
+    find("[title='Hide panels']", match: :first).click
+    assert_no_selector ".tess-edit aside"
+
+    # A tap on a block opens the sheet on Inspect
+    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    assert_equal "View your order", setting("Label").value
+
+    page.current_window.resize_to(*original)
+    assert_selector ".tess-edit aside", count: 2
+    assert_selector "[title='Blocks on the left, Inspect on the right']"
+  ensure
+    page.current_window.resize_to(*original) if original
+  end
+
   test "no stray null in the editor in any panel layout" do
     ["All panels on the left", "All panels on the right", "Blocks on the left, Inspect on the right"].each do |layout|
       find("[title='#{layout}']").click

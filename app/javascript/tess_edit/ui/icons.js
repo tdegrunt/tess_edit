@@ -26,6 +26,7 @@ const paths = {
   "cols-21": '<rect x="3" y="6" width="10.5" height="12" rx="1.5"/><rect x="15.5" y="6" width="5.5" height="12" rx="1.5"/>',
   "panels-left": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/><path d="M5.5 8h2M5.5 11h2" opacity=".6"/>',
   "panels-split": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16"/>',
+  "panels-bottom": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h18"/><path d="M7 16.5h4" opacity=".6"/>',
   "panels-right": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/><path d="M16.5 8h2M16.5 11h2" opacity=".6"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',

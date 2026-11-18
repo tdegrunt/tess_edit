@@ -11,8 +11,10 @@
 //             as tabs on one side). The default; a choice made in the editor's
 //             top bar is remembered per browser. Below NARROW_WIDTH the editor
 //             puts all panels on the left, whatever the choice, to leave room
-//             for the canvas. A kit without blocks (blocks: false) has Inspect
-//             on the right only.
+//             for the canvas, and below COMPACT_WIDTH (a phone) in a sheet
+//             below the canvas, shown and hidden from the top bar and opened
+//             by a tap on a block. A kit without blocks (blocks: false) has
+//             Inspect on the right only, or in the sheet.
 //   compileUrl  the endpoint that compiles the email kit's MJML to HTML (default
 //               /tess_edit/compile, the engine mounted at /tess_edit)
 //   mediaUrl    the host's images, chosen and uploaded in Image blocks (see
@@ -71,6 +73,8 @@ const PANELS_KEY = "tess_edit:panels"
 const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
 // Two sidebars (256px + 320px) leave too little canvas below this editor width.
 const NARROW_WIDTH = 1000
+// Even one sidebar (320px) leaves too little canvas below this editor width.
+const COMPACT_WIDTH = 640
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
 // A new block where it was let go in a free layout
@@ -105,6 +109,8 @@ export default class extends Controller {
     this.leftTab = "blocks"
     this.panels = [this.storedPanels(), this.panelsValue].find((value) => PANELS.includes(value)) || "split"
     this.narrow = false
+    this.compact = false
+    this.sheetOpen = false
     this.requests = {}
     this.media = { enabled: Boolean(this.mediaUrlValue), images: [], uploading: false, error: null }
     this.variables = new Variables(this.variablesUrlValue)
@@ -387,6 +393,7 @@ export default class extends Controller {
     this.inspectorElement = h("div", { class: "flex flex-1 flex-col min-h-0", dataset: { tessEditPanel: "inspect" } })
     this.sidePanel = h("aside")
     this.inspectPanel = h("aside")
+    this.sheetClose = h("button", { type: "button", title: "Hide panels", class: `${TOOL} ml-auto self-center`, html: icon("close"), onclick: () => this.setSheetOpen(false) })
     this.textToolbar = h("div", { class: "hidden absolute left-1/2 top-3 z-20 -translate-x-1/2 flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-1.5 py-1 shadow-md" })
     this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: `${this.kit.name} canvas` })
     this.frameWrap = h("div", { class: "relative h-full mx-auto" }, this.frame)
@@ -400,7 +407,7 @@ export default class extends Controller {
       this.body
     )
     this.errorBar = h("div", { class: "hidden absolute inset-x-3 bottom-3 z-20 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/40 px-3 py-2 text-xs text-red-700 dark:text-red-300 shadow-sm", role: "alert" })
-    this.main = h("main", { class: "relative flex-1 min-w-0 bg-gray-100 dark:bg-gray-900", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar)
+    this.main = h("main", { class: "relative flex-1 min-w-0 min-h-0 bg-gray-100 dark:bg-gray-900", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar)
     this.arrangePanels()
     this.element.append(this.root)
 
@@ -430,20 +437,30 @@ export default class extends Controller {
   }
 
   // Split: Blocks and Layers on the left, Inspect on the right. Left or right:
-  // one sidebar on that side with Blocks, Layers and Inspect as tabs.
+  // one sidebar on that side with Blocks, Layers and Inspect as tabs. Sheet:
+  // those tabs in the lower half, below the canvas, while it is open.
   arrangePanels() {
     const panelClass = (border, width) => `${width} shrink-0 flex flex-col ${border} border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 min-h-0`
+    const sheetClass = `${panelClass("border-t", "h-1/2")}${this.sheetOpen ? "" : " hidden"}`
     // Only the sidebars move: moving <main> would reload the canvas iframe and blank it.
     if (!this.main.isConnected) this.body.append(this.main)
+    this.body.classList.toggle("flex-col", this.compact)
     this.inspector?.freezeSlots()
     if (!this.hasBlocks) {
-      this.inspectPanel.className = panelClass("border-l", "w-80")
-      if (this.inspectorElement.parentNode !== this.inspectPanel) this.inspectPanel.replaceChildren(this.inspectorElement)
+      this.inspectPanel.className = this.compact ? sheetClass : panelClass("border-l", "w-80")
+      const children = this.compact ? [this.sheetHeader("Inspect"), this.inspectorElement] : [this.inspectorElement]
+      const current = [...this.inspectPanel.children]
+      if (current.length !== children.length || children.some((child, index) => current[index] !== child)) this.inspectPanel.replaceChildren(...children)
       if (this.main.nextSibling !== this.inspectPanel) this.main.after(this.inspectPanel)
       return
     }
     this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement)
-    if (this.layout === "split") {
+    if (this.layout === "sheet") {
+      this.sidePanel.className = sheetClass
+      this.sidePanel.append(this.inspectorElement)
+      this.inspectPanel.remove()
+      this.main.after(this.sidePanel)
+    } else if (this.layout === "split") {
       this.sidePanel.className = panelClass("border-r", "w-64")
       this.inspectPanel.className = panelClass("border-l", "w-80")
       this.inspectPanel.replaceChildren(this.inspectorElement)
@@ -455,6 +472,22 @@ export default class extends Controller {
       this.inspectPanel.remove()
       this.layout === "left" ? this.main.before(this.sidePanel) : this.main.after(this.sidePanel)
     }
+  }
+
+  // The sheet's title bar for a kit without blocks, which has no tabs
+  sheetHeader(title) {
+    this.sheetTitle ||= h("div", { class: "flex items-center h-12 px-3 border-b border-gray-200 dark:border-gray-700 shrink-0 text-[13px] font-medium" })
+    this.sheetTitle.replaceChildren(title, this.sheetClose)
+    return this.sheetTitle
+  }
+
+  // Shows or hides the panels' sheet on a compact editor
+  setSheetOpen(open) {
+    if (!this.compact || open === this.sheetOpen) return
+    this.sheetOpen = open
+    ;(this.hasBlocks ? this.sidePanel : this.inspectPanel).classList.toggle("hidden", !open)
+    this.renderTopBar()
+    this.canvas.refresh()
   }
 
   setPanels(panels) {
@@ -473,13 +506,17 @@ export default class extends Controller {
     this.renderLeftTabs()
   }
 
-  // Combines the panels while the editor is narrower than NARROW_WIDTH.
+  // Combines the panels while the editor is narrower than NARROW_WIDTH, and
+  // puts them in a sheet while it is narrower than COMPACT_WIDTH.
   observeWidth() {
     if (typeof ResizeObserver === "undefined") return
     this.resizeObserver = new ResizeObserver(([entry]) => {
       const narrow = entry.contentRect.width < NARROW_WIDTH
-      if (narrow === this.narrow) return
+      const compact = entry.contentRect.width < COMPACT_WIDTH
+      if (narrow === this.narrow && compact === this.compact) return
       this.narrow = narrow
+      if (compact !== this.compact) this.sheetOpen = false
+      this.compact = compact
       this.applyPanels()
       this.canvas.refresh()
     })
@@ -490,6 +527,7 @@ export default class extends Controller {
   // split, or the kit has no blocks
   get layout() {
     if (!this.hasBlocks) return "split"
+    if (this.compact) return "sheet"
     return this.narrow && this.panels === "split" ? "left" : this.panels
   }
 
@@ -539,15 +577,18 @@ export default class extends Controller {
         )
       )
 
+    // A compact editor's top bar scrolls sideways rather than overflow
+    this.topBar.classList.toggle("overflow-x-auto", this.compact)
     // replaceChildren would turn a null into the text "null", so only pass real elements.
     this.topBar.replaceChildren(...[
-      h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, this.kit.name),
+      this.compact ? null : h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, this.kit.name),
       toggle(this.mode, [["edit", "edit", "Edit"], ["preview", "eye", this.kit.previewTitle || "Preview"]], (mode) => this.setMode(mode)),
       this.kit.devices?.length ? toggle(this.device, this.kit.devices.map((device) => [device.key, device.icon, device.title]), (device) => this.setDevice(device)) : null,
       this.translations.enabled ? this.translationLocaleMenu() : null,
       h("div", { class: "flex-1" }),
-      // Without blocks there are no panels to arrange
-      this.hasBlocks && toggle(
+      // A compact editor shows its panels or not; one without blocks has none to arrange
+      this.compact && h("button", { type: "button", title: this.sheetOpen ? "Hide panels" : "Show panels", "aria-pressed": String(this.sheetOpen), class: `${TOOL} ${this.sheetOpen ? "bg-gray-100 dark:bg-gray-700" : ""}`, html: icon("panels-bottom"), onclick: () => this.setSheetOpen(!this.sheetOpen) }),
+      this.hasBlocks && !this.compact && toggle(
         this.layout,
         [
           ["left", "panels-left", "All panels on the left"],
@@ -556,7 +597,7 @@ export default class extends Controller {
         ],
         (panels) => this.setPanels(panels)
       ),
-      this.hasBlocks && h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" }),
+      (this.hasBlocks || this.compact) && h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" }),
       h("button", { type: "button", title: "Undo (⌘Z)", class: TOOL, disabled: !this.history.canUndo, html: icon("undo"), onclick: () => this.undo() }),
       h("button", { type: "button", title: "Redo (⇧⌘Z)", class: TOOL, disabled: !this.history.canRedo, html: icon("redo"), onclick: () => this.redo() }),
       h(
@@ -594,6 +635,7 @@ export default class extends Controller {
     // replaceChildren would turn a null into the text "null", so only pass real tabs.
     const tabs = [tab("blocks", "Blocks"), tab("layers", "Layers")]
     if (this.combined) tabs.push(tab("inspect", "Inspect"))
+    if (this.compact && this.hasBlocks) tabs.push(this.sheetClose)
     this.leftTabs.replaceChildren(...tabs)
     this.blocksElement.classList.toggle("hidden", this.leftTab !== "blocks")
     this.treeElement.classList.toggle("hidden", this.leftTab !== "layers")
@@ -704,9 +746,11 @@ export default class extends Controller {
 
   // --- selection and editing ---------------------------------------------------
 
-  // `reveal` (a click on the canvas) shows the Inspect tab when the panels are combined.
+  // `reveal` (a click on the canvas) shows the Inspect tab when the panels are
+  // combined, and opens their sheet on a compact editor.
   select(id, { reveal = false } = {}) {
     if (reveal && this.combined && this.leftTab !== "inspect") this.setLeftTab("inspect")
+    if (reveal) this.setSheetOpen(true)
     if (this.editingId && this.editingId !== id) this.stopEditing()
     if (!find(this.doc, id)) id = this.doc.id
     if (this.selectedId === id) return
@@ -805,6 +849,8 @@ export default class extends Controller {
     if (drag.kind === "move" && !this.isFree(drag.id)) return
     this.closeMenu()
     if (this.editingId) this.stopEditing()
+    // Out of the way of the canvas it goes onto
+    if (drag.kind !== "move") this.setSheetOpen(false)
     this.drag = drag
     this.canvas.setHover(null)
   }
