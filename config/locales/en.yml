@@ -4,6 +4,10 @@
 en:
   tess_edit:
     editor:
+      1_column: "1 column"
+      2_columns: "2 columns"
+      3_columns: "3 columns"
+      4_columns: "4 columns"
       a_key_is_made_of_letters_digits_and_separated_by_dots_e_g_or: "A key is made of letters, digits, _ and -, separated by dots, e.g. .order.thanks"
       a_key_starting_with_a_dot_belongs_to_this_template: "A key starting with a dot belongs to this template."
       a_liquid_condition_e_g_order_total_100: "A Liquid condition, e.g. order.total > 100."

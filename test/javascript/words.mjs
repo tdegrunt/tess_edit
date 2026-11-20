@@ -59,9 +59,11 @@ function sourceWords() {
   return words
 }
 
+// A text with words, not a CSS value given as a placeholder (600px, 1px solid #e5e7eb)
+export const words = (text) => /[a-z]{2}/i.test(text) && !/^[\d.]+(px|pt|mm|em|rem|%)?$|#[\da-f]{3}/i.test(text)
+
 export function editorWords() {
-  // Not CSS values given as a placeholder (600px, 1px solid #e5e7eb)
-  return [...new Set([...definitionWords(), ...sourceWords()])].filter((text) => /^[^\d#]/.test(text) && /[a-z]/i.test(text)).sort()
+  return [...new Set([...definitionWords(), ...sourceWords()])].filter(words).sort()
 }
 
 // The English in a locale file's tess_edit.editor scope, each a double-quoted value

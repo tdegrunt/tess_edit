@@ -4,6 +4,10 @@
 nl:
   tess_edit:
     editor:
+      1_column: "1 kolom"
+      2_columns: "2 kolommen"
+      3_columns: "3 kolommen"
+      4_columns: "4 kolommen"
       a_key_is_made_of_letters_digits_and_separated_by_dots_e_g_or: "Een sleutel bestaat uit letters, cijfers, _ en -, gescheiden door punten, bijv. .order.thanks"
       a_key_starting_with_a_dot_belongs_to_this_template: "Een sleutel die met een punt begint, hoort bij deze template."
       a_liquid_condition_e_g_order_total_100: "Een Liquid-voorwaarde, bijv. order.total > 100."
