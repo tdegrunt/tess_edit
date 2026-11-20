@@ -1,4 +1,7 @@
 class DemoController < ApplicationController
+  # ?locale=nl shows the editor in Dutch
+  around_action(only: :show) { |_, action| I18n.with_locale(params[:locale].presence || I18n.default_locale, &action) }
+
   def show
   end
 

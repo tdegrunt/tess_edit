@@ -8,6 +8,7 @@
 // key, the id and where the image comes from in its `image` and `source` keys.
 
 import { getValue } from "tess_edit/core/document"
+import { t } from "tess_edit/core/i18n"
 
 function csrfHeaders() {
   const token = document.querySelector("meta[name='csrf-token']")?.content
@@ -16,20 +17,20 @@ function csrfHeaders() {
 
 async function json(response, action) {
   const result = (response.headers.get("Content-Type") || "").includes("json") ? await response.json() : null
-  if (!response.ok || !result) throw new Error(result?.errors?.join(", ") || `${action} failed (${response.status} ${response.statusText})`)
+  if (!response.ok || !result) throw new Error(result?.errors?.join(", ") || t("%{action} failed (%{status})", { action, status: `${response.status} ${response.statusText}` }))
   return result
 }
 
 export async function fetchMedia(url) {
   const response = await fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
-  return (await json(response, "Loading the images")).images || []
+  return (await json(response, t("Loading the images"))).images || []
 }
 
 export async function uploadMedia(url, file) {
   const body = new FormData()
   body.append("file", file)
   const response = await fetch(url, { method: "POST", headers: { Accept: "application/json", ...csrfHeaders() }, body, credentials: "same-origin" })
-  return json(response, "The upload")
+  return json(response, t("The upload"))
 }
 
 // The Image block's image field

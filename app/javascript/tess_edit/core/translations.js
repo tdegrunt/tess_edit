@@ -20,6 +20,8 @@
 //
 // which answers 422 with { errors: [...] } when it can't be saved.
 
+import { t } from "tess_edit/core/i18n"
+
 // A t filter on a quoted key, with what follows it in the tag (its arguments)
 const CALL = /\{\{-?\s*(["'])([^"'{}|]+?)\1\s*\|\s*t(?:ranslate)?\b((?:(?!\}\}).)*?)-?\}\}/g
 
@@ -68,7 +70,7 @@ const RESERVED = new Set(["locale", "scope", "default", "separator", "resolve", 
 // Gives { error } for Liquid a translation can't hold: tags ({% … %}) and
 // filters ({{ total | money }}).
 export function toTranslation(text) {
-  if (/\{%/.test(text)) return { error: "Liquid tags ({% … %}) can't go into a translation. Select the text around them." }
+  if (/\{%/.test(text)) return { error: t("Liquid tags ({% … %}) can't go into a translation. Select the text around them.") }
   const args = []
   let error = null
   const converted = String(text).replace(/\{\{-?\s*(.*?)\s*-?\}\}/g, (tag, expression) => {
@@ -174,7 +176,7 @@ export class Translations {
     if (missing.length) url.searchParams.set("keys", missing.join(","))
     try {
       const response = await this.fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
-      if (!response.ok) throw new Error(`Loading the translations failed (${response.status} ${response.statusText})`)
+      if (!response.ok) throw new Error(t("Loading the translations failed (%{status})", { status: `${response.status} ${response.statusText}` }))
       const result = await response.json()
       this.locales = result.locales || []
       for (const [key, entry] of Object.entries(result.translations || {})) this.entries.set(key, entry || {})
@@ -220,7 +222,7 @@ export class Translations {
       credentials: "same-origin"
     })
     const result = (response.headers?.get("Content-Type") || "").includes("json") ? await response.json() : {}
-    if (!response.ok) throw new Error(result.errors?.join(", ") || `Saving the translation failed (${response.status} ${response.statusText})`)
+    if (!response.ok) throw new Error(result.errors?.join(", ") || t("Saving the translation failed (%{status})", { status: `${response.status} ${response.statusText}` }))
     this.entries.set(key, result.translation || {})
     if (!this.suggestions.includes(key) && key.startsWith(".")) this.suggestions = [...this.suggestions, key].sort()
     this.changed()

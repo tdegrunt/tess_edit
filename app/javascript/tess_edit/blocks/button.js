@@ -1,4 +1,5 @@
 import { align, border, padding, typography } from "tess_edit/blocks/fields"
+import { t } from "tess_edit/core/i18n"
 
 export default {
   type: "button",
@@ -27,7 +28,7 @@ export default {
     typography(),
     border
   ],
-  label: (node) => `Button · ${node.data.content || ""}`,
+  label: (node) => `${t("Button")} · ${node.data.content || ""}`,
   render: {
     mjml: (node, { element, escapeText }) => element("mj-button", node, escapeText(node.data.content))
   }

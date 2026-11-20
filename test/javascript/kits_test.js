@@ -4,6 +4,7 @@
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
+import { t } from "tess_edit/core/i18n"
 import { accepted, contentNode, createDocument, createFromPalette, createNode, duplicate, insert, misfit, normalize, renumber, withContent } from "tess_edit/core/document"
 import { extendBlock, getBlock, getKit, kitOf, paletteItems, paletteSources, registerBlock, registerKit, registerPaletteSource } from "tess_edit/core/registry"
 import { starterDocument } from "tess_edit/core/starter"
@@ -85,7 +86,7 @@ test("a host can register its own kit and blocks for it", async () => {
   })
   registerBlock({ type: "label", name: "Label", kits: ["label"], accepts: ["content"], render: { label: (node) => `<main>${node.children.map((child) => getBlock(child.type).render.label(child)).join("")}</main>` } })
   registerBlock({ type: "barcode", name: "Barcode", kits: ["label"], roles: ["content"], category: "content", render: { label: () => "<svg></svg>" } })
-  assert.equal(getKit("label").errors, "The Label could not be rendered")
+  assert.equal(t(getKit("label").errors, { name: "Label" }), "The Label could not be rendered")
   const doc = createDocument("label")
   assert.deepEqual(accepted(doc, doc.id), ["barcode"])
   insert(doc, doc.id, 0, createFromPalette("barcode"))

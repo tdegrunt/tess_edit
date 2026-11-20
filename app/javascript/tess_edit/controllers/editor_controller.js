@@ -40,6 +40,8 @@
 //                    the kit's outputs (an <output>Input target for each)
 //   slot             an element of the host's, named by data-tess-edit-slot,
 //                    that a "slot" field shows in Inspect (see ui/inspector.js)
+//   translations     a <script type="application/json"> with the editor's words
+//                    in the page's language (see core/i18n.js)
 // Events:
 //   tess-edit:change  detail: { json, ...the kit's outputs, errors, document }:
 //                     for an email { json, mjml, html, errors, document }, with
@@ -48,6 +50,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, findType, getValue, insert, itemType, misfit, move, normalize, remove, setValue, walk } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
+import { setTranslations, t } from "tess_edit/core/i18n"
 import { canEditField, canFill, isFree, parseLock } from "tess_edit/core/lock"
 import { DEFAULT_KIT, getBlock, getKit, inlinePart, inlineParts, paletteItems, paletteSources } from "tess_edit/core/registry"
 import { COMPILE_URL } from "tess_edit/export/compile"
@@ -85,9 +88,10 @@ function placed(node, at) {
 
 export default class extends Controller {
   static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
-  static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot"]
+  static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot", "translations"]
 
   connect() {
+    if (this.hasTranslationsTarget) setTranslations(this.parseJson(this.translationsTarget.textContent, "translations"))
     this.kit = getKit(this.kitValue)
     if (!this.kit) {
       console.error(`TessEdit: unknown kit ${this.kitValue}, editing an email instead`)
@@ -196,7 +200,7 @@ export default class extends Controller {
     const translations = this.translations
     const locale = this.translationLocale || translations.locales[0]
     if (!locale) {
-      this.flash(translations.error || "There are no languages to translate into yet.")
+      this.flash(translations.error || t("There are no languages to translate into yet."))
       return null
     }
     const translation = toTranslation(text)
@@ -393,9 +397,9 @@ export default class extends Controller {
     this.inspectorElement = h("div", { class: "flex flex-1 flex-col min-h-0", dataset: { tessEditPanel: "inspect" } })
     this.sidePanel = h("aside")
     this.inspectPanel = h("aside")
-    this.sheetClose = h("button", { type: "button", title: "Hide panels", class: `${TOOL} ml-auto self-center`, html: icon("close"), onclick: () => this.setSheetOpen(false) })
+    this.sheetClose = h("button", { type: "button", title: t("Hide panels"), class: `${TOOL} ml-auto self-center`, html: icon("close"), onclick: () => this.setSheetOpen(false) })
     this.textToolbar = h("div", { class: "hidden absolute left-1/2 top-3 z-20 -translate-x-1/2 flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-1.5 py-1 shadow-md" })
-    this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: `${this.kit.name} canvas` })
+    this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: t("%{name} canvas", { name: t(this.kit.name) }) })
     this.frameWrap = h("div", { class: "relative h-full mx-auto" }, this.frame)
     this.topBar = h("div", { class: "flex items-center gap-1 h-12 px-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0" })
     this.body = h("div", { class: "flex flex-1 min-h-0" })
@@ -448,7 +452,7 @@ export default class extends Controller {
     this.inspector?.freezeSlots()
     if (!this.hasBlocks) {
       this.inspectPanel.className = this.compact ? sheetClass : panelClass("border-l", "w-80")
-      const children = this.compact ? [this.sheetHeader("Inspect"), this.inspectorElement] : [this.inspectorElement]
+      const children = this.compact ? [this.sheetHeader(t("Inspect")), this.inspectorElement] : [this.inspectorElement]
       const current = [...this.inspectPanel.children]
       if (current.length !== children.length || children.some((child, index) => current[index] !== child)) this.inspectPanel.replaceChildren(...children)
       if (this.main.nextSibling !== this.inspectPanel) this.main.after(this.inspectPanel)
@@ -581,30 +585,30 @@ export default class extends Controller {
     this.topBar.classList.toggle("overflow-x-auto", this.compact)
     // replaceChildren would turn a null into the text "null", so only pass real elements.
     this.topBar.replaceChildren(...[
-      this.compact ? null : h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, this.kit.name),
-      toggle(this.mode, [["edit", "edit", "Edit"], ["preview", "eye", this.kit.previewTitle || "Preview"]], (mode) => this.setMode(mode)),
-      this.kit.devices?.length ? toggle(this.device, this.kit.devices.map((device) => [device.key, device.icon, device.title]), (device) => this.setDevice(device)) : null,
+      this.compact ? null : h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, t(this.kit.name)),
+      toggle(this.mode, [["edit", "edit", t("Edit")], ["preview", "eye", this.kit.previewTitle ? t(this.kit.previewTitle) : t("Preview")]], (mode) => this.setMode(mode)),
+      this.kit.devices?.length ? toggle(this.device, this.kit.devices.map((device) => [device.key, device.icon, t(device.title)]), (device) => this.setDevice(device)) : null,
       this.translations.enabled ? this.translationLocaleMenu() : null,
       h("div", { class: "flex-1" }),
       // A compact editor shows its panels or not; one without blocks has none to arrange
-      this.compact && h("button", { type: "button", title: this.sheetOpen ? "Hide panels" : "Show panels", "aria-pressed": String(this.sheetOpen), class: `${TOOL} ${this.sheetOpen ? "bg-gray-100 dark:bg-gray-700" : ""}`, html: icon("panels-bottom"), onclick: () => this.setSheetOpen(!this.sheetOpen) }),
+      this.compact && h("button", { type: "button", title: t(this.sheetOpen ? "Hide panels" : "Show panels"), "aria-pressed": String(this.sheetOpen), class: `${TOOL} ${this.sheetOpen ? "bg-gray-100 dark:bg-gray-700" : ""}`, html: icon("panels-bottom"), onclick: () => this.setSheetOpen(!this.sheetOpen) }),
       this.hasBlocks && !this.compact && toggle(
         this.layout,
         [
-          ["left", "panels-left", "All panels on the left"],
-          ["split", "panels-split", this.narrow ? "Too narrow to split the panels" : "Blocks on the left, Inspect on the right", this.narrow],
-          ["right", "panels-right", "All panels on the right"]
+          ["left", "panels-left", t("All panels on the left")],
+          ["split", "panels-split", t(this.narrow ? "Too narrow to split the panels" : "Blocks on the left, Inspect on the right"), this.narrow],
+          ["right", "panels-right", t("All panels on the right")]
         ],
         (panels) => this.setPanels(panels)
       ),
       (this.hasBlocks || this.compact) && h("span", { class: "mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" }),
-      h("button", { type: "button", title: "Undo (⌘Z)", class: TOOL, disabled: !this.history.canUndo, html: icon("undo"), onclick: () => this.undo() }),
-      h("button", { type: "button", title: "Redo (⇧⌘Z)", class: TOOL, disabled: !this.history.canRedo, html: icon("redo"), onclick: () => this.redo() }),
+      h("button", { type: "button", title: t("Undo (⌘Z)"), class: TOOL, disabled: !this.history.canUndo, html: icon("undo"), onclick: () => this.undo() }),
+      h("button", { type: "button", title: t("Redo (⇧⌘Z)"), class: TOOL, disabled: !this.history.canRedo, html: icon("redo"), onclick: () => this.redo() }),
       h(
         "button",
         { type: "button", class: "ml-2 flex items-center gap-1.5 h-8 rounded-md bg-gray-900 px-3 text-[13px] font-medium text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300", onclick: () => this.openCodeDialog() },
         h("span", { html: icon("export") }),
-        "Code"
+        t("Code")
       )
     ].filter(Boolean))
   }
@@ -614,17 +618,17 @@ export default class extends Controller {
     const current = this.translationLocale || ""
     return h(
       "label",
-      { class: "ml-1 flex items-center gap-1 text-gray-500 dark:text-gray-400", title: "Show translations in" },
+      { class: "ml-1 flex items-center gap-1 text-gray-500 dark:text-gray-400", title: t("Show translations in") },
       h("span", { html: icon("globe") }),
       h(
         "select",
         {
           class: "h-7 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-0 pl-1.5 pr-7 text-xs text-gray-800 dark:text-gray-200",
-          "aria-label": "Show translations in",
+          "aria-label": t("Show translations in"),
           onchange: (event) => this.setTranslationLocale(event.target.value)
         },
         this.translations.locales.map((locale) => h("option", { value: locale, selected: locale === current }, locale.toUpperCase())),
-        h("option", { value: "", selected: current === "" }, "Keys")
+        h("option", { value: "", selected: current === "" }, t("Keys"))
       )
     )
   }
@@ -633,8 +637,8 @@ export default class extends Controller {
     const tab = (key, name) =>
       h("button", { type: "button", class: `${TAB} ${this.leftTab === key ? "border-blue-600 dark:border-blue-400 text-blue-700 dark:text-blue-300" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`, onclick: () => this.setLeftTab(key) }, name)
     // replaceChildren would turn a null into the text "null", so only pass real tabs.
-    const tabs = [tab("blocks", "Blocks"), tab("layers", "Layers")]
-    if (this.combined) tabs.push(tab("inspect", "Inspect"))
+    const tabs = [tab("blocks", t("Blocks")), tab("layers", t("Layers"))]
+    if (this.combined) tabs.push(tab("inspect", t("Inspect")))
     if (this.compact && this.hasBlocks) tabs.push(this.sheetClose)
     this.leftTabs.replaceChildren(...tabs)
     this.blocksElement.classList.toggle("hidden", this.leftTab !== "blocks")
@@ -688,7 +692,7 @@ export default class extends Controller {
   }
 
   showErrors(errors) {
-    this.errorBar.textContent = errors.length ? `${this.kit.errors}: ${errors.join("; ")}` : ""
+    this.errorBar.textContent = errors.length ? `${t(this.kit.errors, { name: t(this.kit.name) })}: ${errors.join("; ")}` : ""
     this.errorBar.classList.toggle("hidden", !errors.length)
   }
 
@@ -915,8 +919,8 @@ export default class extends Controller {
     const place = this.placeFor((parentId) => this.accepted(parentId).includes(type))
     if (place) return this.insertAt(key, place.parentId, place.index)
     const definition = getBlock(type)
-    if (definition?.unique && findType(this.doc, type)) return this.flash(`There is a ${definition.name} already; a document has one.`)
-    this.flash(`${definition?.name || key} doesn't fit anywhere yet. Add a block it goes in first, or drag it onto the canvas.`)
+    if (definition?.unique && findType(this.doc, type)) return this.flash(t("There is a %{name} already; a document has one.", { name: t(definition.name) }))
+    this.flash(t("%{name} doesn't fit anywhere yet. Add a block it goes in first, or drag it onto the canvas.", { name: t(definition?.name) || key }))
   }
 
   // Where a click on a tile adds a block, for blocks that `fits` a parent
@@ -953,12 +957,12 @@ export default class extends Controller {
       this.flash(error.message)
       return null
     }
-    const name = item.label || getBlock(node.type)?.name || "This"
+    const name = t(item.label || getBlock(node.type)?.name) || t("This")
     const fits = (id) => this.canFill(id) && !misfit(node, accepted(this.doc, id, { moving: true }))
     const place = parentId ? { parentId, index } : this.placeFor(fits)
     if (!place || !fits(place.parentId)) {
       const type = place && misfit(node, accepted(this.doc, place.parentId, { moving: true }))
-      this.flash(type && type !== node.type ? `${name} can't go here: its ${getBlock(type)?.name || type} blocks don't fit.` : `${name} doesn't fit here. Select where it goes first, or drag it onto the canvas.`)
+      this.flash(type && type !== node.type ? t("%{name} can't go here: its %{type} blocks don't fit.", { name, type: t(getBlock(type)?.name) || type }) : t("%{name} doesn't fit here. Select where it goes first, or drag it onto the canvas.", { name }))
       return null
     }
     this.commit((doc) => insert(doc, place.parentId, place.index, node))
@@ -983,7 +987,7 @@ export default class extends Controller {
     this.menu = h(
       "div",
       { class: "fixed z-50 w-56 max-h-80 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 shadow-lg", role: "menu", "data-anchor": anchor, "data-tess-edit-menu": "insert" },
-      h("div", { class: "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" }, "Add block"),
+      h("div", { class: "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" }, t("Add block")),
       items.map((item) =>
         h(
           "button",
@@ -997,7 +1001,7 @@ export default class extends Controller {
             }
           },
           h("span", { class: "text-gray-400 dark:text-gray-500", html: icon(item.icon) }),
-          item.label
+          t(item.label)
         )
       )
     )
@@ -1085,7 +1089,7 @@ export default class extends Controller {
         status.textContent = error.message
         status.className = "text-xs text-red-600 dark:text-red-400"
       }
-    } }, "Load this JSON")
+    } }, t("Load this JSON"))
 
     const show = (key) => {
       tab = key
@@ -1096,7 +1100,7 @@ export default class extends Controller {
       apply.classList.toggle("hidden", !loadable)
       status.className = "text-xs text-gray-500 dark:text-gray-400"
       status.textContent =
-        key === "json" ? (this.lock ? "The document. Parts of it are locked, so it can't be loaded here." : "The document. Edit and load it, or paste one in.") : key === "html" && errors.length ? `${this.kit.errors}: ${errors.join("; ")}` : this.kit.notes?.[key] || ""
+        key === "json" ? t(this.lock ? "The document. Parts of it are locked, so it can't be loaded here." : "The document. Edit and load it, or paste one in.") : key === "html" && errors.length ? `${t(this.kit.errors, { name: t(this.kit.name) })}: ${errors.join("; ")}` : t(this.kit.notes?.[key]) || ""
       tabs.replaceChildren(
         ...Object.keys(contents).map((name) =>
           h("button", { type: "button", class: `rounded-md px-3 py-1.5 text-xs font-medium ${name === tab ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}`, onclick: () => show(name) }, name.toUpperCase())
@@ -1118,13 +1122,13 @@ export default class extends Controller {
       h(
         "div",
         { class: "flex h-full max-h-[720px] w-full max-w-4xl flex-col gap-3 rounded-xl bg-white dark:bg-gray-800 p-4 shadow-xl" },
-        h("div", { class: "flex items-center gap-3" }, tabs, status, h("button", { type: "button", class: "ml-auto " + TOOL, title: "Close", html: icon("close"), onclick: close })),
+        h("div", { class: "flex items-center gap-3" }, tabs, status, h("button", { type: "button", class: "ml-auto " + TOOL, title: t("Close"), html: icon("close"), onclick: close })),
         textarea,
         h(
           "div",
           { class: "flex items-center justify-end gap-2" },
-          h("button", { type: "button", class: "rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700", onclick: () => navigator.clipboard?.writeText(textarea.value).then(() => (status.textContent = "Copied.")) }, "Copy"),
-          h("button", { type: "button", class: "rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700", onclick: download }, "Download"),
+          h("button", { type: "button", class: "rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700", onclick: () => navigator.clipboard?.writeText(textarea.value).then(() => (status.textContent = t("Copied."))) }, t("Copy")),
+          h("button", { type: "button", class: "rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700", onclick: download }, t("Download")),
           apply
         )
       )

@@ -2,6 +2,7 @@
 // dragging. Rows also take blocks dragged from the Blocks panel.
 
 import { find, isDescendant } from "tess_edit/core/document"
+import { t } from "tess_edit/core/i18n"
 import { getBlock, isContainer, label } from "tess_edit/core/registry"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -45,7 +46,7 @@ export class Tree {
     const add = container && this.editor.accepted(node.id).length
       ? h("button", {
           type: "button",
-          title: "Add a block inside",
+          title: t("Add a block inside"),
           class: "ml-auto hidden group-hover:flex w-5 h-5 items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-gray-100",
           html: icon("plus", "w-3.5 h-3.5"),
           onclick: (event) => {
@@ -81,7 +82,7 @@ export class Tree {
       toggle,
       h("span", { class: `shrink-0 ${getBlock(node.type)?.accepts === "inherit" ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`, html: icon(getBlock(node.type)?.icon, "w-4 h-4") }),
       h("span", { class: `truncate text-[13px] ${locked ? "text-gray-400 dark:text-gray-500" : ""}` }, label(node)),
-      locked ? h("span", { class: "ml-auto shrink-0 text-gray-300 dark:text-gray-600", title: "Part of the layout", html: icon("lock", "w-3.5 h-3.5") }) : add,
+      locked ? h("span", { class: "ml-auto shrink-0 text-gray-300 dark:text-gray-600", title: t("Part of the layout"), html: icon("lock", "w-3.5 h-3.5") }) : add,
       h("div", { class: "tess-tree-marker pointer-events-none absolute left-1 right-1 hidden" })
     )
 

@@ -3,6 +3,7 @@
 // hint: missing ones stand out, each can be edited in place, and the arrow
 // opens where the host app keeps it.
 
+import { t } from "tess_edit/core/i18n"
 import { textParts } from "tess_edit/core/translations"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -35,7 +36,7 @@ export class TranslationPopover {
       this.element = h("div", {
         class: "absolute z-50 w-80 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-1.5 text-[13px] shadow-lg",
         role: "dialog",
-        "aria-label": "Translations",
+        "aria-label": t("Translations"),
         "data-tess-edit-translations": "",
         onmouseenter: () => this.cancelHide(),
         onmouseleave: () => this.scheduleHide()
@@ -83,19 +84,19 @@ export class TranslationPopover {
         : h(
           "span",
           { class: `min-w-0 flex-1 truncate ${value === null ? "italic text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200"}`, title: entry?.source ? `${value ?? ""}\n${entry.source}` : value || "" },
-          value === null ? "missing" : value ? textParts(value).map((part) => part.text ?? h("span", { class: "rounded bg-blue-100 dark:bg-blue-900/50 px-1 text-[12px] text-blue-800 dark:text-blue-200" }, part.placeholder)) : "(empty)"
+          value === null ? t("missing") : value ? textParts(value).map((part) => part.text ?? h("span", { class: "rounded bg-blue-100 dark:bg-blue-900/50 px-1 text-[12px] text-blue-800 dark:text-blue-200" }, part.placeholder)) : t("(empty)")
         )
       return h(
         "div",
         { class: `flex items-center gap-2 px-3 py-1 ${locale === current ? "bg-blue-50/60 dark:bg-blue-900/20" : ""}`, "data-locale": locale },
         h("span", { class: "w-12 shrink-0 font-semibold uppercase text-gray-900 dark:text-gray-100" }, locale),
         text,
-        editing ? null : h("button", { type: "button", title: `Edit the ${locale.toUpperCase()} text`, class: ACTION, html: icon("edit", "w-3.5 h-3.5"), onclick: () => this.edit(locale) }),
-        !editing && entry?.url ? h("a", { href: entry.url, target: "_blank", rel: "noopener", title: entry.source ? `Open ${entry.source}` : "Open where it's kept", class: ACTION, html: icon("external", "w-3.5 h-3.5") }) : null
+        editing ? null : h("button", { type: "button", title: t("Edit the %{locale} text", { locale: locale.toUpperCase() }), class: ACTION, html: icon("edit", "w-3.5 h-3.5"), onclick: () => this.edit(locale) }),
+        !editing && entry?.url ? h("a", { href: entry.url, target: "_blank", rel: "noopener", title: entry.source ? t("Open %{source}", { source: entry.source }) : t("Open where it's kept"), class: ACTION, html: icon("external", "w-3.5 h-3.5") }) : null
       )
     })
     const empty = !locales.length
-      ? h("p", { class: "px-3 py-1 text-xs text-gray-500 dark:text-gray-400" }, this.translations.error || (this.translations.loaded ? "No languages yet" : "Loading…"))
+      ? h("p", { class: "px-3 py-1 text-xs text-gray-500 dark:text-gray-400" }, this.translations.error || t(this.translations.loaded ? "No languages yet" : "Loading…"))
       : null
     // replaceChildren would turn a null into the text "null", so only pass real elements.
     this.element.replaceChildren(...[
@@ -112,7 +113,7 @@ export class TranslationPopover {
       type: "text",
       class: "min-w-0 flex-1 rounded border border-blue-500 bg-white dark:bg-gray-700 px-1.5 py-0.5 text-[13px] text-gray-900 dark:text-gray-100 outline-none",
       value: value ?? "",
-      "aria-label": `${locale.toUpperCase()} text`,
+      "aria-label": t("%{locale} text", { locale: locale.toUpperCase() }),
       onkeydown: (event) => {
         if (event.key === "Enter") {
           event.preventDefault()
@@ -131,7 +132,7 @@ export class TranslationPopover {
       "span",
       { class: "flex min-w-0 flex-1 items-center gap-1" },
       input,
-      h("button", { type: "button", class: "shrink-0 rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700", onclick: () => this.save(locale, input.value) }, "Save")
+      h("button", { type: "button", class: "shrink-0 rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700", onclick: () => this.save(locale, input.value) }, t("Save"))
     )
   }
 

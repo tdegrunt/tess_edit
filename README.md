@@ -94,6 +94,34 @@ The editor has a border with rounded corners. A page that frames it itself, such
 
 Every change updates the inputs and dispatches `tess-edit:change` with `{ json, mjml, html, errors, document }` in `event.detail`. When the MJML can't be compiled, `html` is empty and `errors` says why; the editor shows the reason under the canvas. The controller instance is available as `element.tessEdit`, with `getDocument()`, `setDocument(json)` and `export()`.
 
+### The editor's language
+
+The editor's own words (its labels, hints and messages) are in English, and in Dutch in `config/locales/nl.yml`. To show them in the page's language (`I18n.locale`), put `tess_edit_translations` in the editor:
+
+```erb
+<div data-controller="tess-edit" style="height: 80vh">
+  <%= tess_edit_translations %>
+  …
+</div>
+```
+
+It renders a `<script type="application/json">` with each English text and what it says in that language (`tess_edit.editor` in your locale files, where your app can change or add a language). Blocks, kits and fields of your own are written in English too, and the editor translates their names, group titles, labels, hints, placeholders and options where it shows them: give their texts keys in a scope of your own, the English as in your JavaScript, and name it:
+
+```yaml
+# config/locales/nl.yml (and the English in en.yml)
+nl:
+  shop:
+    editor:
+      product: "Product"
+      sku: "Artikelnummer"
+```
+
+```erb
+<%= tess_edit_translations "shop.editor" %>
+```
+
+A text your JavaScript makes itself, such as a block's `label(node)`, uses `t` from `tess_edit/core/i18n` (`t("Product")`, `t("%{count} items", { count })`). A text without a translation shows its English. The dummy app shows the editor in Dutch at `/?locale=nl`.
+
 ### What gets stored
 
 | Field | Contents |

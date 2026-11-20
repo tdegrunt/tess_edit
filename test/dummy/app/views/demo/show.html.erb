@@ -17,7 +17,8 @@
       ?kit=memo writes a memo, a kit without blocks (app/javascript/kits/memo.js).
       ?snippets=1 offers snippets to insert as a copy (app/javascript/snippets.js, SnippetsController).
       ?slots=1 puts the page's own sender fields in the root's Inspect (app/javascript/slots.js).
-      ?blocks=text,image only offers those blocks. %>
+      ?blocks=text,image only offers those blocks.
+      ?locale=nl shows the editor in Dutch (tess_edit_translations). %>
   <% locked = params[:lock].present? %>
   <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>"
     <% if params[:kit].present? %>data-tess-edit-kit-value="<%= params[:kit] %>"<% end %>
@@ -31,6 +32,7 @@
       data-tess-edit-document-value="<%= Rails.root.join("config/demo_layout.json").read %>"
       data-tess-edit-lock-value="<%= {except: ["content"], fields: ["data.subject", "data.preheader"]}.to_json %>"
     <% end %>>
+    <%= tess_edit_translations %>
     <%= hidden_field_tag :json, nil, data: { tess_edit_target: "jsonInput" } %>
     <%= hidden_field_tag :mjml, nil, data: { tess_edit_target: "mjmlInput" } %>
     <%= hidden_field_tag :html, nil, data: { tess_edit_target: "htmlInput" } %>

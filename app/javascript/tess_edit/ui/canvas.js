@@ -5,6 +5,7 @@
 // filters show their text in the editor's language (see annotate).
 
 import { ancestors, find, isDescendant, isHorizontal } from "tess_edit/core/document"
+import { t } from "tess_edit/core/i18n"
 import { imageFields } from "tess_edit/core/media"
 import { getBlock, inlinePart, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
@@ -173,7 +174,7 @@ export class Canvas {
       const unfilled = value === null ? [] : missingArguments(value, { args: span.dataset.tessArgs ? span.dataset.tessArgs.split(",") : [] })
       if (value === null) span.textContent = span.dataset.tessCall
       else showText(span, value)
-      span.title = unfilled.length ? `No argument for ${unfilled.map((name) => `%{${name}}`).join(", ")} in the t filter` : ""
+      span.title = unfilled.length ? t("No argument for %{names} in the t filter", { names: unfilled.map((name) => `%{${name}}`).join(", ") }) : ""
       span.classList.toggle("tess-t-missing", unfilled.length > 0 || (translations.has(key) && (locale ? value === null : translations.missing(key).length > 0)))
     }
     this.refresh()
@@ -278,7 +279,7 @@ export class Canvas {
     if (!rect) return
     const box = this.box(rect, editingId === selectedId ? "tess-selected tess-editing" : "tess-selected")
     const free = this.editor.isFree(selectedId)
-    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? `Editing text · ${this.editor.editingPart?.plain ? "Enter" : "Esc"} to finish` : free || !this.editor.lock ? label(hit.node) : `${label(hit.node)} · Layout` }))
+    box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: editingId === selectedId ? t("Editing text · %{key} to finish", { key: this.editor.editingPart?.plain ? "Enter" : "Esc" }) : free || !this.editor.lock ? label(hit.node) : `${label(hit.node)} · ${t("Layout")}` }))
 
     const handle = this.free.handle(selectedId)
     if (handle) box.append(handle)
@@ -287,8 +288,8 @@ export class Canvas {
       const tools = this.doc.createElement("div")
       tools.className = "tess-tools"
       tools.innerHTML = [
-        ["parent", "Select parent"],
-        ...(free ? [["drag", "Drag to move"], ["duplicate", "Duplicate"], ["delete", "Delete"]] : [])
+        ["parent", t("Select parent")],
+        ...(free ? [["drag", t("Drag to move")], ["duplicate", t("Duplicate")], ["delete", t("Delete")]] : [])
       ]
         .map(([tool, title]) => `<span data-tool="${tool}" title="${title}" ${tool === "drag" ? 'draggable="true"' : ""}>${icon({ parent: "parent", drag: "move", duplicate: "copy", delete: "trash" }[tool], "tess-icon")}</span>`)
         .join("")
@@ -315,7 +316,7 @@ export class Canvas {
       if (hit.parent && this.editor.canFill(hit.parent.id)) {
         const plus = this.doc.createElement("button")
         plus.className = "tess-plus"
-        plus.title = "Add a block below"
+        plus.title = t("Add a block below")
         plus.innerHTML = icon("plus")
         plus.querySelector("svg").setAttribute("style", "width:12px;height:12px")
         plus.addEventListener("click", (event) => {

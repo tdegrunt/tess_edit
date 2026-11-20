@@ -23,6 +23,7 @@
 //   liquid(node, open, close)   children wrapped in Liquid tags (not in the editor)
 //   indent(text, level), escapeText, escapeAttribute, richText(content)
 
+import { t } from "tess_edit/core/i18n"
 import { getBlock } from "tess_edit/core/registry"
 import { escapeAttribute, escapeText, richTextToHtml } from "tess_edit/export/richtext"
 
@@ -71,7 +72,7 @@ class Renderer {
   }
 
   placeholder(node, context) {
-    const text = context === "body" ? "Drop a section here" : context === "section" ? "Drop a column here" : "Drop content here"
+    const text = t(context === "body" ? "Drop a section here" : context === "section" ? "Drop a column here" : "Drop content here")
     const mjText = `<mj-text css-class="tessph-${node.id}" align="center" color="${PLACEHOLDER_COLOR}" font-size="13px" padding="18px 25px">${text}</mj-text>`
     if (context === "column") return mjText
     if (context === "section") return `<mj-column css-class="tessph-${node.id}">\n  ${mjText}\n</mj-column>`

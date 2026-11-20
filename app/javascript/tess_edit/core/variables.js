@@ -14,6 +14,7 @@
 // such a path before asking.
 
 import { ancestors } from "tess_edit/core/document"
+import { t } from "tess_edit/core/i18n"
 
 // The members Liquid gives every collection
 export const COLLECTION_MEMBERS = [
@@ -50,7 +51,7 @@ export class Variables {
     if (path) url.searchParams.set("path", path)
     const response = await this.fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
     if (response.status === 404) return []
-    if (!response.ok) throw new Error(`Loading the variables failed (${response.status} ${response.statusText})`)
+    if (!response.ok) throw new Error(t("Loading the variables failed (%{status})", { status: `${response.status} ${response.statusText}` }))
     return (await response.json()).variables || []
   }
 
@@ -84,7 +85,7 @@ export class Variables {
 }
 
 function loopVariable({ variable, collection }) {
-  return { name: variable, label: `Each of ${collection}`, type: "object", children: true, loop: true }
+  return { name: variable, label: t("Each of %{collection}", { collection }), type: "object", children: true, loop: true }
 }
 
 // The path the host knows a template's path by: loop variables become their

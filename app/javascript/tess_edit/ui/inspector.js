@@ -14,6 +14,7 @@
 // host's Stimulus controllers in it keep their state: it and its group stay
 // in Inspect, hidden while another block is selected (see place in ui/dom.js).
 
+import { t } from "tess_edit/core/i18n"
 import { imageSource } from "tess_edit/core/media"
 import { fieldType, getBlock, label } from "tess_edit/core/registry"
 import { fontOptions } from "tess_edit/blocks/fields"
@@ -89,9 +90,9 @@ export class Inspector {
       !this.editor.isFree(node.id)
         ? []
         : [
-          ["parent", "Select parent", () => this.editor.selectParent()],
-          ["copy", "Duplicate", () => this.editor.duplicate(node.id)],
-          ["trash", "Delete", () => this.editor.remove(node.id)]
+          ["parent", t("Select parent"), () => this.editor.selectParent()],
+          ["copy", t("Duplicate"), () => this.editor.duplicate(node.id)],
+          ["trash", t("Delete"), () => this.editor.remove(node.id)]
         ].map(([name, title, onclick]) =>
           h("button", { type: "button", title, class: "w-7 h-7 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100", html: icon(name), onclick })
         )
@@ -105,10 +106,10 @@ export class Inspector {
     // A group shows when one of its fields applies (see shows below)
     const groups = (definition.fields || []).filter((group) => group.fields.some((field) => this.shows(node, field))).map((group) => this.group(node, group))
     const locked = this.editor.lock && node.id !== doc.id && !this.editor.isFree(node.id)
-      ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), "Part of the layout")
+      ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), t("Part of the layout"))
       : null
     // A block's hint explains how to edit it, which a locked block can't be.
-    const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-xs text-gray-600 dark:text-gray-300" }, definition.hint) : null
+    const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-xs text-gray-600 dark:text-gray-300" }, t(definition.hint)) : null
 
     place(this.body, [locked, hint, ...groups].filter(Boolean), new Set([...this.keptGroups.values()].map((kept) => kept.details)))
   }
@@ -141,7 +142,7 @@ export class Inspector {
         "summary",
         { class: "flex items-center gap-1.5 px-4 py-2.5 cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 list-none [&::-webkit-details-marker]:hidden" },
         h("span", { html: icon("chevron", "w-3 h-3 transition-transform group-open/field:rotate-90") }),
-        group.title
+        t(group.title)
       ),
       list
     )
@@ -165,30 +166,30 @@ export class Inspector {
       ? this.control(node, field, value, set)
       : h("fieldset", { disabled: true, class: "opacity-60" }, this.control(node, field, value, set))
     const expand = field.type === "code" && editable
-      ? h("button", { type: "button", title: `Edit ${field.label} in a larger window`, class: "rounded px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.expand(node, field) }, "Expand")
+      ? h("button", { type: "button", title: t("Edit %{label} in a larger window", { label: t(field.label) }), class: "rounded px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.expand(node, field) }, t("Expand"))
       : null
     const adapter = editable && field.liquid && this.editor.variables?.enabled && this.adapters.get(field.key)
     const variables = adapter
-      ? h("button", { type: "button", title: "Insert a variable", class: "whitespace-nowrap rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
+      ? h("button", { type: "button", title: t("Insert a variable"), class: "whitespace-nowrap rounded px-1 font-mono text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: (event) => this.editor.variableMenu.browse(adapter, event.currentTarget) }, "{ }")
       : null
     // Liquid in text can be translated
     const input = field.liquid === true && ["text", "textarea"].includes(field.type) && this.editor.translations?.enabled && this.inputs.get(field.key)
     const translate = input && editable
-      ? h("button", { type: "button", title: "Make translatable: keep the selected text, or all of it, as a translation", class: "rounded px-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", html: icon("translate", "w-3.5 h-3.5"), onclick: () => this.makeTranslatable(input) })
+      ? h("button", { type: "button", title: t("Make translatable: keep the selected text, or all of it, as a translation"), class: "rounded px-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", html: icon("translate", "w-3.5 h-3.5"), onclick: () => this.makeTranslatable(input) })
       : null
     const tools = expand || variables || translate ? h("span", { class: "absolute right-0 top-0 flex items-center gap-0.5" }, expand, variables, translate) : null
     // A hint can be a function of the value, kept up to date as it's typed: hint(value, node)
     const hint = field.hint ? h("span", { class: "mt-1 block text-[11px] leading-snug text-gray-500 dark:text-gray-400" }) : null
     const showHint = () => {
       const current = find(this.editor.doc, node.id)?.node || node
-      hint.textContent = typeof field.hint === "function" ? field.hint(getValue(current, field.key) ?? "", current) : field.hint
+      hint.textContent = typeof field.hint === "function" ? field.hint(getValue(current, field.key) ?? "", current) : t(field.hint)
     }
     if (hint) showHint()
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
       { class: "relative block", oninput: typeof field.hint === "function" ? showHint : null },
-      h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label),
+      h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, t(field.label)),
       tools,
       control,
       input ? this.translationHint(input) : null,
@@ -213,7 +214,7 @@ export class Inspector {
           type: "text",
           class: INPUT,
           value,
-          placeholder: field.placeholder || "",
+          placeholder: t(field.placeholder) || "",
           oninput: (event) => set(withUnit(event.target.value)),
           onchange: (event) => (event.target.value = withUnit(event.target.value))
         })
@@ -228,7 +229,7 @@ export class Inspector {
           // options can depend on the editor's settings: options(editor)
           (typeof field.options === "function" ? field.options(this.editor) : field.options).map((option) => {
             const optionValue = typeof option === "string" ? option : option.value
-            const optionLabel = typeof option === "string" ? option || "Default" : option.label
+            const optionLabel = typeof option === "string" ? option || t("Default") : t(option.label)
             return h("option", { value: optionValue, selected: optionValue === value }, optionLabel)
           })
         )
@@ -245,7 +246,7 @@ export class Inspector {
               "button",
               {
                 type: "button",
-                title: value === option.value ? "Click again to use the default" : "",
+                title: value === option.value ? t("Click again to use the default") : "",
                 class: `flex-1 px-2 py-1 text-xs border-l first:border-l-0 border-gray-300 dark:border-gray-600 ${value === option.value ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"}`,
                 onclick: (event) => {
                   event.preventDefault()
@@ -253,13 +254,13 @@ export class Inspector {
                   this.render()
                 }
               },
-              option.label
+              t(option.label)
             )
           )
         )
 
       case "toggle": {
-        const state = h("span", { class: "text-xs text-gray-600 dark:text-gray-300" }, value === field.on ? "On" : "Off")
+        const state = h("span", { class: "text-xs text-gray-600 dark:text-gray-300" }, t(value === field.on ? "On" : "Off"))
         return h(
           "span",
           { class: "flex items-center gap-2" },
@@ -269,7 +270,7 @@ export class Inspector {
             checked: value === field.on,
             onchange: (event) => {
               set(event.target.checked ? field.on : field.off)
-              state.textContent = event.target.checked ? "On" : "Off"
+              state.textContent = t(event.target.checked ? "On" : "Off")
             }
           }),
           state
@@ -286,7 +287,7 @@ export class Inspector {
         return this.image(node, field, value, set)
 
       default:
-        return this.variables(h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "", oninput: (event) => set(event.target.value) }), node, field)
+        return this.variables(h("input", { type: "text", class: INPUT, value, placeholder: t(field.placeholder) || "", oninput: (event) => set(event.target.value) }), node, field)
     }
   }
 
@@ -305,7 +306,7 @@ export class Inspector {
         button,
         holder,
         open: !field.summary || Boolean(field.open?.(element)),
-        wrapper: h("div", { class: "block" }, h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, field.label), h("div", { class: "flex items-center gap-2" }, summary, button), holder)
+        wrapper: h("div", { class: "block" }, h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, t(field.label)), h("div", { class: "flex items-center gap-2" }, summary, button), holder)
       }
       // Its only move: it reconnects, with what was typed so far
       freeze(element)
@@ -326,7 +327,7 @@ export class Inspector {
     const { open, field, element, button, holder, summary } = slot
     holder.hidden = !open
     button.parentElement.hidden = !field.summary
-    button.textContent = open ? "Done" : "Edit"
+    button.textContent = t(open ? "Done" : "Edit")
     button.setAttribute("aria-expanded", String(open))
     summary.hidden = open
     summary.textContent = open ? "" : field.summary?.(element) || ""
@@ -359,7 +360,7 @@ export class Inspector {
           const locale = call.locale || translationLocale
           const value = locale ? translations.value(call.key, locale) : null
           const missing = translations.has(call.key) && (locale ? value === null : translations.missing(call.key).length > 0)
-          const text = value !== null ? `${locale.toUpperCase()}: ${value}` : locale && translations.has(call.key) ? `${call.key} · no ${locale.toUpperCase()} text` : call.key
+          const text = value !== null ? `${locale.toUpperCase()}: ${value}` : locale && translations.has(call.key) ? t("%{key} · no %{locale} text", { key: call.key, locale: locale.toUpperCase() }) : call.key
           const chip = h(
             "span",
             {
@@ -387,7 +388,7 @@ export class Inspector {
     const end = input.selectionEnd ?? 0
     const whole = start === end
     const text = whole ? input.value : input.value.slice(start, end)
-    if (!text.trim()) return this.editor.flash("Type the text to translate first.")
+    if (!text.trim()) return this.editor.flash(t("Type the text to translate first."))
     const tag = await this.editor.makeTranslatable(text)
     if (!tag) return
     if (whole) input.value = tag
@@ -398,11 +399,11 @@ export class Inspector {
   // An image URL, or with the host's images (editor.media, core/media.js) a
   // choice between one of those, a new upload, and a URL
   image(node, field, value, set) {
-    const url = this.variables(h("input", { type: "text", class: INPUT, value, placeholder: field.placeholder || "https://…", oninput: (event) => set(event.target.value) }), node, field)
+    const url = this.variables(h("input", { type: "text", class: INPUT, value, placeholder: t(field.placeholder) || "https://…", oninput: (event) => set(event.target.value) }), node, field)
     if (!this.editor.media.enabled) return url
 
     const source = imageSource(node, this.editor, field)
-    const sources = this.control(node, { type: "segmented", options: [{ value: "upload", label: "Uploaded" }, { value: "web", label: "Web" }] }, source, (next) =>
+    const sources = this.control(node, { type: "segmented", options: [{ value: "upload", label: t("Uploaded") }, { value: "web", label: t("Web") }] }, source, (next) =>
       this.editor.setValue(node.id, field.source, next || source)
     )
     return h("div", { class: "space-y-1.5" }, sources, source === "upload" ? this.mediaPicker(node, field, getValue(node, field.image)) : url)
@@ -429,7 +430,7 @@ export class Inspector {
           if (image) this.editor.chooseImage(node.id, image, field)
         }
       },
-      h("option", { value: "" }, images.length ? "Choose an image" : "No images yet"),
+      h("option", { value: "" }, t(images.length ? "Choose an image" : "No images yet")),
       images.map((image) => h("option", { value: image.id, selected: image.id === value }, image.name))
     )
     return h(
@@ -439,7 +440,7 @@ export class Inspector {
         "div",
         { class: "flex items-center gap-1.5" },
         select,
-        h("button", { type: "button", class: "shrink-0 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50", disabled: uploading, onclick: () => file.click() }, uploading ? "Uploading…" : "Upload"),
+        h("button", { type: "button", class: "shrink-0 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50", disabled: uploading, onclick: () => file.click() }, t(uploading ? "Uploading…" : "Upload")),
         file
       ),
       error ? h("p", { class: "mt-1 text-[11px] text-red-600 dark:text-red-400", role: "alert" }, error) : null,
@@ -470,13 +471,13 @@ export class Inspector {
       },
       h(
         "div",
-        { role: "dialog", "aria-label": field.label, class: "flex h-full max-h-[800px] w-full max-w-5xl flex-col gap-3 rounded-xl bg-white dark:bg-gray-800 p-4 shadow-xl" },
+        { role: "dialog", "aria-label": t(field.label), class: "flex h-full max-h-[800px] w-full max-w-5xl flex-col gap-3 rounded-xl bg-white dark:bg-gray-800 p-4 shadow-xl" },
         h(
           "div",
           { class: "flex items-center gap-3" },
-          h("h3", { class: "text-sm font-semibold text-gray-900 dark:text-gray-100" }, label(node) === field.label ? field.label : `${label(node)} · ${field.label}`),
-          field.hint ? h("span", { class: "text-xs text-gray-500 dark:text-gray-400" }, field.hint) : null,
-          h("button", { type: "button", title: "Close", class: "ml-auto w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700", html: icon("close"), onclick: close })
+          h("h3", { class: "text-sm font-semibold text-gray-900 dark:text-gray-100" }, label(node) === t(field.label) ? t(field.label) : `${label(node)} · ${t(field.label)}`),
+          typeof field.hint === "string" ? h("span", { class: "text-xs text-gray-500 dark:text-gray-400" }, t(field.hint)) : null,
+          h("button", { type: "button", title: t("Close"), class: "ml-auto w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700", html: icon("close"), onclick: close })
         ),
         input
       )
@@ -493,7 +494,7 @@ export class Inspector {
 
   color(value, set) {
     const text = h("input", {
-      type: "text", class: `${INPUT} font-mono text-xs`, value, placeholder: "Default", oninput: (event) => {
+      type: "text", class: `${INPUT} font-mono text-xs`, value, placeholder: t("Default"), oninput: (event) => {
         set(event.target.value)
         if (/^#[0-9a-f]{6}$/i.test(event.target.value)) swatch.value = event.target.value
       }
@@ -512,7 +513,7 @@ export class Inspector {
 
   spacing(value, set) {
     const values = parseSpacing(value)
-    const inputs = ["Top", "Right", "Bottom", "Left"].map((side, i) =>
+    const inputs = [t("Top"), t("Right"), t("Bottom"), t("Left")].map((side, i) =>
       h(
         "span",
         { class: "block" },
@@ -552,7 +553,7 @@ export class Inspector {
             : this.variables(h("input", {
               type: "text",
               class: INPUT,
-              placeholder: part.label,
+              placeholder: t(part.label),
               value: item[part.name] ?? "",
               oninput: (event) => {
                 items = items.map((it, i) => (i === index ? { ...it, [part.name]: event.target.value } : it))
@@ -564,13 +565,13 @@ export class Inspector {
           "div",
           { class: "flex justify-end gap-1" },
           h("button", {
-            type: "button", title: "Move up", class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30", disabled: index === 0, html: icon("up", "w-3.5 h-3.5"), onclick: () => {
+            type: "button", title: t("Move up"), class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30", disabled: index === 0, html: icon("up", "w-3.5 h-3.5"), onclick: () => {
               const next = [...items]
                 ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
               update(next)
             }
           }),
-          h("button", { type: "button", title: "Remove", class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-red-600 dark:hover:text-red-400", html: icon("trash", "w-3.5 h-3.5"), onclick: () => update(items.filter((_, i) => i !== index)) })
+          h("button", { type: "button", title: t("Remove"), class: "w-6 h-6 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-red-600 dark:hover:text-red-400", html: icon("trash", "w-3.5 h-3.5"), onclick: () => update(items.filter((_, i) => i !== index)) })
         )
       )
     )
@@ -578,7 +579,7 @@ export class Inspector {
       "div",
       { class: "space-y-2" },
       rows,
-      h("button", { type: "button", class: "w-full rounded-md border border-dashed border-gray-300 dark:border-gray-600 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400", onclick: () => update([...items, { ...field.newItem }]) }, "Add")
+      h("button", { type: "button", class: "w-full rounded-md border border-dashed border-gray-300 dark:border-gray-600 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400", onclick: () => update([...items, { ...field.newItem }]) }, t("Add"))
     )
   }
 }

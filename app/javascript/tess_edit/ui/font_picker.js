@@ -5,6 +5,7 @@
 // list only loads those seen; the host's page has to have the fonts (e.g. as
 // @font-face rules, which load when used).
 
+import { t } from "tess_edit/core/i18n"
 import { h } from "tess_edit/ui/dom"
 
 const ITEM = "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[15px]"
@@ -28,7 +29,7 @@ export class FontPicker {
   label() {
     const option = this.options.find((option) => option.value === this.value) || this.options[0]
     this.button.replaceChildren(
-      h("span", { class: "min-w-0 flex-1 truncate", style: fontStyle(option.value) }, option.label),
+      h("span", { class: "min-w-0 flex-1 truncate", style: fontStyle(option.value) }, t(option.label)),
       h("span", { class: "shrink-0 text-gray-400 dark:text-gray-500", "aria-hidden": "true" }, "▾")
     )
   }
@@ -37,7 +38,7 @@ export class FontPicker {
     this.query = ""
     this.search = h("input", {
       type: "search",
-      placeholder: "Search fonts",
+      placeholder: t("Search fonts"),
       class: "w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-[13px] text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500",
       oninput: (event) => {
         this.query = event.target.value
@@ -46,7 +47,7 @@ export class FontPicker {
       },
       onkeydown: (event) => this.key(event)
     })
-    this.list = h("div", { class: "max-h-72 overflow-y-auto py-1", role: "listbox", "aria-label": "Fonts" })
+    this.list = h("div", { class: "max-h-72 overflow-y-auto py-1", role: "listbox", "aria-label": t("Fonts") })
     this.element = h("div", { class: "absolute z-50 w-72 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg" }, h("div", { class: "p-1.5 border-b border-gray-100 dark:border-gray-700" }, this.search), this.list)
     this.editor.root.append(this.element)
     this.observer = new IntersectionObserver((entries) => entries.forEach((entry) => entry.isIntersecting && show(entry.target)), { root: this.list })
@@ -78,12 +79,12 @@ export class FontPicker {
           onclick: () => this.pick(option)
         },
         h("span", { class: "w-3 shrink-0 text-[11px]" }, chosen ? "✓" : ""),
-        h("span", { class: "min-w-0 flex-1 truncate" }, option.label)
+        h("span", { class: "min-w-0 flex-1 truncate" }, t(option.label))
       )
       this.observer.observe(row)
       return row
     })
-    const empty = matches.length ? null : h("p", { class: "px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400" }, "No fonts with that name")
+    const empty = matches.length ? null : h("p", { class: "px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400" }, t("No fonts with that name"))
     this.list.replaceChildren(...rows, ...(empty ? [empty] : []))
     rows[this.index]?.scrollIntoView({ block: "nearest" })
   }

@@ -11,6 +11,7 @@
 // marks: Enter or leaving it finishes (finish).
 
 import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
+import { t } from "tess_edit/core/i18n"
 import { missingArguments, translationCalls } from "tess_edit/core/translations"
 import { showText } from "tess_edit/ui/canvas"
 import { askText } from "tess_edit/ui/dialog"
@@ -119,7 +120,7 @@ export class TextEditing {
   async makeTranslatable() {
     const tiptap = this.tiptap
     const { selection, doc } = tiptap.state
-    if (selection.empty) return this.editor.flash("Select the text to translate first.")
+    if (selection.empty) return this.editor.flash(t("Select the text to translate first."))
     // Inside the text: a selection of everything starts before the first paragraph
     const from = Math.max(selection.from, 1)
     const to = Math.min(selection.to, doc.content.size - 1)
@@ -135,10 +136,10 @@ export class TextEditing {
     const tiptap = this.tiptap
     const previous = tiptap.getAttributes("link").href
     const href = await askText(this.editor.root, {
-      title: previous ? "Edit link" : "Add link",
-      label: "URL",
+      title: t(previous ? "Edit link" : "Add link"),
+      label: t("URL"),
       value: previous || "https://",
-      hint: "Liquid is allowed, e.g. {{ order.url }}",
+      hint: t("Liquid is allowed, e.g. {{ order.url }}"),
       remove: Boolean(previous)
     })
     if (href === null || this.tiptap !== tiptap) return tiptap.commands.focus()
@@ -187,20 +188,20 @@ export class TextEditing {
       "select",
       {
         class: "h-7 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-0 pl-1.5 pr-7 text-xs text-gray-800 dark:text-gray-200",
-        title: "Paragraph style",
+        title: t("Paragraph style"),
         onchange: (event) => {
           const value = Number(event.target.value)
           value ? chain().setHeading({ level: value }).run() : chain().setParagraph().run()
         }
       },
-      h("option", { value: "0", selected: !level }, "Paragraph"),
-      [1, 2, 3].map((l) => h("option", { value: String(l), selected: level === l }, `Heading ${l}`))
+      h("option", { value: "0", selected: !level }, t("Paragraph")),
+      [1, 2, 3].map((l) => h("option", { value: String(l), selected: level === l }, t("Heading %{level}", { level: l })))
     )
 
     const currentColor = editor.getAttributes("textStyle").color
     const color = h("input", {
       type: "color",
-      title: "Text color",
+      title: t("Text color"),
       class: "h-7 w-8 cursor-pointer rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-0.5",
       value: /^#[0-9a-f]{6}$/i.test(currentColor || "") ? currentColor : "#000000",
       onchange: (event) => chain().setColor(event.target.value).run()
@@ -209,28 +210,28 @@ export class TextEditing {
     this.toolbar.replaceChildren(...[
       style,
       separator(),
-      button("bold", "Bold (⌘B)", editor.isActive("bold"), () => chain().toggleBold().run()),
-      button("italic", "Italic (⌘I)", editor.isActive("italic"), () => chain().toggleItalic().run()),
-      button("underline", "Underline (⌘U)", editor.isActive("underline"), () => chain().toggleUnderline().run()),
-      button("strike", "Strikethrough", editor.isActive("strike"), () => chain().toggleStrike().run()),
+      button("bold", t("Bold (⌘B)"), editor.isActive("bold"), () => chain().toggleBold().run()),
+      button("italic", t("Italic (⌘I)"), editor.isActive("italic"), () => chain().toggleItalic().run()),
+      button("underline", t("Underline (⌘U)"), editor.isActive("underline"), () => chain().toggleUnderline().run()),
+      button("strike", t("Strikethrough"), editor.isActive("strike"), () => chain().toggleStrike().run()),
       color,
       separator(),
-      button("link", "Link", editor.isActive("link"), () => this.editLink()),
-      editor.isActive("link") ? button("unlink", "Remove link", false, () => chain().extendMarkRange("link").unsetLink().run()) : null,
+      button("link", t("Link"), editor.isActive("link"), () => this.editLink()),
+      editor.isActive("link") ? button("unlink", t("Remove link"), false, () => chain().extendMarkRange("link").unsetLink().run()) : null,
       separator(),
-      button("align-left", "Align left", editor.isActive({ textAlign: "left" }), () => chain().setTextAlign("left").run()),
-      button("align-center", "Align center", editor.isActive({ textAlign: "center" }), () => chain().setTextAlign("center").run()),
-      button("align-right", "Align right", editor.isActive({ textAlign: "right" }), () => chain().setTextAlign("right").run()),
+      button("align-left", t("Align left"), editor.isActive({ textAlign: "left" }), () => chain().setTextAlign("left").run()),
+      button("align-center", t("Align center"), editor.isActive({ textAlign: "center" }), () => chain().setTextAlign("center").run()),
+      button("align-right", t("Align right"), editor.isActive({ textAlign: "right" }), () => chain().setTextAlign("right").run()),
       separator(),
-      button("list-bullet", "Bulleted list", editor.isActive("bulletList"), () => chain().toggleBulletList().run()),
-      button("list-ordered", "Numbered list", editor.isActive("orderedList"), () => chain().toggleOrderedList().run()),
+      button("list-bullet", t("Bulleted list"), editor.isActive("bulletList"), () => chain().toggleBulletList().run()),
+      button("list-ordered", t("Numbered list"), editor.isActive("orderedList"), () => chain().toggleOrderedList().run()),
       separator(),
-      button("clear", "Clear formatting", false, () => chain().unsetAllMarks().clearNodes().run()),
-      this.translating ? button("translate", "Make translatable: keep the selected text as a translation", false, () => this.makeTranslatable()) : null,
+      button("clear", t("Clear formatting"), false, () => chain().unsetAllMarks().clearNodes().run()),
+      this.translating ? button("translate", t("Make translatable: keep the selected text as a translation"), false, () => this.makeTranslatable()) : null,
       this.menu && this.editor?.variables?.enabled
         ? h("button", {
           type: "button",
-          title: "Insert a variable",
+          title: t("Insert a variable"),
           class: `${BUTTON.replace("w-7", "px-1.5")} whitespace-nowrap font-mono text-xs`,
           onmousedown: (event) => event.preventDefault(),
           onclick: (event) => this.menu.browse(this.adapter, event.currentTarget)
@@ -321,7 +322,7 @@ function translationChip(view, key, value, unfilled, edit) {
   chip.className = unfilled.length ? "tess-t tess-t-missing" : "tess-t"
   chip.contentEditable = "false"
   chip.dataset.tessKey = key
-  if (unfilled.length) chip.title = `No argument for ${unfilled.map((name) => `%{${name}}`).join(", ")} in the t filter`
+  if (unfilled.length) chip.title = t("No argument for %{names} in the t filter", { names: unfilled.map((name) => `%{${name}}`).join(", ") })
   showText(chip, value)
   chip.addEventListener("mousedown", (event) => {
     event.preventDefault()

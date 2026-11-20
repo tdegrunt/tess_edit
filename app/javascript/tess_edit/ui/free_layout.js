@@ -24,6 +24,7 @@
 // off. A block dropped from the palette lands where it is let go.
 
 import { find, getValue } from "tess_edit/core/document"
+import { t } from "tess_edit/core/i18n"
 import { getBlock } from "tess_edit/core/registry"
 
 // Screen pixels a press moves before it drags, and within which edges snap
@@ -135,7 +136,7 @@ export class FreeLayout {
     if (!resize || !this.editor.isFree(id) || this.editor.editingId) return null
     const handle = this.canvas.doc.createElement("div")
     handle.className = "tess-resize"
-    handle.title = "Drag to resize"
+    handle.title = t("Drag to resize")
     handle.addEventListener("pointerdown", (event) => {
       event.preventDefault()
       event.stopPropagation()

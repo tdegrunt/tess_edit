@@ -5,6 +5,7 @@
 // button resolves to "". `check(value)` may say what's wrong with it (a
 // string), or ask to confirm it ({ confirm, label }: saving again confirms).
 
+import { t } from "tess_edit/core/i18n"
 import { h } from "tess_edit/ui/dom"
 
 const BUTTON = "rounded-md px-3 py-1.5 text-xs font-medium"
@@ -20,7 +21,7 @@ export function askText(root, { title, label, value = "", hint = null, body = nu
       oninput: () => {
         confirmed = null
         message.textContent = ""
-        save.textContent = "Save"
+        save.textContent = t("Save")
       },
       onkeydown: (event) => {
         if (event.key === "Enter") {
@@ -30,7 +31,7 @@ export function askText(root, { title, label, value = "", hint = null, body = nu
       }
     })
     const message = h("p", { class: "min-h-4 text-xs text-red-600 dark:text-red-400", role: "alert" })
-    const save = h("button", { type: "button", class: `${BUTTON} bg-blue-600 text-white hover:bg-blue-700`, onclick: () => submit() }, "Save")
+    const save = h("button", { type: "button", class: `${BUTTON} bg-blue-600 text-white hover:bg-blue-700`, onclick: () => submit() }, t("Save"))
     const close = (result) => {
       dialog.remove()
       resolve(result)
@@ -88,9 +89,9 @@ export function askText(root, { title, label, value = "", hint = null, body = nu
           h(
             "div",
             { class: "flex gap-2" },
-            remove ? h("button", { type: "button", class: `${BUTTON} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30`, onclick: () => close("") }, "Remove") : null,
+            remove ? h("button", { type: "button", class: `${BUTTON} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30`, onclick: () => close("") }, t("Remove")) : null,
             h("span", { class: "flex-1" }),
-            h("button", { type: "button", class: `${BUTTON} border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700`, onclick: () => close(null) }, "Cancel"),
+            h("button", { type: "button", class: `${BUTTON} border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700`, onclick: () => close(null) }, t("Cancel")),
             save
           )
         ].filter(Boolean)

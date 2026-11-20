@@ -15,6 +15,7 @@
 
 import { keyCompletion, keyToken } from "tess_edit/core/translations"
 import { completion, liquidToken } from "tess_edit/core/variables"
+import { t } from "tess_edit/core/i18n"
 import { h } from "tess_edit/ui/dom"
 
 const ITEM = "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px]"
@@ -164,7 +165,7 @@ export class VariableMenu {
       this.element = h("div", {
         class: "absolute z-50 w-72 max-h-72 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-1 shadow-lg",
         role: "listbox",
-        "aria-label": "Variables",
+        "aria-label": t("Variables"),
         // Keep the focus (and caret) in the field being typed in
         onmousedown: (event) => event.preventDefault(),
         onkeydown: (event) => event.key === "Escape" && this.close()
@@ -184,7 +185,7 @@ export class VariableMenu {
         path
           ? h("button", { type: "button", class: "rounded px-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.browse(adapter, this.anchor, path.split(".").slice(0, -1).join(".")) }, "‹ Back")
           : null,
-        h("span", { class: "truncate font-mono" }, path || "Variables")
+        h("span", { class: "truncate font-mono" }, path || t("Variables"))
       )
       : null
     const rows = items.map((item, i) =>
@@ -198,12 +199,12 @@ export class VariableMenu {
           title: item.hint || "",
           onclick: () => choose(item)
         },
-        h("span", { class: "min-w-0 flex-1 truncate" }, item.label || item.name),
+        h("span", { class: "min-w-0 flex-1 truncate" }, t(item.label) || item.name),
         h("span", { class: "shrink-0 font-mono text-[11px] text-gray-500 dark:text-gray-400" }, item.name),
         item.children && !(adapter.mode === "collection" && item.collection) ? h("span", { class: "shrink-0 text-gray-400 dark:text-gray-500" }, "›") : null
       )
     )
-    const empty = !items.length ? h("p", { class: "px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400" }, error || "No variables here") : null
+    const empty = !items.length ? h("p", { class: "px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400" }, error || t("No variables here")) : null
     this.element.replaceChildren(...[header, ...rows, empty].filter(Boolean))
     this.place(browse ? this.anchor.getBoundingClientRect() : adapter.rect())
     this.element.querySelector("[aria-selected='true']")?.scrollIntoView({ block: "nearest" })

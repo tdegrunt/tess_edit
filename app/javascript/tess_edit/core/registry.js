@@ -81,6 +81,7 @@
 // gem replaced it.
 
 import { builtinBlocks, builtinCategories } from "tess_edit/blocks/builtin"
+import { t } from "tess_edit/core/i18n"
 import { builtinKits } from "tess_edit/kits/builtin"
 
 const definitions = new Map()
@@ -91,12 +92,15 @@ const fieldTypeList = new Map()
 
 export const DEFAULT_KIT = "email"
 
+// What the editor says when a kit's canvas can't be rendered, unless the kit says it itself (errors)
+export const KIT_ERRORS = "The %{name} could not be rendered"
+
 export function registerKit(kit) {
   const { key, name, root, canvas, outputs } = kit || {}
   if (!key || !name) throw new Error("A kit needs a key and a name")
   if (!root) throw new Error(`Kit ${key} needs a root block type`)
   if (typeof canvas !== "function" || typeof outputs !== "function") throw new Error(`Kit ${key} needs canvas(doc, options) and outputs(doc, options)`)
-  kitList.set(key, { devices: null, notes: {}, errors: `The ${name} could not be rendered`, ...kit })
+  kitList.set(key, { devices: null, notes: {}, errors: KIT_ERRORS, ...kit })
   return kitList.get(key)
 }
 
@@ -268,7 +272,7 @@ export function paletteItem(key) {
 
 export function label(node) {
   const definition = getBlock(node.type)
-  return definition?.label?.(node) || definition?.name || node.type
+  return definition?.label?.(node) || t(definition?.name) || node.type
 }
 
 builtinKits.forEach(registerKit)
