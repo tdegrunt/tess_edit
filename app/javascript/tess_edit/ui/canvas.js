@@ -2,13 +2,15 @@
 // hover and selection outlines, block tools, plus buttons and drop indicators.
 // Elements are mapped back to blocks through the "tess-<id>" classes that the
 // editor-mode MJML puts on every element. With the host's translations, t
-// filters show their text in the editor's language (see annotate).
+// filters show their text in the editor's language, and with its values
+// other Liquid output shows its value (see annotate).
 
 import { ancestors, find, isDescendant, isHorizontal } from "tess_edit/core/document"
 import { t } from "tess_edit/core/i18n"
 import { imageFields } from "tess_edit/core/media"
 import { getBlock, inlinePart, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
+import { valueCalls } from "tess_edit/core/values"
 import { FREE_CSS, FreeLayout } from "tess_edit/ui/free_layout"
 import { icon } from "tess_edit/ui/icons"
 
@@ -46,6 +48,9 @@ a{cursor:default}
 .tess-t-arg{border-radius:3px;padding:0 2px;background:rgba(37,99,235,.18);font-size:.9em}
 .tess-t-missing .tess-t-arg{background:rgba(220,38,38,.18)}
 .tess-t-hidden{display:none}
+.tess-v-filled,.tess-v-raw{border-radius:3px;background:rgba(5,150,105,.08);box-shadow:inset 0 -1px 0 rgba(5,150,105,.55)}
+.ProseMirror .tess-v-filled{cursor:text}
+.tess-v-hidden{display:none}
 `
 
 // A file dragged in from outside the browser (block drags set editor.drag)
@@ -129,30 +134,42 @@ export class Canvas {
     doc.addEventListener("mouseout", (event) => event.target.closest?.("[data-tess-key]") && this.editor.translationPopover?.scheduleHide())
   }
 
-  // --- translations ----------------------------------------------------------
+  // --- translations and values -----------------------------------------------
 
   // Wraps every t filter in the email's text in a span that shows its text
-  // (showTranslations), keeping the Liquid for when there's none
+  // (showTranslations), and with the host's values every other output tag in
+  // one that shows its value (showValues), keeping the Liquid for when there's
+  // none. Again when the values change: what's wrapped stays as it is.
   annotate() {
-    if (!this.editor.translations?.enabled) return
+    const translating = Boolean(this.editor.translations?.enabled)
+    const valuing = Boolean(this.editor.values?.enabled)
+    if (!this.doc?.body) return
+    // Without values any more, what shows one shows its Liquid again
+    if (!translating && !valuing) return this.showValues()
     const doc = this.doc
     const walker = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */)
     const nodes = []
     while (walker.nextNode()) {
       const node = walker.currentNode
-      if (node.nodeValue.includes("{{") && !node.parentElement?.closest("#tess-overlay, script, style, title")) nodes.push(node)
+      if (node.nodeValue.includes("{{") && !node.parentElement?.closest("#tess-overlay, script, style, title, .tess-t, .tess-v, .ProseMirror")) nodes.push(node)
     }
     for (const node of nodes) {
       const text = node.nodeValue
-      const calls = translationCalls(text)
+      const calls = [...(translating ? translationCalls(text) : []), ...(valuing ? valueCalls(text).map((call) => ({ ...call, value: true })) : [])].sort((a, b) => a.start - b.start)
       if (!calls.length) continue
       const fragment = doc.createDocumentFragment()
       let at = 0
       for (const call of calls) {
         fragment.append(text.slice(at, call.start))
         const span = doc.createElement("span")
-        span.className = "tess-t"
-        Object.assign(span.dataset, { tessKey: call.key, tessCall: call.text, tessArgs: call.args.join(",") }, call.locale ? { tessLocale: call.locale } : {})
+        if (call.value) {
+          span.className = "tess-v"
+          Object.assign(span.dataset, { tessExpression: call.expression, tessCall: call.text })
+          span.textContent = call.text
+        } else {
+          span.className = "tess-t"
+          Object.assign(span.dataset, { tessKey: call.key, tessCall: call.text, tessArgs: call.args.join(",") }, call.locale ? { tessLocale: call.locale } : {})
+        }
         fragment.append(span)
         at = call.end
       }
@@ -160,6 +177,21 @@ export class Canvas {
       node.replaceWith(fragment)
     }
     this.showTranslations()
+    this.showValues()
+  }
+
+  // Each output tag's value, its Liquid when pointed at, or the Liquid when
+  // there's none
+  showValues() {
+    const values = this.editor.values
+    if (!values || !this.doc?.body) return
+    for (const span of this.doc.querySelectorAll(".tess-v[data-tess-call]")) {
+      const value = values.value(span.dataset.tessExpression)
+      span.textContent = value ?? span.dataset.tessCall
+      span.title = value === null ? "" : span.dataset.tessCall
+      span.classList.toggle("tess-v-filled", value !== null)
+    }
+    this.refresh()
   }
 
   // The text in the editor's language (or the call's own), or the Liquid when

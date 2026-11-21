@@ -32,6 +32,10 @@
 //               (see core/lock.js)
 //   blocks      JSON: the only block types that can be added, e.g. ["text", "image"];
 //               without it, all of the kit's
+//   values      JSON: the host's values for the document's Liquid, by expression
+//               ({"customer.first_name": "Ada"}), shown in place of it until the
+//               caret goes into it (see core/values.js); also from the kit's
+//               canvas result, or set with setValues
 //   options     JSON: anything a host's blocks need from the page, as
 //               editor.options, e.g. the choices of a select field
 //               (options: (editor) => editor.options.parties)
@@ -56,6 +60,7 @@ import { DEFAULT_KIT, getBlock, getKit, inlinePart, inlineParts, paletteItems, p
 import { COMPILE_URL } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
+import { Values } from "tess_edit/core/values"
 import { Variables, loopScope } from "tess_edit/core/variables"
 import { Canvas } from "tess_edit/ui/canvas"
 import { freeChild, number } from "tess_edit/ui/free_layout"
@@ -87,7 +92,7 @@ function placed(node, at) {
 }
 
 export default class extends Controller {
-  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, lock: String, blocks: String, options: String }
+  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot", "translations"]
 
   connect() {
@@ -120,6 +125,8 @@ export default class extends Controller {
     this.variables = new Variables(this.variablesUrlValue)
     this.translations = new Translations(this.translationsUrlValue)
     this.translationPopover = this.translations.enabled ? new TranslationPopover(this) : null
+    this.values = new Values()
+    this.values.set(this.parseJson(this.valuesValue, "values"))
     this.translationLocaleChoice = this.stored(TRANSLATION_LOCALE_KEY)
     this.variableMenu = this.variables.enabled || this.translations.enabled ? new VariableMenu(this) : null
 
@@ -139,7 +146,17 @@ export default class extends Controller {
       this.translations.subscribe(() => this.showTranslations())
       this.loadTranslations()
     }
+    // Values show on the canvas and in text being edited
+    this.values.subscribe(() => {
+      this.canvas.annotate()
+      this.textEditing.refreshValues()
+    })
     this.element.tessEdit = this
+  }
+
+  // Other values from the host, once it's connected
+  valuesValueChanged() {
+    if (this.values) this.values.set(this.parseJson(this.valuesValue, "values"))
   }
 
   // Points the editor at other variables (variablesUrl), once it's connected
@@ -333,6 +350,11 @@ export default class extends Controller {
 
   getDocument() {
     return JSON.parse(JSON.stringify(this.doc))
+  }
+
+  // The host's values for the document's Liquid, by expression (core/values.js)
+  setValues(values) {
+    this.values.set(values)
   }
 
   setDocument(input) {
@@ -686,6 +708,8 @@ export default class extends Controller {
     if (this.editingId) return
     const result = await this.run("canvas", (options) => this.kit.canvas(this.doc, { ...options, editor: this.mode === "edit" }))
     if (!result || this.editingId) return
+    // A canvas the host renders can give the values it has
+    if (result.values) this.values.set(result.values)
     this.showErrors(result.errors)
     // Without HTML the canvas keeps the last document that rendered.
     if (result.html !== null) this.canvas.write(result.html, this.mode)

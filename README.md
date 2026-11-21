@@ -19,6 +19,7 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 - Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings. A block can have several texts edited on the canvas, rich or a plain line, such as a question's label and its description.
 - Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
 - Your app's translations for Liquid's `t` filter (`{{ '.greeting' | t }}`) shown as their text in a language of your choice, with every language's text, missing ones marked, editable when pointed at, and selected text made translatable.
+- Your app's values for the Liquid in a document (`{{ customer.first_name }}` as "Ada"), shown in its place until the caret goes into it.
 - Clicking a tile in the Blocks panel adds the block in or after the selection, or else at the end of the last block it fits in.
 - Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Esc).
 - Desktop and mobile preview, and a preview of the HTML as sent.
@@ -279,6 +280,19 @@ The endpoint answers, as JSON:
 
 Where the texts are kept, and what a key starting with a dot is relative to, is up to your app. The dummy app's `TranslationsController` keeps them in memory (`/?translations=1`).
 
+### Values
+
+When the editor is for a record, such as an order's confirmation or a contract's text, your app can show what its Liquid comes to: give the values by expression, as it's written between the braces, filters and all, with its whitespace as one space:
+
+```erb
+<div data-controller="tess-edit" data-tess-edit-values-value='<%= {"customer.first_name" => "Ada", "order.total | money" => "€ 12,50"}.to_json %>'>
+```
+
+- The canvas shows each output tag with a value as that value, marked, with its Liquid when pointed at. One without a value, or with an empty one, shows its Liquid; `t` filters are translations.
+- In text being edited on the canvas a value shows until the caret goes into its Liquid; a click on it does that.
+
+A kit whose canvas your app renders can give them with the canvas, `{ html, errors, values }`, as they depend on the record as it's being edited, and `editor.setValues(values)` (on the element's `tessEdit`) sets them from anywhere; each replaces them all. `core/values.js` finds the expressions in a document (`expressionsIn`), to ask for theirs. The demo has some at `/?values=1`.
+
 ### Blocks and custom blocks
 
 Every block is a plugin: one module in `app/javascript/tess_edit/blocks/` with its defaults, its Inspect fields, its Blocks panel tiles and a `render.mjml` hook. The built-in blocks are registered the same way a host app registers its own, so register yours before the editor connects:
@@ -415,7 +429,7 @@ cd test/dummy && bin/dev
 
 `/?blocks=text,image` only offers those blocks.
 
-`/?translations=1` gives the editor the demo's translations (`TranslationsController`, in memory, in English, Dutch and German). The options combine, e.g. `/?lock=1&media=1&variables=1&translations=1`.
+`/?values=1` gives it values for the sample's customer and order. `/?translations=1` gives the editor the demo's translations (`TranslationsController`, in memory, in English, Dutch and German). The options combine, e.g. `/?lock=1&media=1&variables=1&translations=1`.
 
 Tests:
 

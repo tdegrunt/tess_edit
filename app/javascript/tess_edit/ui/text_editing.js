@@ -4,7 +4,9 @@
 // suggests them, and the toolbar's { } button browses them. With the host's
 // translations (`editor.translations`, core/translations.js) a t filter shows
 // its text in the editor's language until the caret goes into it, and the
-// toolbar turns selected text into a translation.
+// toolbar turns selected text into a translation. With the host's values
+// (`editor.values`, core/values.js) other Liquid output shows its value the
+// same way.
 //
 // A plain part (a block's inline part with plain: true, see core/registry.js)
 // is one line of text, edited on its element itself, with no toolbar or
@@ -13,6 +15,7 @@
 import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey, StarterKit, TextAlign, TextStyle } from "tess_edit/vendor/tiptap"
 import { t } from "tess_edit/core/i18n"
 import { missingArguments, translationCalls } from "tess_edit/core/translations"
+import { valueCalls } from "tess_edit/core/values"
 import { showText } from "tess_edit/ui/canvas"
 import { askText } from "tess_edit/ui/dialog"
 import { h } from "tess_edit/ui/dom"
@@ -21,6 +24,7 @@ import { icon } from "tess_edit/ui/icons"
 const BUTTON = "w-7 h-7 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
 const ACTIVE = "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
 const TRANSLATIONS = new PluginKey("tessTranslations")
+const VALUES = new PluginKey("tessValues")
 
 export class TextEditing {
   constructor(toolbar, { menu = null, editor = null } = {}) {
@@ -93,7 +97,8 @@ export class TextEditing {
         TextStyle,
         Color,
         TextAlign.configure({ types: ["heading", "paragraph"] }),
-        ...(this.translating ? [translationsExtension(this)] : [])
+        ...(this.translating ? [translationsExtension(this)] : []),
+        ...(this.editor?.values ? [valuesExtension(this)] : [])
       ],
       autofocus: "end",
       editorProps: { handleKeyDown: (view, event) => this.menu?.key(event) || false },
@@ -113,6 +118,11 @@ export class TextEditing {
   // Again, when the translations or the editor's language change
   refreshTranslations() {
     if (this.tiptap && this.translating) this.tiptap.view.dispatch(this.tiptap.state.tr.setMeta(TRANSLATIONS, true))
+  }
+
+  // Again, when the values change
+  refreshValues() {
+    if (this.tiptap && this.editor?.values) this.tiptap.view.dispatch(this.tiptap.state.tr.setMeta(VALUES, true))
   }
 
   // Keeps the selected text as a translation (see the editor's
@@ -324,6 +334,59 @@ function translationChip(view, key, value, unfilled, edit) {
   chip.dataset.tessKey = key
   if (unfilled.length) chip.title = t("No argument for %{names} in the t filter", { names: unfilled.map((name) => `%{${name}}`).join(", ") })
   showText(chip, value)
+  chip.addEventListener("mousedown", (event) => {
+    event.preventDefault()
+    edit()
+  })
+  return chip
+}
+
+// Shows each output tag's value in place of its Liquid, unless the caret or
+// selection is inside it or it has none: then its Liquid shows, marked when
+// it has one. A click on the value puts the caret in the Liquid.
+function valuesExtension(editing) {
+  return Extension.create({
+    name: "tessValues",
+    addProseMirrorPlugins() {
+      return [new Plugin({ key: VALUES, props: { decorations: (state) => valueDecorations(state, editing) } })]
+    }
+  })
+}
+
+function valueDecorations(state, editing) {
+  const values = editing.editor.values
+  if (!values?.enabled) return DecorationSet.empty
+  const { from, to } = state.selection
+  const decorations = []
+  state.doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true
+    // Every character and inline node takes one position
+    const text = node.textBetween(0, node.content.size, undefined, "\ufffc")
+    for (const call of valueCalls(text)) {
+      const value = values.value(call.expression)
+      if (value === null) continue
+      const start = pos + 1 + call.start
+      const end = pos + 1 + call.end
+      if (from < end && to > start) {
+        decorations.push(Decoration.inline(start, end, { class: "tess-v-raw" }))
+      } else {
+        decorations.push(Decoration.inline(start, end, { class: "tess-v-hidden" }))
+        // In the expression, after its first word
+        const caret = start + call.text.indexOf(call.expression) + Math.max(1, call.expression.search(/[\s|]|$/))
+        decorations.push(Decoration.widget(start, (view) => valueChip(view, call, value, () => editing.tiptap?.chain().focus().setTextSelection(caret).run()), { side: -1, key: `v:${call.expression}:${value}`, ignoreSelection: true }))
+      }
+    }
+    return false
+  })
+  return DecorationSet.create(state.doc, decorations)
+}
+
+function valueChip(view, call, value, edit) {
+  const chip = view.dom.ownerDocument.createElement("span")
+  chip.className = "tess-v tess-v-filled"
+  chip.contentEditable = "false"
+  chip.title = call.text
+  chip.textContent = value
   chip.addEventListener("mousedown", (event) => {
     event.preventDefault()
     edit()
