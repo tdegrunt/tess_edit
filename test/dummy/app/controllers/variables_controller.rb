@@ -48,6 +48,20 @@ class VariablesController < ApplicationController
     render json: {filters: FILTERS}
   end
 
+  # The tags (the editor's tagsUrl), as Liquidum's TagsController gives them
+  TAGS = [
+    {name: "assign", label: "Sets a variable", syntax: "assign variable = value", block: false},
+    {name: "case", label: "One of several, by a variable's value", syntax: "case variable", block: true},
+    {name: "comment", label: "Not shown", syntax: "comment", block: true},
+    {name: "for", label: "For each item", syntax: "for item in collection", block: true},
+    {name: "if", label: "Only when a condition holds", syntax: "if condition", block: true},
+    {name: "unless", label: "Only when a condition doesn't hold", syntax: "unless condition", block: true}
+  ].freeze
+
+  def tags
+    render json: {tags: TAGS}
+  end
+
   def index
     path = params[:path].to_s
     return head(:not_found) unless LEVELS.key?(path)

@@ -342,12 +342,13 @@ export class Inspector {
 
   // Suggests the host's Liquid variables (editor.variables) while typing {{ in
   // a text field. A field's `liquid` also gives it a { } button to browse
-  // them: true for Liquid in text, "expression" for a condition, "collection"
+  // them: true for Liquid in text, "expression" for an expression (an
+  // Assign's), "condition" for a condition, with its operators, "collection"
   // for what a Loop goes over.
   variables(input, node, field) {
     this.inputs.set(field.key, input)
     if (!this.editor.variableMenu) return input
-    const mode = field.liquid === "expression" || field.liquid === "collection" ? field.liquid : "output"
+    const mode = ["expression", "condition", "collection"].includes(field.liquid) ? field.liquid : "output"
     const adapter = inputAdapter(input, { mode, scope: liquidScope(this.editor.doc, node.id) })
     suggestIn(this.editor.variableMenu, input, adapter)
     this.adapters.set(field.key, adapter)

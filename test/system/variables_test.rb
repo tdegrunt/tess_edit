@@ -144,9 +144,55 @@ class VariablesTest < ApplicationSystemTestCase
     link.send_keys('{% assign line = order.order_lines | where: "kind", "product" | first %}{% if line.')
     assert_option "kind"
     link.send_keys("ki", :enter, " == ")
-    assert_equal ['"product"', '"shipping"'], option_names
+    assert_equal ['"product"', '"shipping"', "blank", "empty"], option_names
     link.send_keys(:down, :enter)
     assert_equal '{% assign line = order.order_lines | where: "kind", "product" | first %}{% if line.kind == "shipping"', link.value
+  end
+
+  test "after {% the tags, a block written with its end tag, the caret where its condition goes" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{% ")
+    assert_option "if"
+    assert_equal %w[assign case comment for if unless], option_names.sort
+
+    link.send_keys("i", :enter)
+    assert_equal "{% if  %}{% endif %}", link.value
+    link.send_keys("order.number")
+    assert_equal "{% if order.number %}{% endif %}", link.value
+  end
+
+  test "inside a block, what goes in it and its end first" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{% if order.number %}x{% ")
+    assert_option "endif"
+    assert_equal %w[elsif else endif], option_names.first(3)
+    link.send_keys("en", :enter)
+    assert_equal "{% if order.number %}x{% endif %}", link.value
+  end
+
+  test "in a condition the operators, then blank and empty" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{% if order.number ")
+    assert_option "contains"
+    assert_equal ["==", "!=", ">", "<", ">=", "<=", "contains", "and", "or"], option_names
+    link.send_keys(:enter)
+    assert_equal "{% if order.number == ", link.value
+    assert_option "blank"
+    link.send_keys("bl", :enter)
+    assert_equal "{% if order.number == blank", link.value
+  end
+
+  test "a date's formats, each with an example" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{{ order.placed_at | date: ")
+    assert_option "'%-d %B %Y'"
+    assert_selector "[role=listbox] [role=option]", text: Date.today.year.to_s
+    link.send_keys(:enter)
+    assert_equal "{{ order.placed_at | date: '%-d %B %Y'", link.value
   end
 
   test "without a variablesUrl there are no suggestions or buttons" do

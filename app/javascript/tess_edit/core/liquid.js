@@ -7,11 +7,16 @@
 //   "{{ lines | where: \"pa"               → { kind: "argument", filter: "where", index: 0, partial: "pa", quote: "\"" }
 //   "{{ lines | where: \"party\", "        → { kind: "argument", filter: "where", index: 1, partial: "", args: ["party"] }
 //   "{% if line.party == \"sp"             → { kind: "value", of: "line.party", partial: "sp", quote: "\"" }
+//   "{% el"                                → { kind: "tag", partial: "el", open: ["if"] }
+//   "{% if line.party "                    → { kind: "operator", partial: "" }
 //
 // each with `start`, where what it replaces starts in the text, and `tag`
 // ("{{", "{%" or null). In "output" mode (Liquid in text) only inside {{ … }}
-// or {% … %}; in "expression" mode (a Loop's collection, a Condition, an
-// Assign's value) anywhere. The editor's menu (ui/variable_menu.js) asks the
+// or {% … %}; in "expression" mode (a Loop's collection, an Assign's value)
+// anywhere, and in "condition" mode (a Condition) too, with its operators as
+// in {% if %}. A tag's `open` are the blocks open before it, innermost last,
+// for what can go inside them (elsif, when, endfor); `blocks` says which tags
+// are blocks besides Liquid's. The editor's menu (ui/variable_menu.js) asks the
 // host for what fits: its variables, its filters and their arguments, the
 // values a variable can have (core/variables.js).
 //
@@ -24,6 +29,27 @@ import { find } from "tess_edit/core/document"
 
 const PATH = /[A-Za-z_][\w]*(?:\.[\w]*)*/
 const NAME = /^\w+$/
+// Liquid's tags that are blocks, with an end tag
+export const BLOCKS = ["capture", "case", "comment", "for", "if", "ifchanged", "raw", "tablerow", "unless"]
+// Words in conditions that aren't variables
+const KEYWORDS = new Set(["if", "unless", "elsif", "when", "and", "or", "contains", "in", "blank", "empty", "nil", "null", "true", "false"])
+// An operand in a condition: a variable, a quoted text or a number
+const OPERAND = new RegExp(`(?:${PATH.source}|"[^"]*"|'[^']*'|-?\\d+(?:\\.\\d+)?)`)
+
+// The block tags open at the end of a text, outermost first, each { name, expression }
+export function openBlocks(text, blocks = BLOCKS) {
+  const open = []
+  for (const match of text.matchAll(/\{%-?\s*(\w+)([\s\S]*?)-?%\}/g)) {
+    const name = match[1]
+    if (name.startsWith("end")) {
+      const at = open.map((block) => block.name).lastIndexOf(name.slice(3))
+      if (at >= 0) open.splice(at)
+    } else if (blocks.includes(name)) {
+      open.push({ name, expression: match[2].trim() })
+    }
+  }
+  return open
+}
 
 // The parts of a Liquid expression outside quotes, split at `separator`
 // (| between filters, , between arguments)
@@ -70,19 +96,36 @@ export function unquote(text) {
   return match ? match[2] : trimmed
 }
 
-export function liquidContext(before, mode = "output") {
+export function liquidContext(before, mode = "output", { blocks = BLOCKS } = {}) {
   let expression = before
   let tag = null
+  let opened = 0
   if (mode === "output") {
     const output = before.lastIndexOf("{{")
     const open = Math.max(output, before.lastIndexOf("{%"))
     if (open < 0 || Math.max(before.lastIndexOf("}}"), before.lastIndexOf("%}")) > open) return null
     tag = open === output ? "{{" : "{%"
+    opened = open
     expression = before.slice(open + 2).replace(/^-/, "")
   }
   const offset = before.length - expression.length
   const quoted = openQuote(expression)
   const head = quoted ? expression.slice(0, quoted.at) : expression
+
+  // A tag's name: {% el
+  const named = tag === "{%" && !quoted && expression.match(/^\s*(\w*)$/)
+  if (named) return { kind: "tag", start: before.length - named[1].length, partial: named[1], open: openBlocks(before.slice(0, opened), blocks).map((block) => block.name), tag }
+
+  // A case's values: {% when "a", "b
+  const when = tag === "{%" && head.match(/^\s*when\s+((?:(?:"[^"]*"|'[^']*'|[\w.]+)\s*(?:,|\bor\b)\s*)*)$/)
+  if (when) {
+    const kase = openBlocks(before.slice(0, opened), blocks).filter((block) => block.name === "case").at(-1)
+    const of = kase?.expression.match(new RegExp(`^${PATH.source}`))?.[0]
+    if (!of) return null
+    const partial = quoted ? expression.slice(quoted.at + 1) : ""
+    if (!quoted && !/(?:\s|,)$/.test(expression)) return null
+    return { kind: "value", of, start: quoted ? offset + quoted.at : before.length, partial, quote: quoted?.quote || null, tag }
+  }
 
   // In a filter's arguments: | name: a, b, …
   const filters = splitOutside(head, "|")
@@ -112,12 +155,20 @@ export function liquidContext(before, mode = "output") {
   }
 
   // A value compared with a variable: line.party == "sp
-  const compared = head.match(new RegExp(`(${PATH.source})\\s*(?:==|!=)\\s*$`))
-  if (compared && (quoted || /(?:==|!=)\s*$/.test(expression))) {
-    const partial = quoted ? expression.slice(quoted.at + 1) : ""
-    return { kind: "value", of: compared[1], start: quoted ? offset + quoted.at : before.length, partial, quote: quoted?.quote || null, tag }
+  // (unquoted, a word: blank, empty, or a variable's name)
+  const compared = quoted
+    ? head.match(new RegExp(`(${PATH.source})\\s*(?:==|!=|<>|\\bcontains\\b)\\s*$`))
+    : expression.match(new RegExp(`(${PATH.source})\\s*(?:==|!=|<>|\\bcontains)\\s*(\\w*)$`))
+  if (compared && !KEYWORDS.has(compared[1])) {
+    const partial = quoted ? expression.slice(quoted.at + 1) : compared[2]
+    return { kind: "value", of: compared[1], start: quoted ? offset + quoted.at : before.length - partial.length, partial, quote: quoted?.quote || null, tag }
   }
   if (quoted) return null
+
+  // An operator after an operand in a condition: {% if line.party co
+  const condition = mode === "condition" || (tag === "{%" && /^\s*(?:if|unless|elsif)\b/.test(expression))
+  const operator = condition && expression.match(new RegExp(`(?:^|\\s)(${OPERAND.source})\\s+([=!<>]*|[a-z]*)$`))
+  if (operator && !KEYWORDS.has(operator[1])) return { kind: "operator", start: before.length - operator[2].length, partial: operator[2], tag }
 
   const match = expression.match(new RegExp(`(?:^|[^\\w.])(${PATH.source})?$`))
   if (!match) return null

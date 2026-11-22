@@ -4,20 +4,25 @@
 //
 //   before()                 the text before the caret (in the line or paragraph)
 //   after()                  the text after it
-//   replace(start, end, text) replaces part of before() + after(), by offsets in it
+//   replace(start, end, text, { caret }) replaces part of before() + after(), by
+//                            offsets in it, the caret after it or at `caret` in it
 //   rect()                   where to show the menu, in the page's viewport
-//   mode                     "output" (Liquid in text: {{ … }}), "expression" (a
-//                            Condition) or "collection" (a Loop's collection)
+//   mode                     "output" (Liquid in text: {{ … }}), "expression" (an
+//                            Assign's value), "condition" (a Condition, with its
+//                            operators) or "collection" (a Loop's collection)
 //   scope                    the loop variables there (core/variables.js loopScope)
 //
 // See inputAdapter below and TextEditing for Tiptap's. With the host's
 // translations it also suggests their keys while typing {{ '. What it
 // suggests depends on what's being written (core/liquid.js liquidContext): a
 // variable; after a |, the host's filters; a filter's argument, a property of
-// the collection's items ("party") or a value it can have ("sponsor"); and
-// after == or !=, the values of the variable compared.
+// the collection's items ("party") or a value it can have ("sponsor"); after
+// == or !=, the values of the variable compared, and blank and empty; after
+// {%, the tags (a block written with its end tag), and those that go in the
+// blocks open there (elsif, when, endfor); in a condition, its operators; and
+// a date's formats, each shown with today's date in it.
 
-import { expressionParts, liquidContext, quoted, textScope } from "tess_edit/core/liquid"
+import { BLOCKS, expressionParts, liquidContext, quoted, textScope } from "tess_edit/core/liquid"
 import { keyCompletion, keyToken } from "tess_edit/core/translations"
 import { completion } from "tess_edit/core/variables"
 import { t } from "tess_edit/core/i18n"
@@ -52,7 +57,10 @@ export class VariableMenu {
     const key = this.editor.translations?.enabled && adapter.mode === "output" && keyToken(before)
     if (key) return this.suggestKeys(adapter, key)
     if (!this.editor.variables?.enabled) return this.close()
-    const context = liquidContext(before, adapter.mode === "output" ? "output" : "expression")
+    const mode = adapter.mode === "output" || adapter.mode === "condition" ? adapter.mode : "expression"
+    const hostTags = adapter.mode === "output" && before.includes("{%") ? await this.editor.variables.tags().catch(() => new Map()) : new Map()
+    const blocks = [...BLOCKS, ...[...hostTags.values()].filter((tag) => tag.block).map((tag) => tag.name)]
+    const context = liquidContext(before, mode, { blocks })
     if (!context) return this.close()
     const scope = [...textScope(before), ...(adapter.scope || [])]
     const request = ++this.request
@@ -90,6 +98,10 @@ export class VariableMenu {
       const filter = (await variables.filters()).get(context.filter)
       const kind = filter?.arguments?.[context.index]?.kind
       const more = filter?.arguments?.length > context.index + 1
+      if (kind === "format") {
+        const formats = DATE_FORMATS.map((format) => ({ value: format, label: strftime(new Date(), format) }))
+        return this.quotedOptions({ ...context, quote: context.quote || "'" }, formats, more)
+      }
       if (kind === "property" || kind === "value") {
         const elements = await this.elements(context.input, scope)
         if (!elements) return null
@@ -102,9 +114,52 @@ export class VariableMenu {
     }
     if (context.kind === "value") {
       const variable = await variables.lookup(context.of, scope)
-      return this.quotedOptions(context, variable?.values || [], false)
+      const values = this.quotedOptions(context, variable?.values || [], false, context.quote ? [] : LITERALS)
+      // Unquoted, it may be another variable: line.total > order.minimum
+      return values || context.quote || !context.partial ? values : this.variableOptions(context, context.partial, scope)
+    }
+    if (context.kind === "tag") return this.tagOptions(context, await variables.tags())
+    if (context.kind === "operator") {
+      const items = ranked(OPERATORS.map(([name, label]) => ({ name, label })), context.partial)
+      if (items.length === 1 && items[0].name === context.partial) return null
+      return {
+        items,
+        choose: async (item) => {
+          const adapter = this.state.adapter
+          adapter.replace(context.start, adapter.before().length, `${item.name} `)
+          await this.suggest(adapter)
+        }
+      }
     }
     return null
+  }
+
+  // After {%: what goes in the innermost open block (elsif, else, its end),
+  // then the tags. A block is written with its end tag, the caret where its
+  // arguments go; one closed already (%} after the caret) only gets its name.
+  tagOptions(context, tags) {
+    const inner = context.open.at(-1)
+    const inside = (INSIDE[inner] || []).map(([name, label]) => ({ name, label, inside: true }))
+    const end = inner ? [{ name: `end${inner}`, label: t("Ends the %{tag}", { tag: inner }), inside: true }] : []
+    const own = [...tags.values()].map((tag) => ({ name: tag.name, label: tag.label, hint: tag.syntax, tag }))
+    const items = ranked([...inside, ...end, ...own], context.partial)
+    if (!items.length) return null
+    return {
+      items,
+      choose: (item) => {
+        const adapter = this.state.adapter
+        const closed = /^\s*-?%\}/.test(adapter.after())
+        const before = adapter.before()
+        const takes = item.tag ? item.tag.syntax !== item.name : ["elsif", "when"].includes(item.name)
+        const block = item.tag?.block && !closed
+        const close = closed ? "" : " %}"
+        const head = takes ? `${item.name} ` : `${item.name}${close}`
+        const text = takes ? `${head}${close}` : head
+        const tail = block ? `{% end${item.name} %}` : ""
+        adapter.replace(context.start, before.length, `${text}${tail}`, { caret: takes ? head.length : text.length })
+        this.close()
+      }
+    }
   }
 
   // The variables for a path being typed, from `context.start`
@@ -130,16 +185,21 @@ export class VariableMenu {
     return this.editor.variables.options(`${entry.path}.first`, scope)
   }
 
-  // Values in quotes ({ value, label }), then a comma for the next argument
-  quotedOptions(context, choices, more) {
-    const items = ranked(choices.map((choice) => ({ name: `"${choice.value}"`, value: choice.value, label: choice.label })), context.partial, (item) => item.value)
+  // Values in quotes ({ value, label }), then a comma for the next argument;
+  // and `literals` as they are (blank, empty)
+  quotedOptions(context, choices, more, literals = []) {
+    const mark = context.quote || '"'
+    const items = ranked([
+      ...choices.map((choice) => ({ name: `${mark}${choice.value}${mark}`, value: choice.value, label: choice.label })),
+      ...literals.map(([name, label]) => ({ name, value: name, label, literal: true }))
+    ], context.partial, (item) => item.value)
     if (!items.length || (items.length === 1 && items[0].value === context.partial)) return null
     return {
       items,
       choose: async (item) => {
         const adapter = this.state.adapter
         const before = adapter.before()
-        const { text, through } = quoted(item.value, { quote: context.quote, after: adapter.after() })
+        const { text, through } = item.literal ? { text: item.value, through: 0 } : quoted(item.value, { quote: context.quote, after: adapter.after() })
         adapter.replace(context.start, before.length + through, more ? `${text}, ` : text)
         more ? await this.suggest(adapter) : this.close()
       }
@@ -316,8 +376,9 @@ export function inputAdapter(input, { mode = "output", scope = [] } = {}) {
     scope,
     before: () => input.value.slice(0, input.selectionStart ?? input.value.length),
     after: () => input.value.slice(input.selectionEnd ?? input.value.length),
-    replace(start, end, text) {
+    replace(start, end, text, { caret = null } = {}) {
       input.setRangeText(text, start, end, "end")
+      if (caret !== null) input.setSelectionRange(start + caret, start + caret)
       fire()
     },
     insert(text) {
@@ -349,4 +410,37 @@ function ranked(items, partial, name = (item) => item.name) {
 function signature(filter) {
   const args = (filter.arguments || []).map((argument) => argument.name)
   return args.length ? `${filter.name}: ${args.join(", ")}` : filter.name
+}
+
+// The operators in a condition
+const OPERATORS = [
+  ["==", "Equals"], ["!=", "Doesn't equal"], [">", "More than"], ["<", "Less than"], [">=", "At least"], ["<=", "At most"],
+  ["contains", "Contains"], ["and", "And"], ["or", "Or"]
+]
+
+// What a value can be compared with besides its values
+const LITERALS = [["blank", "Blank: nothing, or only spaces"], ["empty", "Empty: no items or text"]]
+
+// The tags inside a block
+const INSIDE = {
+  if: [["elsif", "Or else when a condition holds"], ["else", "Otherwise"]],
+  unless: [["elsif", "Or else when a condition holds"], ["else", "Otherwise"]],
+  case: [["when", "When it's one of these values"], ["else", "Otherwise"]],
+  for: [["break", "Stops the loop"], ["continue", "Goes on with the next item"], ["else", "When there are no items"]]
+}
+
+// A date's formats, as Ruby's strftime writes them
+const DATE_FORMATS = ["%-d %B %Y", "%-d %b %Y", "%A %-d %B %Y", "%d-%m-%Y", "%-d-%-m-%Y", "%Y-%m-%d", "%B %Y", "%-d %B %Y %H:%M", "%H:%M"]
+
+// A date in a strftime format, in the page's language, for a format's example
+export function strftime(date, format, locale = document.documentElement?.lang || "en") {
+  const part = (options) => new Intl.DateTimeFormat(locale, options).format(date)
+  const pad = (number) => String(number).padStart(2, "0")
+  const codes = {
+    d: pad(date.getDate()), "-d": String(date.getDate()), e: String(date.getDate()).padStart(2, " "),
+    m: pad(date.getMonth() + 1), "-m": String(date.getMonth() + 1), Y: String(date.getFullYear()), y: pad(date.getFullYear() % 100),
+    B: part({ month: "long" }), b: part({ month: "short" }).replace(/\.$/, ""), A: part({ weekday: "long" }), a: part({ weekday: "short" }),
+    H: pad(date.getHours()), M: pad(date.getMinutes()), R: `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+  return format.replace(/%(-?[a-zA-Z])/g, (match, code) => codes[code] ?? match)
 }

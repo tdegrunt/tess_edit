@@ -22,6 +22,11 @@
 //
 // as Liquidum's FiltersController answers. A variable with `values`
 // ([{ value, label }]) has those only, for a comparison or a where filter.
+// The tags, for what follows {%, from its tagsUrl:
+//
+//   GET → { tags: [{ name, label, syntax, block }] }
+//
+// as Liquidum's TagsController answers. Inside a Loop there's `forloop` too.
 
 import { ancestors } from "tess_edit/core/document"
 import { t } from "tess_edit/core/i18n"
@@ -34,6 +39,17 @@ export const KEEPS = {
   first: "item", last: "item", find: "item"
 }
 
+// What Liquid's forloop has, inside a loop
+export const FORLOOP_MEMBERS = [
+  { name: "index", label: "Its number, from 1", type: "integer", children: false },
+  { name: "index0", label: "Its number, from 0", type: "integer", children: false },
+  { name: "rindex", label: "Its number from the end, to 1", type: "integer", children: false },
+  { name: "rindex0", label: "Its number from the end, to 0", type: "integer", children: false },
+  { name: "first", label: "Whether it's the first", type: "boolean", children: false },
+  { name: "last", label: "Whether it's the last", type: "boolean", children: false },
+  { name: "length", label: "Number of items", type: "integer", children: false }
+]
+
 // The members Liquid gives every collection
 export const COLLECTION_MEMBERS = [
   { name: "first", label: "First", type: "object", children: true },
@@ -44,9 +60,10 @@ export const COLLECTION_MEMBERS = [
 const ELEMENT = new Set(["first", "last"])
 
 export class Variables {
-  constructor(url, { fetch: fetcher = (...args) => fetch(...args), filtersUrl = null } = {}) {
+  constructor(url, { fetch: fetcher = (...args) => fetch(...args), filtersUrl = null, tagsUrl = null } = {}) {
     this.url = url
     this.filtersUrl = filtersUrl
+    this.tagsUrl = tagsUrl
     this.fetch = fetcher
     this.levels = new Map()
   }
@@ -57,6 +74,14 @@ export class Variables {
     this.filterList ||= this.get(this.filtersUrl, {}).then((body) => new Map((body.filters || []).map((filter) => [filter.name, filter])))
     this.filterList.catch(() => (this.filterList = null))
     return this.filterList
+  }
+
+  // The host's tags, by name, cached; none without its tagsUrl
+  tags() {
+    if (!this.tagsUrl) return Promise.resolve(new Map())
+    this.tagList ||= this.get(this.tagsUrl, {}).then((body) => new Map((body.tags || []).map((tag) => [tag.name, tag])))
+    this.tagList.catch(() => (this.tagList = null))
+    return this.tagList
   }
 
   async get(path, params) {
@@ -125,11 +150,13 @@ export class Variables {
         const target = entry.path && (await this.variable(entry.path.split("."), scope.slice(index + 1)))
         own.push(entry.path ? { ...(target || { children: false }), name: entry.variable, label: t("Assigned %{path}", { path: entry.path }), assign: true } : loopVariable(entry))
       }
+      if (scope.some((entry) => entry.collection)) own.push(FORLOOP)
       return [...own, ...(await this.at(""))]
     }
 
     const variable = await this.variable(names, scope)
     if (!variable?.children) return []
+    if (variable.forloop) return FORLOOP_MEMBERS
     if (variable.collection) return COLLECTION_MEMBERS
     return this.at(resolve(names, scope))
   }
@@ -146,6 +173,7 @@ export class Variables {
     const parent = names.slice(0, -1)
     if (!parent.length) {
       const own = scope.find((entry) => entry.variable === last)
+      if (last === "forloop" && !own && scope.some((entry) => entry.collection)) return FORLOOP
       if (own?.path) return { ...(await this.variable(own.path.split("."), scope.slice(scope.indexOf(own) + 1))), name: last }
       if (own) return loopVariable(own)
     } else if (ELEMENT.has(last)) {
@@ -156,6 +184,8 @@ export class Variables {
     return siblings.find((variable) => variable.name === last)
   }
 }
+
+const FORLOOP = { name: "forloop", label: "This loop", type: "object", children: true, forloop: true }
 
 function loopVariable({ variable, collection }) {
   return { name: variable, label: t("Each of %{collection}", { collection }), type: "object", children: true, loop: true }

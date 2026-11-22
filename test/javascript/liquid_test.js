@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
-import { expressionParts, liquidContext, liquidScope, quoted, splitOutside, textScope } from "tess_edit/core/liquid"
+import { expressionParts, liquidContext, liquidScope, openBlocks, quoted, splitOutside, textScope } from "tess_edit/core/liquid"
 
 const kind = (before, mode) => liquidContext(before, mode)?.kind ?? null
 
@@ -82,4 +82,46 @@ test("a text's own assigns and open loops before the caret", () => {
 test("a quoted value takes the closing quote that's there", () => {
   assert.deepEqual(quoted("party", { quote: "'", after: "' %}" }), { text: "'party'", through: 1 })
   assert.deepEqual(quoted("party", { after: " %}" }), { text: '"party"', through: 0 })
+})
+
+test("a tag's name after {%, with the blocks open before it", () => {
+  assert.deepEqual(liquidContext("{% el"), { kind: "tag", start: 3, partial: "el", open: [], tag: "{%" })
+  assert.deepEqual(liquidContext("{% if a %}{% el").open, ["if"])
+  // A closed block isn't open, and {%- is a tag too
+  assert.deepEqual(liquidContext("{% for x in y %}{% if a %}x{% endif %}{%- en"), { kind: "tag", start: 42, partial: "en", open: ["for"], tag: "{%" })
+  // Not after its name
+  assert.equal(kind("{% if "), "variable")
+})
+
+test("the blocks open at the end of a text, outermost first, and the host's own", () => {
+  assert.deepEqual(openBlocks("{% for x in y %}{% if a == 1 %}{% endif %}{% case b %}"), [{ name: "for", expression: "x in y" }, { name: "case", expression: "b" }])
+  assert.deepEqual(openBlocks("{% signature %}"), [])
+  assert.deepEqual(openBlocks("{% signature %}", ["signature"]), [{ name: "signature", expression: "" }])
+})
+
+test("after {% when, the values of the case's variable", () => {
+  assert.deepEqual(liquidContext('{% case line.party %}{% when "sp'), { kind: "value", of: "line.party", start: 29, partial: "sp", quote: '"', tag: "{%" })
+  assert.deepEqual(liquidContext("{% case line.party %}{% when ").partial, "")
+  assert.equal(liquidContext('{% case line.party %}{% when "a", ').start, 34)
+  // Not without a case
+  assert.equal(kind('{% when "a'), null)
+})
+
+test("an operator after an operand in a condition", () => {
+  assert.deepEqual(liquidContext("{% if line.party "), { kind: "operator", start: 17, partial: "", tag: "{%" })
+  assert.deepEqual(liquidContext("{% if line.party co"), { kind: "operator", start: 17, partial: "co", tag: "{%" })
+  assert.equal(liquidContext("{% if line.party == 'a' an").start, 24)
+  assert.equal(kind("line.size ", "condition"), "operator")
+  // Only in conditions
+  assert.equal(kind("line.size ", "expression"), "variable")
+  assert.equal(kind("{{ a "), "variable")
+})
+
+test("a value after contains and <>", () => {
+  assert.deepEqual(liquidContext('{% if tags contains "x'), { kind: "value", of: "tags", start: 20, partial: "x", quote: '"', tag: "{%" })
+  assert.equal(liquidContext('{% if a <> "x').of, "a")
+  assert.deepEqual(liquidContext("{% if a == "), { kind: "value", of: "a", start: 11, partial: "", quote: null, tag: "{%" })
+  // A word, unquoted, for blank and empty or a variable; a path is a variable
+  assert.deepEqual(liquidContext("{% if a == bl"), { kind: "value", of: "a", start: 11, partial: "bl", quote: null, tag: "{%" })
+  assert.deepEqual(liquidContext("{% if a == order.mi"), { kind: "variable", start: 11, path: "order.mi", tag: "{%" })
 })

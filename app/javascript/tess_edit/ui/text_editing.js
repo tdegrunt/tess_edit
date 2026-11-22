@@ -269,9 +269,11 @@ function tiptapAdapter(editor, scope) {
       const $to = editor.state.selection.$to
       return text($to, $to.parentOffset, $to.parent.content.size)
     },
-    replace(start, end, value) {
+    // `caret`: where in `value` the caret goes, else after it
+    replace(start, end, value, { caret = null } = {}) {
       const base = editor.state.selection.$from.start()
       dispatch(base + start, base + end, value)
+      if (caret !== null) editor.commands.setTextSelection(base + start + caret)
     },
     insert(value) {
       const { from, to } = editor.state.selection

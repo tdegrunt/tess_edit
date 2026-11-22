@@ -24,7 +24,7 @@
   <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>"
     <% if params[:kit].present? %>data-tess-edit-kit-value="<%= params[:kit] %>"<% end %>
     <% if params[:media].present? %>data-tess-edit-media-url-value="<%= media_path %>"<% end %>
-    <% if params[:variables].present? %>data-tess-edit-variables-url-value="<%= variables_path %>" data-tess-edit-filters-url-value="<%= filters_path %>"<% end %>
+    <% if params[:variables].present? %>data-tess-edit-variables-url-value="<%= variables_path %>" data-tess-edit-filters-url-value="<%= filters_path %>" data-tess-edit-tags-url-value="<%= tags_path %>"<% end %>
     <% if params[:translations].present? %>data-tess-edit-translations-url-value="<%= translations_path %>"<% end %>
     <% if params[:values].present? %>data-tess-edit-values-value="<%= {"customer.first_name" => "Ada", "order.number" => "1042"}.to_json %>"<% end %>
     <% if params[:snippets].present? %>data-tess-edit-options-value="<%= {snippetsUrl: snippets_path(kit: params[:kit].presence)}.to_json %>"<% end %>

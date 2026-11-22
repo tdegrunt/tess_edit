@@ -25,6 +25,8 @@
 //                 e.g. when the class a template is for changes
 //   filtersUrl  the filters a template can use, suggested after a | with their
 //               arguments (see core/variables.js), e.g. Liquidum's /liquidum/filters
+//   tagsUrl     the tags, suggested after {% (a block with its end tag), e.g.
+//               Liquidum's /liquidum/tags
 //   translationsUrl  the host's translations for Liquid's t filter ({{ '.greeting' | t }}),
 //                    shown in a language chosen in the top bar, listed and edited
 //                    while pointed at, and made from selected text (see
@@ -96,7 +98,7 @@ function placed(node, at) {
 }
 
 export default class extends Controller {
-  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, filtersUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
+  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, filtersUrl: String, tagsUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot", "translations"]
 
   connect() {
@@ -126,7 +128,7 @@ export default class extends Controller {
     this.sheetOpen = false
     this.requests = {}
     this.media = { enabled: Boolean(this.mediaUrlValue), images: [], uploading: false, error: null }
-    this.variables = new Variables(this.variablesUrlValue, { filtersUrl: this.filtersUrlValue })
+    this.variables = new Variables(this.variablesUrlValue, { filtersUrl: this.filtersUrlValue, tagsUrl: this.tagsUrlValue })
     this.translations = new Translations(this.translationsUrlValue)
     this.translationPopover = this.translations.enabled ? new TranslationPopover(this) : null
     this.values = new Values()
@@ -166,7 +168,7 @@ export default class extends Controller {
   // Points the editor at other variables (variablesUrl), once it's connected
   variablesUrlValueChanged() {
     if (!this.variables) return
-    this.variables = new Variables(this.variablesUrlValue, { filtersUrl: this.filtersUrlValue })
+    this.variables = new Variables(this.variablesUrlValue, { filtersUrl: this.filtersUrlValue, tagsUrl: this.tagsUrlValue })
     if (!this.variableMenu && this.variables.enabled) {
       this.variableMenu = new VariableMenu(this)
       this.textEditing.menu = this.variableMenu

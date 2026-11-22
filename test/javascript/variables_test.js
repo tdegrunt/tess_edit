@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
-import { Variables, completion, liquidToken, loopScope, resolve } from "tess_edit/core/variables"
+import { FORLOOP_MEMBERS, Variables, completion, liquidToken, loopScope, resolve } from "tess_edit/core/variables"
 
 globalThis.window ||= { location: { href: "https://www.example.com/editor" } }
 
@@ -30,16 +30,23 @@ const FILTERS = [
   { name: "money", label: "As money", arguments: [] }
 ]
 
+// What Liquidum's TagsController answers, in part
+const TAGS = [
+  { name: "if", label: "If a condition holds", syntax: "if condition", block: true },
+  { name: "assign", label: "Gives a variable a value", syntax: "assign name = value", block: false }
+]
+
 function variables({ filters = false } = {}) {
   const requests = []
   const fetch = async (url) => {
     if (url.pathname === "/liquidum/filters") return { ok: true, status: 200, json: async () => ({ filters: FILTERS }) }
+    if (url.pathname === "/liquidum/tags") return { ok: true, status: 200, json: async () => ({ tags: TAGS }) }
     const path = url.searchParams.get("path") || ""
     requests.push(path)
     if (!(path in LEVELS)) return { ok: false, status: 404 }
     return { ok: true, status: 200, json: async () => ({ path, variables: LEVELS[path] }) }
   }
-  const result = new Variables("/liquidum/variables?roots=signed", { fetch, filtersUrl: filters ? "/liquidum/filters" : null })
+  const result = new Variables("/liquidum/variables?roots=signed", { fetch, filtersUrl: filters ? "/liquidum/filters" : null, tagsUrl: filters ? "/liquidum/tags" : null })
   result.requests = requests
   return result
 }
@@ -89,7 +96,7 @@ test("a value or an unknown name has no variables", async () => {
 test("in a loop its variable is a root, with the elements' variables", async () => {
   const v = variables()
   const scope = [{ variable: "line", collection: "order.order_lines" }]
-  assert.deepEqual(names(await v.options("", scope)), ["line", "order"])
+  assert.deepEqual(names(await v.options("", scope)), ["line", "forloop", "order"])
   assert.deepEqual(names(await v.options("line", scope)), ["kind", "product", "quantity"])
   assert.deepEqual(names(await v.options("line.product", scope)), ["name"])
 })
@@ -170,7 +177,7 @@ test("an Assign is a variable: a collection through filters that keep one, an it
     { variable: "buyer", path: "order.customer" }
   ])
   const roots = await v.options("", scope)
-  assert.deepEqual(names(roots), ["line", "shipping", "buyer", "order"])
+  assert.deepEqual(names(roots), ["line", "shipping", "buyer", "forloop", "order"])
   assert.equal(roots.find((root) => root.name === "shipping").collection, true)
   assert.deepEqual(names(await v.options("shipping", scope)), ["first", "last", "size"])
   assert.deepEqual(names(await v.options("line", scope)), ["kind", "product", "quantity"])
@@ -190,4 +197,19 @@ test("a variable's values, through a loop or an Assign", async () => {
   assert.deepEqual((await v.lookup("line.kind", scope)).values.map((value) => value.value), ["product", "shipping"])
   assert.equal((await v.lookup("order.number", scope)).values, undefined)
   assert.equal(await v.lookup("", scope), null)
+})
+
+test("the host's tags, by name; none without a tagsUrl", async () => {
+  const tags = await variables({ filters: true }).tags()
+  assert.deepEqual([...tags.keys()], ["if", "assign"])
+  assert.equal(tags.get("if").block, true)
+  assert.equal((await variables().tags()).size, 0)
+})
+
+test("forloop is a root only in a loop, with Liquid's members", async () => {
+  const v = variables()
+  assert.deepEqual(names(await v.options("")), ["order"])
+  const scope = [{ variable: "line", collection: "order.order_lines" }]
+  assert.deepEqual(names(await v.options("forloop", scope)), names(FORLOOP_MEMBERS))
+  assert.equal((await v.lookup("forloop.index", scope)).type, "integer")
 })
