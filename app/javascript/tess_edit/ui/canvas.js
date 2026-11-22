@@ -59,6 +59,7 @@ a{cursor:default}
 .ProseMirror .tess-v-filled{cursor:text}
 .tess-v-hidden{display:none}
 .tess-v-empty{border-radius:3px;background:rgba(220,38,38,.08);box-shadow:inset 0 -1px 0 rgba(220,38,38,.65)}
+.tess-liquid-error{text-decoration:underline wavy rgba(220,38,38,.9);text-decoration-skip-ink:none;text-underline-offset:3px}
 `
 
 // A file dragged in from outside the browser (block drags set editor.drag)

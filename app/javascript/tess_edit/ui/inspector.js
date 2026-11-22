@@ -86,6 +86,8 @@ export class Inspector {
     this.adapters = new Map()
     this.inputs = new Map()
     this.hints = []
+    this.problemHints = new Map()
+    this.problemNode = node.id
 
     const actions =
       !this.editor.isFree(node.id)
@@ -116,6 +118,25 @@ export class Inspector {
     const hint = definition.hint && !locked ? h("p", { class: "mx-4 mt-3 rounded-md bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-xs text-gray-600 dark:text-gray-300" }, t(definition.hint)) : null
 
     place(this.body, [locked, hint, ...groups].filter(Boolean), new Set([...this.keptGroups.values()].map((kept) => kept.details)))
+    this.showLiquidProblems()
+  }
+
+  // Under a field with Liquid, what's wrong with it (core/liquid_check.js),
+  // while its value is the one that was checked
+  showLiquidProblems() {
+    const checker = this.editor.liquidChecker
+    const node = find(this.editor.doc, this.problemNode)?.node
+    for (const [key, { element, control }] of this.problemHints || []) {
+      const entry = node && checker?.field(node.id, key)
+      const current = entry && entry.text === String(getValue(node, key) ?? "") ? entry.problems : []
+      element.replaceChildren(...current.map((problem) => h("span", { class: "block" }, problem.message)))
+      element.hidden = !current.length
+      for (const input of control.matches("input, textarea") ? [control] : control.querySelectorAll("input, textarea")) {
+        for (const name of ["tess-liquid-invalid", "border-red-500!", "dark:border-red-400!"]) input.classList.toggle(name, current.length > 0)
+        if (current.length) input.setAttribute("aria-invalid", "true")
+        else input.removeAttribute("aria-invalid")
+      }
+    }
   }
 
   // A field's visible(node, editor) shows it only when it applies; a slot
@@ -189,6 +210,8 @@ export class Inspector {
       hint.textContent = typeof field.hint === "function" ? field.hint(getValue(current, field.key) ?? "", current) : t(field.hint)
     }
     if (hint) showHint()
+    const problems = field.liquid ? h("span", { class: "tess-liquid-problems mt-1 block text-[11px] leading-snug text-red-600 dark:text-red-400", hidden: true, role: "alert" }) : null
+    if (problems) this.problemHints.set(field.key, { element: problems, control })
     // A div, not a label: a label would forward clicks to the first button or color picker inside it.
     return h(
       "div",
@@ -197,6 +220,7 @@ export class Inspector {
       tools,
       control,
       input ? this.translationHint(input) : null,
+      problems,
       hint
     )
   }

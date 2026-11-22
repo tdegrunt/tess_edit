@@ -67,6 +67,7 @@ import { Translations, keysIn, suggestKey, toTranslation, translationTag } from 
 import { Values } from "tess_edit/core/values"
 import { Variables } from "tess_edit/core/variables"
 import { liquidScope } from "tess_edit/core/liquid"
+import { LiquidChecker } from "tess_edit/core/liquid_check"
 import { addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, nextCell, position, rows, wrapRow } from "tess_edit/core/table"
 import { Canvas } from "tess_edit/ui/canvas"
 import { freeChild, number } from "tess_edit/ui/free_layout"
@@ -135,6 +136,9 @@ export default class extends Controller {
     this.values.set(this.parseJson(this.valuesValue, "values"))
     this.translationLocaleChoice = this.stored(TRANSLATION_LOCALE_KEY)
     this.variableMenu = this.variables.enabled || this.translations.enabled ? new VariableMenu(this) : null
+    // What's wrong with the Liquid: marked in Layers, under a field, in the text being edited
+    this.liquidChecker = new LiquidChecker(this)
+    this.liquidChecker.subscribe(() => this.showLiquidProblems())
 
     this.scheduleCanvas = debounce(() => this.renderCanvas(), 60)
     this.scheduleOutputs = debounce(() => this.writeOutputs(), 300)
@@ -160,6 +164,12 @@ export default class extends Controller {
     this.element.tessEdit = this
   }
 
+  showLiquidProblems() {
+    this.tree.render()
+    this.inspector.showLiquidProblems()
+    this.textEditing.refreshProblems()
+  }
+
   // Other values from the host, once it's connected
   valuesValueChanged() {
     if (this.values) this.values.set(this.parseJson(this.valuesValue, "values"))
@@ -174,6 +184,7 @@ export default class extends Controller {
       this.textEditing.menu = this.variableMenu
     }
     this.inspector.render()
+    this.liquidChecker?.schedule()
     // A kit's canvas may depend on them, like a preview with sample values
     this.scheduleCanvas()
   }
@@ -329,6 +340,7 @@ export default class extends Controller {
     this.scheduleOutputs.cancel()
     Object.values(this.requests).forEach((request) => request.abort())
     this.textEditing?.stop()
+    this.liquidChecker?.stop()
     this.variableMenu?.close()
     this.translationPopover?.hide({ force: true })
     this.closeMenu()
@@ -584,6 +596,7 @@ export default class extends Controller {
   }
 
   renderAll() {
+    this.liquidChecker?.schedule()
     this.renderTopBar()
     this.renderLeftTabs()
     this.tree.render()
@@ -771,6 +784,7 @@ export default class extends Controller {
     mutate(this.doc)
     if (JSON.stringify(this.doc) === before) return
     this.history.record(before, coalesce)
+    this.liquidChecker?.schedule()
     this.renderTopBar()
     this.tree.render()
     if (!skipInspector) this.inspector.render()
@@ -841,9 +855,10 @@ export default class extends Controller {
       this.tree.render()
       this.canvas.refresh()
       this.scheduleOutputs()
+      this.liquidChecker?.schedule()
     }
     if (part.plain) this.textEditing.startPlain(container, getValue(hit.node, part.key), update, () => this.stopEditing())
-    else this.textEditing.start(container, getValue(hit.node, part.key), update, { scope: liquidScope(this.doc, id) })
+    else this.textEditing.start(container, getValue(hit.node, part.key), update, { scope: liquidScope(this.doc, id), problems: () => this.liquidChecker?.field(id, part.key) })
     this.canvas.refresh()
   }
 

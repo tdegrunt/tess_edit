@@ -1,7 +1,7 @@
 // The Layers panel: the document as a collapsible tree that can be reordered by
 // dragging. Rows also take blocks dragged from the Blocks panel.
 
-import { find, isDescendant } from "tess_edit/core/document"
+import { find, isDescendant, walk } from "tess_edit/core/document"
 import { t } from "tess_edit/core/i18n"
 import { getBlock, isContainer, label } from "tess_edit/core/registry"
 import { h } from "tess_edit/ui/dom"
@@ -82,6 +82,7 @@ export class Tree {
       toggle,
       h("span", { class: `shrink-0 ${getBlock(node.type)?.accepts === "inherit" ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`, html: icon(getBlock(node.type)?.icon, "w-4 h-4") }),
       h("span", { class: `truncate text-[13px] ${locked ? "text-gray-400 dark:text-gray-500" : ""}` }, label(node)),
+      this.problemMark(node, open),
       locked ? h("span", { class: "ml-auto shrink-0 text-gray-300 dark:text-gray-600", title: t("Part of the layout"), html: icon("lock", "w-3.5 h-3.5") }) : add,
       h("div", { class: "tess-tree-marker pointer-events-none absolute left-1 right-1 hidden" })
     )
@@ -130,6 +131,19 @@ export class Tree {
     event.stopPropagation()
     this.editor.drop(this.editor.drag, target.parentId, target.index)
     this.editor.endDrag()
+  }
+
+  // A red dot on a block with Liquid that's wrong (core/liquid_check.js), its
+  // messages on hover; on a closed one, also for those of the blocks in it
+  problemMark(node, open) {
+    const checker = this.editor.liquidChecker
+    if (!checker) return null
+    const messages = checker.problems(node.id).flatMap((entry) => entry.problems.map((problem) => problem.message))
+    let inside = false
+    if (!open) walk(node, (child) => (inside ||= child !== node && checker.problems(child.id).length > 0) ? false : undefined)
+    if (!messages.length && !inside) return null
+    const title = messages.length ? messages.join("\n") : t("A block in it has Liquid that's wrong")
+    return h("span", { class: "tess-liquid-mark shrink-0 w-1.5 h-1.5 rounded-full bg-red-500", title, "aria-label": title, role: "img" })
   }
 
   clearMarker() {

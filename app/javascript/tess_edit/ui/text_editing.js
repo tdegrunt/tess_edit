@@ -25,6 +25,7 @@ const BUTTON = "w-7 h-7 flex items-center justify-center rounded-md text-gray-60
 const ACTIVE = "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
 const TRANSLATIONS = new PluginKey("tessTranslations")
 const VALUES = new PluginKey("tessValues")
+const PROBLEMS = new PluginKey("tessLiquidProblems")
 
 export class TextEditing {
   constructor(toolbar, { menu = null, editor = null } = {}) {
@@ -79,8 +80,10 @@ export class TextEditing {
     return element
   }
 
-  // scope: the Loops' and Assigns' variables of the block (core/liquid.js liquidScope)
-  start(container, content, onUpdate, { scope = [] } = {}) {
+  // scope: the Loops' and Assigns' variables of the block (core/liquid.js liquidScope);
+  // problems: () => what's wrong with its Liquid ({ text, problems }, core/liquid_check.js)
+  start(container, content, onUpdate, { scope = [], problems = null } = {}) {
+    this.problems = problems
     this.stop()
     container.replaceChildren()
     this.tiptap = new Editor({
@@ -98,7 +101,8 @@ export class TextEditing {
         Color,
         TextAlign.configure({ types: ["heading", "paragraph"] }),
         ...(this.translating ? [translationsExtension(this)] : []),
-        ...(this.editor?.values ? [valuesExtension(this)] : [])
+        ...(this.editor?.values ? [valuesExtension(this)] : []),
+        problemsExtension(this)
       ],
       autofocus: "end",
       editorProps: { handleKeyDown: (view, event) => this.menu?.key(event) || false },
@@ -118,6 +122,11 @@ export class TextEditing {
   // Again, when the translations or the editor's language change
   refreshTranslations() {
     if (this.tiptap && this.translating) this.tiptap.view.dispatch(this.tiptap.state.tr.setMeta(TRANSLATIONS, true))
+  }
+
+  // Again, when the Liquid's been checked
+  refreshProblems() {
+    if (this.tiptap) this.tiptap.view.dispatch(this.tiptap.state.tr.setMeta(PROBLEMS, true))
   }
 
   // Again, when the values change
@@ -396,4 +405,43 @@ function valueChip(view, call, value, edit) {
     edit()
   })
   return chip
+}
+
+function problemsExtension(editing) {
+  return Extension.create({
+    name: "tessLiquidProblems",
+    addProseMirrorPlugins() {
+      return [new Plugin({ key: PROBLEMS, props: { decorations: (state) => problemDecorations(state, editing) } })]
+    }
+  })
+}
+
+// A wavy line under what's wrong, its message on hover, while the text is
+// the one checked (its paragraphs a line each, as core/liquid_check.js's
+// richText has them)
+function problemDecorations(state, editing) {
+  const entry = editing.problems?.()
+  if (!entry?.problems?.length) return DecorationSet.empty
+  const lines = []
+  let offset = 0
+  state.doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true
+    const text = node.textBetween(0, node.content.size, undefined, "\ufffc")
+    lines.push({ offset, pos: pos + 1, text })
+    offset += text.length + 1
+    return false
+  })
+  if (lines.map((line) => line.text).join("\n") !== entry.text) return DecorationSet.empty
+  // Where problems overlap ({% if order.numbr %} not closed, numbr not
+  // there), a piece each, with the messages of all of them, innermost first
+  const cuts = [...new Set(entry.problems.flatMap((problem) => [problem.start, problem.end]).concat(lines.map((line) => line.offset + line.text.length)))].sort((a, b) => a - b)
+  const decorations = []
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const [start, end] = [cuts[i], cuts[i + 1]]
+    const line = lines.find((candidate) => start >= candidate.offset && end <= candidate.offset + candidate.text.length)
+    const covering = entry.problems.filter((problem) => problem.start <= start && problem.end >= end).sort((a, b) => (a.end - a.start) - (b.end - b.start))
+    if (!line || !covering.length) continue
+    decorations.push(Decoration.inline(line.pos + start - line.offset, line.pos + end - line.offset, { class: "tess-liquid-error", title: covering.map((problem) => problem.message).join("\n") }))
+  }
+  return DecorationSet.create(state.doc, decorations)
 }

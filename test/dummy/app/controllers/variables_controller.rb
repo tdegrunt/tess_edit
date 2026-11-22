@@ -8,6 +8,7 @@ class VariablesController < ApplicationController
 
   LEVELS = {
     "" => [
+      variable("customer", "Customer", "object", children: true),
       variable("order", "Order", "object", children: true),
       variable("shop_url", "Shop", hint: "The shop's home page")
     ],
@@ -16,7 +17,18 @@ class VariablesController < ApplicationController
       variable("number", "Order number"),
       variable("order_lines", "Order lines", "object", collection: true, children: true),
       variable("placed_at", "Placed at", "datetime"),
-      variable("total", "Total", "money", hint: "Including VAT")
+      variable("total", "Total", "money", hint: "Including VAT"),
+      variable("lines", "Lines", "object", collection: true, children: true),
+      variable("url", "Order page")
+    ],
+    "customer" => [
+      variable("first_name", "First name"),
+      variable("orders_count", "Number of orders", "integer")
+    ],
+    "order.lines" => [
+      variable("name", "Name"),
+      variable("quantity", "Quantity", "integer"),
+      variable("total", "Total", "money")
     ],
     "order.customer" => [
       variable("email", "Email"),
