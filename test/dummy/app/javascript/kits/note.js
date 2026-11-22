@@ -1,6 +1,6 @@
 // A kit registered by the demo app the way a host app adds its own: a note,
 // a card of HTML with a title. It has its own root block and renders
-// TessEdit's Text, Image, Divider, Loop, Condition and Content blocks
+// TessEdit's Text, Image, Divider, Loop, Condition, Content, Table and Assign blocks
 // through render.note hooks it adds with extendBlock, and a Card block of
 // its own with a title and text edited on the canvas (inline parts, as
 // the note's title is) and
@@ -11,6 +11,7 @@ import { extendBlock, registerBlock, registerFieldType, registerKit } from "tess
 import { createDocument, createNode } from "tess_edit/core/document"
 import { escapeAttribute, escapeText, richTextToHtml } from "tess_edit/export/richtext"
 import { CONTENT_END, CONTENT_START } from "tess_edit/blocks/content"
+import { tableHtml } from "tess_edit/export/table"
 
 // Renders a note's blocks through their render.note hooks. In the editor,
 // every block gets its tess-<id> class and an empty container a placeholder,
@@ -44,7 +45,12 @@ const blocks = {
   divider: (node, { classes }) => `<div${classes(node)} style="padding:8px 0"><hr></div>`,
   loop: (node, { editor, children }) => (editor ? children(node).join("\n") : [`{% for ${node.data.variable} in ${node.data.collection} %}`, ...children(node), "{% endfor %}"].join("\n")),
   condition: (node, { editor, children }) => (editor ? children(node).join("\n") : [`{% if ${node.data.expression} %}`, ...children(node), "{% endif %}"].join("\n")),
-  content: (node, { editor, children }) => (editor ? children(node).join("\n") : [CONTENT_START, ...children(node), CONTENT_END].join("\n"))
+  content: (node, { editor, children }) => (editor ? children(node).join("\n") : [CONTENT_START, ...children(node), CONTENT_END].join("\n")),
+  // TessEdit's HTML of a table, its rows and cells in it
+  table: (node, ctx) => `<div${ctx.classes(node)} style="padding:4px 0"><table style="width:100%;border-collapse:collapse;background:#fff">${tableHtml(node, ctx)}</table></div>`,
+  table_row: () => "",
+  table_cell: () => "",
+  assign: (node, { editor }) => (editor ? "" : `{% assign ${node.data.variable} = ${node.data.expression} %}`)
 }
 
 registerKit({
@@ -76,7 +82,7 @@ registerBlock({
   render: { note: blocks.note }
 })
 
-for (const type of ["text", "image", "divider", "loop", "condition", "content"]) {
+for (const type of ["text", "image", "divider", "loop", "condition", "content", "table", "table_row", "table_cell", "assign"]) {
   extendBlock(type, { kits: ["note"], render: { note: blocks[type] } })
 }
 

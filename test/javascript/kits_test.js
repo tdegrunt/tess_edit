@@ -25,7 +25,7 @@ test("a kit only offers its own blocks", () => {
   for (const type of ["section", "hero", "button", "social"]) assert.ok(email.includes(type) && !note.includes(type), type)
   assert.ok(note.includes("card") && !email.includes("card"))
   const doc = createDocument("note")
-  assert.deepEqual(accepted(doc, doc.id).sort(), ["card", "condition", "content", "divider", "image", "loop", "text"])
+  assert.deepEqual(accepted(doc, doc.id).sort(), ["assign", "card", "condition", "content", "divider", "image", "loop", "table", "text"])
 })
 
 test("extendBlock adds a kit, render hooks and fields to a block, and keeps the rest", () => {

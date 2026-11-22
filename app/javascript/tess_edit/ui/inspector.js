@@ -17,10 +17,11 @@
 import { t } from "tess_edit/core/i18n"
 import { imageSource } from "tess_edit/core/media"
 import { fieldType, getBlock, label } from "tess_edit/core/registry"
-import { fontOptions } from "tess_edit/blocks/fields"
+import { ALIGN, fontOptions } from "tess_edit/blocks/fields"
 import { find, getValue } from "tess_edit/core/document"
 import { translationCalls } from "tess_edit/core/translations"
 import { loopScope } from "tess_edit/core/variables"
+import { CELL, ROW, TABLE, addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, position, rows, setColumn } from "tess_edit/core/table"
 import { codeInput } from "tess_edit/ui/code_input"
 import { FontPicker } from "tess_edit/ui/font_picker"
 import { freeze, h, place } from "tess_edit/ui/dom"
@@ -105,6 +106,9 @@ export class Inspector {
 
     // A group shows when one of its fields applies (see shows below)
     const groups = (definition.fields || []).filter((group) => group.fields.some((field) => this.shows(node, field))).map((group) => this.group(node, group))
+    // A block in a table's cell, such as its Text, has the cell's table first
+    const cell = ![CELL, ROW, TABLE].includes(node.type) && cellOf(doc, node.id)
+    if (cell) groups.unshift(this.groupElement("table_cell:Table", { title: "Table" }, this.openGroups.get("table_cell:Table") ?? true, h("div", { class: "px-4 pb-4 space-y-3" }, this.table(cell))))
     const locked = this.editor.lock && node.id !== doc.id && !this.editor.isFree(node.id)
       ? h("p", { class: "mx-4 mt-3 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200" }, h("span", { html: icon("lock", "w-3.5 h-3.5") }), t("Part of the layout"))
       : null
@@ -282,6 +286,9 @@ export class Inspector {
 
       case "list":
         return this.list(node, field, Array.isArray(value) ? value : [], set)
+
+      case "table":
+        return this.table(node)
 
       case "image":
         return this.image(node, field, value, set)
@@ -532,6 +539,62 @@ export class Inspector {
       )
     )
     return h("span", { class: "grid grid-cols-4 gap-1" }, inputs)
+  }
+
+  // A Cell's table (a Row's, through its first cell): the cell's column's
+  // width and alignment, and adding and deleting rows and columns
+  // (core/table.js), each one undo step, selecting the cell it gives
+  table(node) {
+    const cellId = node.type === CELL ? node.id : node.children?.find((child) => child.type === CELL)?.id
+    const at = cellId && position(this.editor.doc, cellId)
+    if (!at) return h("p", { class: "text-xs text-gray-500 dark:text-gray-400" }, t("Not in a table"))
+
+    const change = (mutate) => {
+      let next = null
+      this.editor.commit((doc) => (next = mutate(doc, cellId)))
+      if (next) this.editor.select(next.id)
+    }
+    const button = (label, mutate, disabled = false) =>
+      h("button", { type: "button", class: "flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40", disabled, onclick: () => change(mutate) }, t(label))
+    const line = (title, ...buttons) => h("div", { class: "space-y-1" }, h("span", { class: "block text-xs font-medium text-gray-700 dark:text-gray-300" }, t(title)), h("div", { class: "flex gap-1" }, ...buttons))
+    const rowCount = rows(at.table).length
+    const parts = [
+      line("Row", button("Add above", (doc, id) => addRow(doc, id, "above")), button("Add below", (doc, id) => addRow(doc, id, "below")), button("Delete", deleteRow, rowCount < 2))
+    ]
+    if (node.type === CELL) {
+      const column = at.table.data?.columns?.[at.column] || {}
+      const setting = (key, value) => this.editor.commit((doc) => setColumn(doc, cellId, key, value), { coalesce: `${at.table.id}:column:${at.column}:${key}`, skipInspector: key === "width" })
+      parts.push(
+        line("Column", button("Add left", (doc, id) => addColumn(doc, id, "left")), button("Add right", (doc, id) => addColumn(doc, id, "right")), button("Delete", deleteColumn, columnCount(at.table) < 2)),
+        h(
+          "label",
+          { class: "block" },
+          h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, t("Column width")),
+          h("input", { type: "text", class: INPUT, value: column.width || "", placeholder: t("Auto"), oninput: (event) => setting("width", event.target.value) })
+        ),
+        h(
+          "div",
+          { class: "block" },
+          h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, t("Column align")),
+          h(
+            "div",
+            { class: "flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden" },
+            ALIGN.map((option) =>
+              h(
+                "button",
+                {
+                  type: "button",
+                  class: `flex-1 px-2 py-1 text-xs border-l first:border-l-0 border-gray-300 dark:border-gray-600 ${column.align === option.value ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"}`,
+                  onclick: () => setting("align", column.align === option.value ? "" : option.value)
+                },
+                t(option.label)
+              )
+            )
+          )
+        )
+      )
+    }
+    return h("div", { class: "space-y-3" }, ...parts)
   }
 
   list(node, field, items, set) {

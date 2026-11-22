@@ -17,6 +17,8 @@ import navbar from "tess_edit/blocks/navbar"
 import raw from "tess_edit/blocks/raw"
 import loop from "tess_edit/blocks/loop"
 import condition from "tess_edit/blocks/condition"
+import assign from "tess_edit/blocks/assign"
+import { table, tableCell, tableRow } from "tess_edit/blocks/table"
 
 export const builtinCategories = [
   { key: "layout", label: "Layout", order: 10 },
@@ -24,4 +26,4 @@ export const builtinCategories = [
   { key: "liquid", label: "Liquid", order: 30 }
 ]
 
-export const builtinBlocks = [email, section, column, wrapper, hero, content, text, image, button, divider, spacer, social, navbar, raw, loop, condition]
+export const builtinBlocks = [email, section, column, wrapper, hero, content, text, image, button, divider, spacer, social, navbar, raw, loop, condition, assign, table, tableRow, tableCell]

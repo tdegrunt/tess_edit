@@ -16,6 +16,7 @@ export { registerBlock, registerCategory, registerFieldType, registerKit, regist
 export * as fields from "tess_edit/blocks/fields"
 export { imageField } from "tess_edit/core/media"
 export { starterDocument } from "tess_edit/core/starter"
+export { cellOf, tableOf } from "tess_edit/core/table"
 
 export function registerTessEdit(application, identifier = "tess-edit") {
   application.register(identifier, EditorController)

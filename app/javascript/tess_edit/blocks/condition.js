@@ -5,7 +5,8 @@ export default {
   name: "Condition",
   icon: "condition",
   category: "liquid",
-  roles: ["body", "content"],
+  // "row": between a table's rows (blocks/table.js)
+  roles: ["body", "content", "row"],
   accepts: "inherit",
   defaults: () => ({ data: { expression: "customer.vip" } }),
   fields: [{ title: "Condition", fields: [{ key: "data.expression", label: "Show when", type: "text", liquid: "expression", hint: "A Liquid condition, e.g. order.total > 100." }] }],

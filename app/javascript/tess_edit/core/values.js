@@ -11,6 +11,9 @@
 // with the kit's canvas result ({ html, errors, values }), for a canvas the
 // host renders, or with the editor's setValues(values). An expression without
 // one keeps its Liquid; t filters are translations (core/translations.js).
+// An empty string is a value that is empty for now (the contract's sponsor
+// has no chamber of commerce number yet): it keeps its Liquid, in red, as
+// something to fill in where it comes from. null is no value known.
 
 import { translationCalls } from "tess_edit/core/translations"
 
@@ -50,11 +53,12 @@ export function expressionsIn(value, expressions = new Set()) {
 export class Values {
   constructor() {
     this.entries = new Map()
+    this.empties = new Set()
     this.listeners = new Set()
   }
 
   get enabled() {
-    return this.entries.size > 0
+    return this.entries.size > 0 || this.empties.size > 0
   }
 
   // Calls fn whenever they change
@@ -63,17 +67,28 @@ export class Values {
     return () => this.listeners.delete(fn)
   }
 
-  // Replaces them all; false when nothing changed. Empty values are none.
+  // Replaces them all; false when nothing changed. An empty string is an
+  // empty value (empty), null none.
   set(values) {
     const entries = new Map()
+    const empties = new Set()
     for (const [expression, value] of Object.entries(values || {})) {
-      if (value === null || value === undefined || value === "") continue
-      entries.set(normalizeExpression(expression), String(value))
+      if (value === null || value === undefined) continue
+      if (value === "") empties.add(normalizeExpression(expression))
+      else entries.set(normalizeExpression(expression), String(value))
     }
-    if (entries.size === this.entries.size && [...entries].every(([key, value]) => this.entries.get(key) === value)) return false
+    const same = entries.size === this.entries.size && [...entries].every(([key, value]) => this.entries.get(key) === value) &&
+      empties.size === this.empties.size && [...empties].every((key) => this.empties.has(key))
+    if (same) return false
     this.entries = entries
+    this.empties = empties
     this.listeners.forEach((fn) => fn())
     return true
+  }
+
+  // Whether the host says it's empty for now
+  empty(expression) {
+    return this.empties.has(normalizeExpression(expression))
   }
 
   // Its text, or null when there's none

@@ -5,7 +5,8 @@ export default {
   name: "Loop",
   icon: "loop",
   category: "liquid",
-  roles: ["body", "content"],
+  // "row": between a table's rows (blocks/table.js)
+  roles: ["body", "content", "row"],
   accepts: "inherit",
   defaults: () => ({ data: { variable: "item", collection: "items" } }),
   fields: [

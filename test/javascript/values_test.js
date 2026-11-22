@@ -32,7 +32,7 @@ test("collects the expressions in a document's texts and settings", () => {
   assert.deepEqual([...expressionsIn(doc)].sort(), ["contract.account.name", "contract.description"])
 })
 
-test("values by expression, without the empty ones, and who listens hears of a change only", () => {
+test("values by expression, the empty ones as empty, and who listens hears of a change only", () => {
   const values = new Values()
   assert.equal(values.enabled, false)
   let heard = 0
@@ -43,13 +43,20 @@ test("values by expression, without the empty ones, and who listens hears of a c
   assert.equal(values.value("contract.account.name"), "sv COFA")
   assert.equal(values.value("  contract.account.name "), "sv COFA")
   assert.equal(values.value("count"), "3")
-  assert.equal(values.value("contract.description"), null, "an empty value is none")
+  assert.equal(values.value("contract.description"), null, "an empty value shows its Liquid")
+  assert.equal(values.empty("contract.description"), true, "in red, as empty for now")
   assert.equal(values.value("contract.ends_on"), null)
+  assert.equal(values.empty("contract.ends_on"), false, "null is no value known")
   assert.equal(heard, 1)
 
-  assert.equal(values.set({ "contract.account.name": "sv COFA", count: "3" }), false)
+  assert.equal(values.set({ "contract.account.name": "sv COFA", "contract.description": "", count: "3" }), false)
   assert.equal(heard, 1)
+  assert.equal(values.set({ "contract.account.name": "sv COFA", count: "3" }), true, "no longer empty")
+  assert.equal(heard, 2)
+  assert.equal(values.set({ "contract.description": "" }), true)
+  assert.equal(values.enabled, true, "empty values alone are values too")
+  assert.equal(heard, 3)
   values.set({})
   assert.equal(values.enabled, false)
-  assert.equal(heard, 2)
+  assert.equal(heard, 4)
 })

@@ -23,7 +23,8 @@
 //                                      // editor, so the rest of the block stays as it is. A plain part
 //                                      // is one line of text, a string; the others are Tiptap JSON
 //     palette: [{ key, label, icon, category, create: ({ createNode }) => node }],  // optional
-//     kits: ["email"],                 // the kits it is part of, default ["email"]
+//     kits: ["email"],                 // the kits it is part of, default ["email"]; [] for none
+//                                      // yet: a kit takes it in with extendBlock, and its render hook
 //     unique: true,                    // optional: at most one per document, like Content
 //     layout: "free",                  // optional, on a container: its children are placed by
 //                                      // data.x and data.y, dragged on the canvas (ui/free_layout.js)
@@ -37,7 +38,8 @@
 //   })
 //
 // Roles: "body" (inside the page or a wrapper: sections, heroes), "wrapper",
-// "column" (inside a section) and "content" (inside a column or hero). A
+// "column" (inside a section), "content" (inside a column or hero), and
+// "row" (inside a table) and "cell" (inside a row), see blocks/table.js. A
 // container accepts the roles in its `accepts`; Loop and Condition use
 // "inherit" and accept what their nearest other container accepts.
 //
@@ -157,7 +159,10 @@ export function registerBlock(definition) {
   const { type, name, render } = definition || {}
   if (!type || typeof type !== "string") throw new Error("A block needs a type")
   if (!name) throw new Error(`Block ${type} needs a name`)
-  if (!Object.values(render || {}).some((hook) => typeof hook === "function")) throw new Error(`Block ${type} needs render.mjml(node, ctx) or render.html(node, ctx)`)
+  // A block of no kit yet (kits: []), such as a Table, gets its render hook
+  // from the kit that takes it in (extendBlock)
+  const ownKits = definition.kits ?? [DEFAULT_KIT]
+  if (ownKits.length && !Object.values(render || {}).some((hook) => typeof hook === "function")) throw new Error(`Block ${type} needs render.mjml(node, ctx) or render.html(node, ctx)`)
   if (!kits().some((kit) => kit.root === type) && !(definition.roles || []).length) throw new Error(`Block ${type} needs roles, e.g. ["content"]`)
 
   const palette = (definition.palette ?? (definition.category ? [{ key: type, label: name, icon: definition.icon, category: definition.category }] : [])).map((item) => ({
@@ -190,7 +195,7 @@ function keyPattern(key) {
 }
 
 // The field types of ui/inspector.js
-export const FIELD_TYPES = ["text", "textarea", "code", "size", "color", "select", "font", "segmented", "toggle", "spacing", "list", "image", "slot"]
+export const FIELD_TYPES = ["text", "textarea", "code", "size", "color", "select", "font", "segmented", "toggle", "spacing", "list", "image", "slot", "table"]
 
 // A field type of the host's, for what TessEdit's own can't do, such as
 // parts that depend on each other:
@@ -215,15 +220,17 @@ export function fieldType(type) {
   return fieldTypeList.get(type)
 }
 
-// Adds kits, render hooks and field groups to a registered block. A group
-// with the title of one it has adds its fields to that one; a new group goes
-// last, or before the group its `before` names.
-export function extendBlock(type, { kits = [], render = {}, fields = [] } = {}) {
+// Adds kits, roles, render hooks and field groups to a registered block. A
+// group with the title of one it has adds its fields to that one; a new group
+// goes last, or before the group its `before` names. Roles let it go where
+// another kit's blocks take it.
+export function extendBlock(type, { kits = [], roles = [], render = {}, fields = [] } = {}) {
   const definition = definitions.get(type)
   if (!definition) throw new Error(`No block ${type} to extend`)
   definitions.set(type, {
     ...definition,
     kits: [...new Set([...definition.kits, ...kits])],
+    roles: [...new Set([...definition.roles, ...roles])],
     render: { ...definition.render, ...render },
     fields: fields.reduce(addGroup, definition.fields || [])
   })

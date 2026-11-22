@@ -364,9 +364,11 @@ function valueDecorations(state, editing) {
     const text = node.textBetween(0, node.content.size, undefined, "\ufffc")
     for (const call of valueCalls(text)) {
       const value = values.value(call.expression)
-      if (value === null) continue
       const start = pos + 1 + call.start
       const end = pos + 1 + call.end
+      // Empty for now: its Liquid, in red
+      if (value === null && values.empty(call.expression)) decorations.push(Decoration.inline(start, end, { class: "tess-v-empty" }))
+      if (value === null) continue
       if (from < end && to > start) {
         decorations.push(Decoration.inline(start, end, { class: "tess-v-raw" }))
       } else {

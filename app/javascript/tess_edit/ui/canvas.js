@@ -51,6 +51,7 @@ a{cursor:default}
 .tess-v-filled,.tess-v-raw{border-radius:3px;background:rgba(5,150,105,.08);box-shadow:inset 0 -1px 0 rgba(5,150,105,.55)}
 .ProseMirror .tess-v-filled{cursor:text}
 .tess-v-hidden{display:none}
+.tess-v-empty{border-radius:3px;background:rgba(220,38,38,.08);box-shadow:inset 0 -1px 0 rgba(220,38,38,.65)}
 `
 
 // A file dragged in from outside the browser (block drags set editor.drag)
@@ -187,9 +188,11 @@ export class Canvas {
     if (!values || !this.doc?.body) return
     for (const span of this.doc.querySelectorAll(".tess-v[data-tess-call]")) {
       const value = values.value(span.dataset.tessExpression)
+      const empty = value === null && values.empty(span.dataset.tessExpression)
       span.textContent = value ?? span.dataset.tessCall
-      span.title = value === null ? "" : span.dataset.tessCall
+      span.title = empty ? t("Empty for now: fill it in where it comes from") : value === null ? "" : span.dataset.tessCall
       span.classList.toggle("tess-v-filled", value !== null)
+      span.classList.toggle("tess-v-empty", empty)
     }
     this.refresh()
   }
@@ -228,8 +231,33 @@ export class Canvas {
     return null
   }
 
+  // A block's element. A Loop's blocks can show once per item, as a Table's
+  // rows do with a record's values (a host's canvas), each copy with the
+  // block's class: the copy clicked last is the one meant, and so are the
+  // blocks in it and around it, until another is clicked. The copy is kept
+  // by its place among them, as the canvas is written again.
   elementOf(id) {
-    return this.doc?.querySelector(`.tess-${id}`) || this.doc?.querySelector(`.tessph-${id}`)
+    const anchor = this.anchorElement()
+    const near = anchor && (anchor.closest(`.tess-${id}`) || anchor.querySelector(`.tess-${id}, .tessph-${id}`))
+    return near || this.doc?.querySelector(`.tess-${id}`) || this.doc?.querySelector(`.tessph-${id}`)
+  }
+
+  // Remembers the copy of a block that was clicked
+  anchorAt(hit) {
+    if (!hit || hit.placeholder) return
+    const copies = [...this.doc.querySelectorAll(`.tess-${hit.id}`)]
+    this.anchor = copies.length > 1 ? { id: hit.id, index: Math.max(0, copies.indexOf(hit.element)) } : null
+  }
+
+  anchorElement() {
+    if (!this.anchor || !this.doc) return null
+    return this.doc.querySelectorAll(`.tess-${this.anchor.id}`)[this.anchor.index] || null
+  }
+
+  // The rectangle of the copy of a block an element is in, else its first
+  hoverRect(id) {
+    const element = this.hoverElement?.isConnected && this.hoverElement.closest(`.tess-${id}`)
+    return element ? element.getBoundingClientRect() : this.rectOf(id)
   }
 
   // The rectangle of a block in viewport coordinates of the iframe. Blocks
@@ -256,7 +284,7 @@ export class Canvas {
   // Where an inline part is edited: the element its render marks with
   // data-tess-edit-field, or for the richText shorthand the block's own
   textContainer(id, key) {
-    const cell = this.doc?.querySelector(`.tess-${id}`)
+    const cell = this.elementOf(id)
     const part = this.partElement(cell, key)
     if (part) return part
     if (key !== getBlock(find(this.editor.doc, id)?.node.type)?.richText) return null
@@ -297,7 +325,7 @@ export class Canvas {
 
     if (this.hoverId && this.hoverId !== selectedId) {
       const hit = find(this.editor.doc, this.hoverId)
-      const rect = hit && this.rectOf(this.hoverId)
+      const rect = hit && this.hoverRect(this.hoverId)
       if (rect && hit.node !== this.editor.doc) {
         const box = this.box(rect, "tess-hover")
         box.append(Object.assign(this.doc.createElement("div"), { className: "tess-label", textContent: getBlock(hit.node.type)?.name || hit.node.type }))
@@ -379,6 +407,11 @@ export class Canvas {
   onMove(event) {
     if (this.editor.drag || this.free.dragging) return
     const hit = this.hit(event.target)
+    const element = hit && !hit.placeholder ? hit.element : null
+    if (element !== this.hoverElement) {
+      this.hoverElement = element
+      this.hoverId = null
+    }
     this.setHover(hit && !hit.placeholder ? hit.id : null)
   }
 
@@ -389,6 +422,7 @@ export class Canvas {
     if (this.openLink(event)) return
     if (this.free.swallowClick()) return
     const hit = this.hit(event.target)
+    this.anchorAt(hit)
     if (hit?.placeholder) {
       const rect = this.toParentRect(hit.element.getBoundingClientRect())
       this.editor.select(hit.id)
@@ -414,6 +448,7 @@ export class Canvas {
 
   onDoubleClick(event) {
     const hit = this.hit(event.target)
+    this.anchorAt(hit)
     const part = hit && !hit.placeholder && this.partAt(event.target, hit.id)
     if (part) this.editor.startEditing(hit.id, part)
   }
