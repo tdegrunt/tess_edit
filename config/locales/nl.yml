@@ -61,6 +61,7 @@ nl:
       button: "Knop"
       button_color: "Knopkleur"
       cancel: "Annuleren"
+      captured_text: "Vastgelegde tekst"
       cell: "Cel"
       cell_padding: "Celmarge"
       center: "Midden"

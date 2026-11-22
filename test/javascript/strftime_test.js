@@ -10,6 +10,9 @@ test("a date in Ruby's strftime formats, in a language", () => {
   assert.equal(strftime(date, "%d-%m-%Y %H:%M", "nl"), "05-03-2026 09:07")
   assert.equal(strftime(date, "%-d-%-m-%y", "nl"), "5-3-26")
   assert.equal(strftime(date, "%A", "nl"), "donderdag")
+  assert.equal(strftime(date, "%e %b %H:%M:%S", "nl"), " 5 mrt 09:07:00")
+  assert.equal(strftime(date, "%-I:%M %p", "en"), "9:07 AM")
+  assert.ok(strftime(date, "%Z", "en").length > 0)
   // A code it doesn't know stays as written
   assert.equal(strftime(date, "%Q", "en"), "%Q")
 })

@@ -96,11 +96,22 @@ export class VariableMenu {
     }
     if (context.kind === "argument") {
       const filter = (await variables.filters()).get(context.filter)
-      const kind = filter?.arguments?.[context.index]?.kind
+      const argument = filter?.arguments?.[context.index]
+      const kind = argument?.kind
       const more = filter?.arguments?.length > context.index + 1
       if (kind === "format") {
-        const formats = DATE_FORMATS.map((format) => ({ value: format, label: strftime(new Date(), format) }))
+        // In the locale an argument before it names: localize: 'nl', '%B'
+        const locale = filter.arguments.slice(0, context.index).map((before, index) => before.kind === "locale" && context.args[index]).find((value) => /^[a-z]{2}(?:-[A-Za-z]{2})?$/.test(value || ""))
+        const example = (format) => strftime(new Date(), format, locale || undefined)
+        // The host's own formats first (date.formats, time.formats), then the common ones
+        const own = (argument.values || []).map((format) => ({ value: format.value, label: `${format.label} · ${example(format.value)}` }))
+        const common = DATE_FORMATS.filter((format) => !own.some((mine) => mine.value === format)).map((format) => ({ value: format, label: example(format) }))
+        const formats = [...own, ...common]
         return this.quotedOptions({ ...context, quote: context.quote || "'" }, formats, more)
+      }
+      // Those the host gives, such as its locales
+      if (argument?.values && !(context.partial && !context.quote && context.partial.includes("."))) {
+        return this.quotedOptions({ ...context, quote: context.quote || "'" }, argument.values, more)
       }
       if (kind === "property" || kind === "value") {
         const elements = await this.elements(context.input, scope)
@@ -430,7 +441,11 @@ const INSIDE = {
 }
 
 // A date's formats, as Ruby's strftime writes them
-const DATE_FORMATS = ["%-d %B %Y", "%-d %b %Y", "%A %-d %B %Y", "%d-%m-%Y", "%-d-%-m-%Y", "%Y-%m-%d", "%B %Y", "%-d %B %Y %H:%M", "%H:%M"]
+const DATE_FORMATS = [
+  "%-d %B %Y", "%-d %b %Y", "%A %-d %B %Y", "%-d %B", "%-d %b", "%B %Y", "%A",
+  "%d-%m-%Y", "%-d-%-m-%Y", "%Y-%m-%d", "%-m/%-d/%Y",
+  "%-d %B %Y %H:%M", "%d-%m-%Y %H:%M", "%H:%M"
+]
 
 // A date in a strftime format, in the page's language, for a format's example
 export function strftime(date, format, locale = document.documentElement?.lang || "en") {
@@ -440,7 +455,10 @@ export function strftime(date, format, locale = document.documentElement?.lang |
     d: pad(date.getDate()), "-d": String(date.getDate()), e: String(date.getDate()).padStart(2, " "),
     m: pad(date.getMonth() + 1), "-m": String(date.getMonth() + 1), Y: String(date.getFullYear()), y: pad(date.getFullYear() % 100),
     B: part({ month: "long" }), b: part({ month: "short" }).replace(/\.$/, ""), A: part({ weekday: "long" }), a: part({ weekday: "short" }),
-    H: pad(date.getHours()), M: pad(date.getMinutes()), R: `${pad(date.getHours())}:${pad(date.getMinutes())}`
+    H: pad(date.getHours()), "-H": String(date.getHours()), M: pad(date.getMinutes()), S: pad(date.getSeconds()),
+    I: pad(date.getHours() % 12 || 12), "-I": String(date.getHours() % 12 || 12), p: date.getHours() < 12 ? "AM" : "PM",
+    R: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    Z: new Intl.DateTimeFormat(locale, { timeZoneName: "short" }).formatToParts(date).find((part) => part.type === "timeZoneName")?.value || ""
   }
   return format.replace(/%(-?[a-zA-Z])/g, (match, code) => codes[code] ?? match)
 }

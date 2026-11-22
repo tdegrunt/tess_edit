@@ -210,19 +210,24 @@ export function liquidScope(doc, id) {
   return scope
 }
 
-// The assigns ({% assign x = … %}) and loops ({% for x in … %}) earlier in a
-// text, before the caret, nearest first, as liquidScope gives them
+// The assigns ({% assign x = … %}), captures ({% capture x %}…{% endcapture %},
+// once ended) and loops ({% for x in … %}, while open) earlier in a text,
+// before the caret, nearest first, as liquidScope gives them
+//   [{ variable, captured: true }]   a capture's: a text
 export function textScope(before) {
-  const scope = []
+  const found = []
   for (const match of before.matchAll(/\{%-?\s*(assign|for)\s+(\w+)\s*(=|in)\s*([\s\S]*?)\s*-?%\}/g)) {
-    if (match[1] === "assign" && match[3] === "=") scope.unshift({ variable: match[2], expression: match[4] })
+    if (match[1] === "assign" && match[3] === "=") found.push([match.index, { variable: match[2], expression: match[4] }])
     if (match[1] === "for" && match[3] === "in") {
       // Only while the loop is open
       const after = before.slice(match.index + match[0].length)
-      if (!/\{%-?\s*endfor\b/.test(after)) scope.unshift({ variable: match[2], collection: match[4].split(/\s/)[0] })
+      if (!/\{%-?\s*endfor\b/.test(after)) found.push([match.index, { variable: match[2], collection: match[4].split(/\s/)[0] }])
     }
   }
-  return scope
+  for (const match of before.matchAll(/\{%-?\s*capture\s+(["']?)(\w+)\1\s*-?%\}[\s\S]*?\{%-?\s*endcapture\s*-?%\}/g)) {
+    found.push([match.index, { variable: match[2], captured: true }])
+  }
+  return found.sort((a, b) => b[0] - a[0]).map(([, entry]) => entry)
 }
 
 // What replaces a quoted argument or value, in the quote it was started

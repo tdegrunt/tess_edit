@@ -148,7 +148,8 @@ export class Variables {
         if (own.some((variable) => variable.name === entry.variable)) continue
         // What it stands for, of the scope around it
         const target = entry.path && (await this.variable(entry.path.split("."), scope.slice(index + 1)))
-        own.push(entry.path ? { ...(target || { children: false }), name: entry.variable, label: t("Assigned %{path}", { path: entry.path }), assign: true } : loopVariable(entry))
+        if (entry.captured) own.push(capturedVariable(entry))
+        else own.push(entry.path ? { ...(target || { children: false }), name: entry.variable, label: t("Assigned %{path}", { path: entry.path }), assign: true } : loopVariable(entry))
       }
       if (scope.some((entry) => entry.collection)) own.push(FORLOOP)
       return [...own, ...(await this.at(""))]
@@ -175,6 +176,7 @@ export class Variables {
       const own = scope.find((entry) => entry.variable === last)
       if (last === "forloop" && !own && scope.some((entry) => entry.collection)) return FORLOOP
       if (own?.path) return { ...(await this.variable(own.path.split("."), scope.slice(scope.indexOf(own) + 1))), name: last }
+      if (own?.captured) return capturedVariable(own)
       if (own) return loopVariable(own)
     } else if (ELEMENT.has(last)) {
       const collection = await this.variable(parent, scope)
@@ -186,6 +188,11 @@ export class Variables {
 }
 
 const FORLOOP = { name: "forloop", label: "This loop", type: "object", children: true, forloop: true }
+
+// A {% capture %}'s variable: the text between it and its endcapture
+function capturedVariable({ variable }) {
+  return { name: variable, label: t("Captured text"), type: "string", children: false, captured: true }
+}
 
 function loopVariable({ variable, collection }) {
   return { name: variable, label: t("Each of %{collection}", { collection }), type: "object", children: true, loop: true }

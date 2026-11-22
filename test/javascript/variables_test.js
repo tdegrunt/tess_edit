@@ -213,3 +213,11 @@ test("forloop is a root only in a loop, with Liquid's members", async () => {
   assert.deepEqual(names(await v.options("forloop", scope)), names(FORLOOP_MEMBERS))
   assert.equal((await v.lookup("forloop.index", scope)).type, "integer")
 })
+
+test("a capture's variable is a text", async () => {
+  const v = variables()
+  const scope = [{ variable: "greeting", captured: true }]
+  assert.deepEqual(names(await v.options("", scope)), ["greeting", "order"])
+  assert.deepEqual(await v.options("greeting", scope), [])
+  assert.equal((await v.lookup("greeting", scope)).type, "string")
+})

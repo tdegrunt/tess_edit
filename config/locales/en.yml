@@ -61,6 +61,7 @@ en:
       button: "Button"
       button_color: "Button color"
       cancel: "Cancel"
+      captured_text: "Captured text"
       cell: "Cell"
       cell_padding: "Cell padding"
       center: "Center"

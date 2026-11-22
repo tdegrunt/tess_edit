@@ -77,6 +77,11 @@ test("a text's own assigns and open loops before the caret", () => {
     { variable: "lines", expression: 'order.lines | where: "a", "b"' }
   ])
   assert.deepEqual(textScope("{% for line in lines %}{{ line.name }}{% endfor %} {{ "), [])
+  // A capture once it's ended, nearest first with the rest
+  assert.deepEqual(textScope('{% assign a = b %}{% capture greeting %}Hi {{ a }}{% endcapture %}{% capture "x" %}…{{ '), [
+    { variable: "greeting", captured: true },
+    { variable: "a", expression: "b" }
+  ])
 })
 
 test("a quoted value takes the closing quote that's there", () => {

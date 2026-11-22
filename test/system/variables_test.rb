@@ -185,14 +185,29 @@ class VariablesTest < ApplicationSystemTestCase
     assert_equal "{% if order.number == blank", link.value
   end
 
-  test "a date's formats, each with an example" do
+  test "a date's formats, the app's first, each with an example" do
     link = setting("Link")
     link.set("")
     link.send_keys("{{ order.placed_at | date: ")
     assert_option "'%-d %B %Y'"
-    assert_selector "[role=listbox] [role=option]", text: Date.today.year.to_s
-    link.send_keys(:enter)
+    # The app's own first, then the common ones not among them
+    assert_equal ["'%e %B %Y'", "'%d-%m-%Y'", "'%-d %B %Y'"], option_names.first(3)
+    assert_equal 1, option_names.count("'%d-%m-%Y'")
+    assert_selector "[role=listbox] [role=option]", text: "Date, long · "
+    link.send_keys(:down, :down, :enter)
     assert_equal "{{ order.placed_at | date: '%-d %B %Y'", link.value
+  end
+
+  test "localize's locales, then its formats in that language" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{{ order.placed_at | localize: ")
+    assert_equal ["'en'", "'nl'"], option_names
+    link.send_keys(:down, :enter)
+    assert_equal "{{ order.placed_at | localize: 'nl', ", link.value
+    assert_option "'%B %Y'"
+    month = %w[januari februari maart april mei juni juli augustus september oktober november december][Date.today.month - 1]
+    assert_selector "[role=listbox] [role=option]", text: "#{month} #{Date.today.year}"
   end
 
   test "without a variablesUrl there are no suggestions or buttons" do

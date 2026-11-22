@@ -35,9 +35,13 @@ class VariablesController < ApplicationController
   }.freeze
 
   # The filters (the editor's filtersUrl), some of them, as Liquidum's FiltersController gives them
+  # The app's own date formats, as Liquidum gives them from date.formats and time.formats
+  FORMATS = [{value: "%e %B %Y", label: "Date, long"}, {value: "%d-%m-%Y", label: "Date, default"}].freeze
+
   FILTERS = [
-    {name: "date", label: "Date in a format", arguments: [{name: "format", kind: "format"}]},
+    {name: "date", label: "Date in a format", arguments: [{name: "format", kind: "format", values: FORMATS}]},
     {name: "first", label: "The first item", arguments: [], keeps: "item"},
+    {name: "localize", label: "In a language", arguments: [{name: "locale", kind: "locale", values: [{value: "en", label: "en"}, {value: "nl", label: "nl"}]}, {name: "format", kind: "format"}]},
     {name: "money", label: "As money", arguments: []},
     {name: "sort", label: "Sorted", arguments: [{name: "property", kind: "property"}], keeps: "collection"},
     {name: "upcase", label: "In capitals", arguments: []},
