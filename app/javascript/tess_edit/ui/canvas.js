@@ -11,6 +11,7 @@ import { imageFields } from "tess_edit/core/media"
 import { getBlock, inlinePart, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
 import { valueCalls } from "tess_edit/core/values"
+import { cellOf, columnCount, rowGroups, rows, setColumnAt, span, tableOf } from "tess_edit/core/table"
 import { FREE_CSS, FreeLayout } from "tess_edit/ui/free_layout"
 import { icon } from "tess_edit/ui/icons"
 
@@ -34,6 +35,12 @@ body{min-height:100vh;margin:0}
 .tess-tools [data-tool="drag"]{cursor:grab}
 .tess-plus{position:absolute;left:50%;top:100%;transform:translate(-50%,-50%);pointer-events:auto;width:20px;height:20px;border-radius:999px;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .tess-plus:hover{background:#1d4ed8}
+.tess-bracket{position:absolute;box-sizing:border-box;width:6px;border:2px solid #8b5cf6;border-right:0;border-radius:3px 0 0 3px;pointer-events:auto;cursor:pointer}
+.tess-bracket:hover,.tess-bracket.tess-on{border-color:#6d28d9}
+.tess-bracket span{position:absolute;right:calc(100% + 4px);top:-2px;color:#6d28d9;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.tess-column{position:absolute;width:9px;margin-left:-4px;pointer-events:auto;cursor:col-resize}
+.tess-column::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:1px;background:#2563eb;opacity:0}
+.tess-column:hover::after,.tess-column.tess-on::after{opacity:1}
 .tess-indicator{position:absolute;background:#2563eb;border-radius:2px;pointer-events:none;box-shadow:0 0 0 2px rgba(37,99,235,.2)}
 .tess-indicator.tess-fill{background:rgba(37,99,235,.08);outline:2px dashed #2563eb;outline-offset:-2px;box-shadow:none}
 [class*="tessph-"]{cursor:pointer}
@@ -59,6 +66,7 @@ function isFileDrag(event, editor) {
   return !editor.drag && Array.from(event.dataTransfer?.types || []).includes("Files")
 }
 
+const TABLE_ICON = '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 10h18M3 15h18M9 10v9M15 10v9"/>'
 const CLASS = /\btess-(b[a-z0-9]+)\b/
 const PLACEHOLDER = /\btessph-(b[a-z0-9]+)\b/
 
@@ -81,6 +89,8 @@ export class Canvas {
 
   // Replaces the iframe's content, keeping the scroll position.
   write(html, mode) {
+    // A column being dragged is let go: its listeners were the old document's
+    this.resizing = false
     const scrollY = this.win?.scrollY || 0
     this.mode = mode
     const doc = this.doc
@@ -317,7 +327,7 @@ export class Canvas {
   }
 
   refresh() {
-    if (!this.overlay) return
+    if (!this.overlay || this.resizing) return
     this.overlay.replaceChildren()
     if (this.mode !== "edit") return
     this.free.drawGuides(this.overlay)
@@ -335,6 +345,7 @@ export class Canvas {
 
     const hit = selectedId && find(this.editor.doc, selectedId)
     if (!hit || hit.node === this.editor.doc) return
+    this.drawTable(selectedId, editingId)
     const rect = this.rectOf(selectedId)
     if (!rect) return
     const box = this.box(rect, editingId === selectedId ? "tess-selected tess-editing" : "tess-selected")
@@ -345,13 +356,16 @@ export class Canvas {
     if (handle) box.append(handle)
 
     if (editingId !== selectedId && !this.free.dragging) {
+      // In a table's cell (the cell, or its text): its rows and columns
+      const cell = free && cellOf(this.editor.doc, selectedId)
       const tools = this.doc.createElement("div")
       tools.className = "tess-tools"
       tools.innerHTML = [
         ["parent", t("Select parent")],
+        ...(cell ? [["table", t("Rows and columns")]] : []),
         ...(free ? [["drag", t("Drag to move")], ["duplicate", t("Duplicate")], ["delete", t("Delete")]] : [])
       ]
-        .map(([tool, title]) => `<span data-tool="${tool}" title="${title}" ${tool === "drag" ? 'draggable="true"' : ""}>${icon({ parent: "parent", drag: "move", duplicate: "copy", delete: "trash" }[tool], "tess-icon")}</span>`)
+        .map(([tool, title]) => `<span data-tool="${tool}" title="${title}" ${tool === "drag" ? 'draggable="true"' : ""}>${icon({ parent: "parent", drag: "move", duplicate: "copy", delete: "trash", table: TABLE_ICON }[tool], "tess-icon")}</span>`)
         .join("")
       tools.querySelectorAll("svg").forEach((svg) => svg.setAttribute("style", "width:14px;height:14px"))
       tools.addEventListener("mousedown", (event) => event.stopPropagation())
@@ -360,6 +374,7 @@ export class Canvas {
         event.preventDefault()
         event.stopPropagation()
         if (tool === "parent") this.editor.selectParent()
+        if (tool === "table") this.editor.openTableMenu(cell.id, this.toParentRect(event.target.closest("[data-tool]").getBoundingClientRect()))
         if (tool === "duplicate") this.editor.duplicate(selectedId)
         if (tool === "delete") this.editor.remove(selectedId)
       })
@@ -390,6 +405,78 @@ export class Canvas {
     this.overlay.append(box)
   }
 
+  // The table the selection is in: a bracket at its side by each Loop's and
+  // Condition's rows, labelled as the block, which a click selects; and, when
+  // not editing text, a handle on each column's right border, dragged to set
+  // its width (in pt when it was in pt, else px)
+  drawTable(selectedId, editingId) {
+    const table = tableOf(this.editor.doc, selectedId)
+    // The table element itself, not a wrapper with its padding
+    const element = table && this.elementOf(table.id)
+    const inner = element && (element.tagName === "TABLE" ? element : element.querySelector("table"))
+    const tableRect = inner ? inner.getBoundingClientRect() : table && this.rectOf(table.id)
+    if (!tableRect) return
+    for (const { node, depth } of rowGroups(table)) {
+      const rect = this.rectOf(node.id)
+      if (!rect) continue
+      const bracket = this.box({ left: tableRect.left - 10 - depth * 10, top: rect.top, width: 6, height: rect.height }, "tess-bracket")
+      if (node.id === selectedId) bracket.classList.add("tess-on")
+      bracket.dataset.tessBracket = node.id
+      bracket.title = label(node)
+      bracket.append(Object.assign(this.doc.createElement("span"), { textContent: label(node) }))
+      bracket.addEventListener("mousedown", (event) => event.stopPropagation())
+      bracket.addEventListener("click", (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        this.editor.select(node.id, { reveal: true })
+      })
+      this.overlay.append(bracket)
+    }
+    if (editingId || !this.editor.isFree(table.id)) return
+    for (const handle of this.columnHandles(table, tableRect)) this.overlay.append(handle)
+  }
+
+  // A row of single cells shows where the columns are
+  columnHandles(table, tableRect) {
+    const count = columnCount(table)
+    const row = rows(table).find((candidate) => candidate.children.length === count && candidate.children.every((cell) => span(cell) === 1))
+    const cells = row ? [...(this.elementOf(row.id)?.children || [])].filter((element) => /^T[DH]$/.test(element.tagName)) : []
+    if (cells.length !== count) return []
+    return cells.map((cell, column) => {
+      const right = cell.getBoundingClientRect().right
+      const handle = this.box({ left: right, top: tableRect.top, width: 9, height: tableRect.height }, "tess-column")
+      handle.title = t("Drag to set the column's width")
+      handle.addEventListener("mousedown", (event) => this.resizeColumn(event, table, column, cell, handle))
+      return handle
+    })
+  }
+
+  resizeColumn(event, table, column, cell, handle) {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startLeft = parseFloat(handle.style.left)
+    const startWidth = cell.getBoundingClientRect().width
+    const inPt = /pt$/.test(table.data?.columns?.[column]?.width || "")
+    const width = (clientX) => Math.max(12, startWidth + clientX - startX)
+    this.resizing = true
+    handle.classList.add("tess-on")
+    const move = (moved) => (handle.style.left = `${startLeft + width(moved.clientX) - startWidth}px`)
+    const up = (released) => {
+      this.doc.removeEventListener("mousemove", move)
+      this.doc.removeEventListener("mouseup", up)
+      this.resizing = false
+      this.resized = true
+      setTimeout(() => (this.resized = false))
+      const px = width(released.clientX)
+      if (Math.abs(px - startWidth) < 1) return this.refresh()
+      const value = inPt ? `${Math.round(px * 0.75)}pt` : `${Math.round(px)}px`
+      this.editor.commit((doc) => setColumnAt(doc, table.id, column, "width", value))
+    }
+    this.doc.addEventListener("mousemove", move)
+    this.doc.addEventListener("mouseup", up)
+  }
+
   setHover(id) {
     if (this.hoverId === id) return
     this.hoverId = id
@@ -405,7 +492,7 @@ export class Canvas {
   // --- events ---------------------------------------------------------------
 
   onMove(event) {
-    if (this.editor.drag || this.free.dragging) return
+    if (this.editor.drag || this.free.dragging || this.resizing) return
     const hit = this.hit(event.target)
     const element = hit && !hit.placeholder ? hit.element : null
     if (element !== this.hoverElement) {
@@ -419,6 +506,7 @@ export class Canvas {
     if (this.editor.editingId && event.target.closest?.(".ProseMirror, .tess-plain")) return
     if (event.target.closest?.("#tess-overlay")) return
     event.preventDefault()
+    if (this.resized) return
     if (this.openLink(event)) return
     if (this.free.swallowClick()) return
     const hit = this.hit(event.target)

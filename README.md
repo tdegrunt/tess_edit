@@ -15,13 +15,14 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 
 - Blocks: Section (1-4 columns), Column, Wrapper, Hero, Text, Heading, Image, Button, Divider, Spacer, Social, Navbar and raw HTML.
 - Liquid blocks: **Loop** (`{% for line in order.lines %}`) and **Condition** (`{% if order.total > 100 %}`) wrap other blocks.
+- **Tables**: Table, Row and Cell blocks, a cell holding any blocks, with Loops and Conditions (and Assigns) between the rows. On the canvas a cell's menu adds and deletes rows and columns and puts its row in a Loop or Condition, a column's border is dragged to set its width, Tab goes from cell to cell (adding a row after the last), and a bracket by a Loop's or Condition's rows shows what they are.
 - Drag from the Blocks panel onto the canvas or into the Layers tree; move blocks on the canvas (drag handle) or in the tree; plus buttons and empty-column placeholders open an "Add block" menu.
 - Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings. A block can have several texts edited on the canvas, rich or a plain line, such as a question's label and its description.
 - Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
 - Your app's translations for Liquid's `t` filter (`{{ '.greeting' | t }}`) shown as their text in a language of your choice, with every language's text, missing ones marked, editable when pointed at, and selected text made translatable.
 - Your app's values for the Liquid in a document (`{{ customer.first_name }}` as "Ada"), shown in its place until the caret goes into it.
 - Clicking a tile in the Blocks panel adds the block in or after the selection, or else at the end of the last block it fits in.
-- Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Esc).
+- Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Tab to the next table cell, Esc).
 - Desktop and mobile preview, and a preview of the HTML as sent.
 - Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room.
 - Dark mode that follows the host app's.

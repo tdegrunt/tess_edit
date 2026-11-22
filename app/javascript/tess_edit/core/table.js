@@ -223,6 +223,40 @@ export function hasTable(doc) {
 export function setColumn(doc, cellId, key, value) {
   const at = position(doc, cellId)
   if (!at) return
-  const list = columns(at.table)
-  list[at.column] = { ...list[at.column], [key]: value }
+  setColumnAt(doc, at.table.id, at.column, key, value)
+}
+
+// Sets the width or align of a table's column by its index, as dragging its
+// border on the canvas does
+export function setColumnAt(doc, tableId, column, key, value) {
+  const table = find(doc, tableId)?.node
+  if (table?.type !== TABLE) return
+  const list = columns(table)
+  if (column < 0 || column >= list.length) return
+  list[column] = { ...list[column], [key]: value }
+}
+
+// Wraps the cell's row in a new Loop or Condition (`type`), in the row's
+// place; returns it
+export function wrapRow(doc, cellId, type) {
+  const at = position(doc, cellId)
+  if (!at) return null
+  const hit = find(doc, at.row.id)
+  remove(doc, at.row.id)
+  return insert(doc, hit.parent.id, hit.index, createNode(type, { children: [at.row] }))
+}
+
+// The Loops and Conditions among a table's rows, each with the rows it holds,
+// for the canvas to mark them: [{ node, depth }], outer ones first
+export function rowGroups(table) {
+  const found = []
+  const visit = (node, depth) => {
+    for (const child of node.children || []) {
+      if (child.type === ROW || child.type === TABLE || child.type === CELL) continue
+      if (rows(child).length) found.push({ node: child, depth })
+      visit(child, depth + 1)
+    }
+  }
+  visit(table, 0)
+  return found
 }

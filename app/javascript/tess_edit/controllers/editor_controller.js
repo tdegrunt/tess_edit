@@ -62,6 +62,7 @@ import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
 import { Values } from "tess_edit/core/values"
 import { Variables, loopScope } from "tess_edit/core/variables"
+import { addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, nextCell, position, rows, wrapRow } from "tess_edit/core/table"
 import { Canvas } from "tess_edit/ui/canvas"
 import { freeChild, number } from "tess_edit/ui/free_layout"
 import { Tree } from "tess_edit/ui/tree"
@@ -995,9 +996,43 @@ export default class extends Controller {
   }
 
   openInsertMenu(parentId, index, rect) {
-    const anchor = `${parentId}:${index}`
-    // A second click on the same plus button or placeholder closes the menu.
-    // Its mousedown already closed it as an outside click, so check for that.
+    const allowed = this.accepted(parentId)
+    const items = this.paletteItems().filter((item) => allowed.includes(item.type))
+    if (!items.length) return this.closeMenu()
+    this.showMenu(`${parentId}:${index}`, "insert", t("Add block"), rect,
+      items.map((item) => ({ label: t(item.label), icon: icon(item.icon), action: () => this.insertAt(item.key, parentId, index) })))
+  }
+
+  // A cell's rows and columns (core/table.js), as on the Cell in Inspect, and
+  // wrapping its row in a Loop or Condition, selected to fill in
+  openTableMenu(cellId, rect) {
+    const at = position(this.doc, cellId)
+    if (!at) return
+    const rowParent = find(this.doc, at.row.id)?.parent
+    const change = (mutate) => () => {
+      let next = null
+      this.commit((doc) => (next = mutate(doc, cellId)))
+      if (next) this.select(next.id)
+    }
+    const entries = [
+      { label: t("Add row above"), action: change((doc, id) => addRow(doc, id, "above")) },
+      { label: t("Add row below"), action: change((doc, id) => addRow(doc, id, "below")) },
+      { label: t("Add column left"), action: change((doc, id) => addColumn(doc, id, "left")) },
+      { label: t("Add column right"), action: change((doc, id) => addColumn(doc, id, "right")) },
+      { label: t("Delete row"), disabled: rows(at.table).length < 2, action: change(deleteRow) },
+      { label: t("Delete column"), disabled: columnCount(at.table) < 2, action: change(deleteColumn) }
+    ]
+    for (const type of ["loop", "condition"]) {
+      if (!rowParent || !this.allows(type) || !this.accepted(rowParent.id).includes(type)) continue
+      entries.push({ label: t(type === "loop" ? "Repeat the row in a Loop" : "Show the row in a Condition"), icon: icon(type), separator: entries.every((entry) => !entry.separator), action: change((doc, id) => wrapRow(doc, id, type)) })
+    }
+    this.showMenu(`table:${cellId}`, "table", t("Rows and columns"), rect, entries)
+  }
+
+  // A menu below (or above) `rect`, in the page's coordinates; a second click
+  // on what opened it (`anchor`) closes it. Its mousedown already closed it
+  // as an outside click, so that's checked too.
+  showMenu(anchor, kind, title, rect, entries) {
     const closed = this.menuClosed
     if (this.menu?.dataset.anchor === anchor || (closed?.anchor === anchor && Date.now() - closed.at < 500)) {
       this.closeMenu()
@@ -1005,29 +1040,28 @@ export default class extends Controller {
       return
     }
     this.closeMenu()
-    const allowed = this.accepted(parentId)
-    const items = this.paletteItems().filter((item) => allowed.includes(item.type))
-    if (!items.length) return
     this.menu = h(
       "div",
-      { class: "fixed z-50 w-56 max-h-80 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 shadow-lg", role: "menu", "data-anchor": anchor, "data-tess-edit-menu": "insert" },
-      h("div", { class: "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" }, t("Add block")),
-      items.map((item) =>
+      { class: "fixed z-50 w-56 max-h-80 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 shadow-lg", role: "menu", "data-anchor": anchor, "data-tess-edit-menu": kind },
+      h("div", { class: "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" }, title),
+      entries.flatMap((entry) => [
+        ...(entry.separator ? [h("div", { class: "my-1 border-t border-gray-200 dark:border-gray-700" })] : []),
         h(
           "button",
           {
             type: "button",
             role: "menuitem",
-            class: "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300",
+            disabled: !!entry.disabled,
+            class: "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-40 disabled:pointer-events-none",
             onclick: () => {
               this.closeMenu()
-              this.insertAt(item.key, parentId, index)
+              entry.action()
             }
           },
-          h("span", { class: "text-gray-400 dark:text-gray-500", html: icon(item.icon) }),
-          t(item.label)
+          ...(entry.icon ? [h("span", { class: "text-gray-400 dark:text-gray-500", html: entry.icon })] : []),
+          entry.label
         )
-      )
+      ])
     )
     document.body.append(this.menu)
     const width = 224
@@ -1062,6 +1096,13 @@ export default class extends Controller {
       this.closeMenu()
       return
     }
+    // Tab to the next cell of a table (Shift+Tab to the one before), from the
+    // text being edited in one or the block selected in one; unless the
+    // variable menu took it
+    if (event.key === "Tab" && !mod && !event.altKey && !event.defaultPrevented && (this.editingId || !typing) && this.tabToCell(event.shiftKey)) {
+      event.preventDefault()
+      return
+    }
     if (this.editingId) {
       if (event.key === "Escape") {
         event.preventDefault()
@@ -1094,6 +1135,39 @@ export default class extends Controller {
       const [dx, dy] = ARROWS[event.key].map((step) => step * (event.shiftKey ? 10 : 1))
       if (this.nudge(dx, dy)) event.preventDefault()
     }
+  }
+
+  // Edits the next cell's first text, or selects the cell when it has none;
+  // from the last cell it adds a row and goes to its first, once the canvas
+  // has it. False when the block isn't in a table's cell, or there's no cell
+  // before the first
+  tabToCell(backwards) {
+    const id = this.editingId || this.selectedId
+    const cell = id && cellOf(this.doc, id)
+    if (!cell) return false
+    let next = nextCell(this.doc, cell.id, { backwards })
+    const added = !next && !backwards
+    if (added) {
+      this.stopEditing()
+      this.commit((doc) => addRow(doc, cell.id, "below") && (next = nextCell(doc, cell.id)))
+    }
+    if (!next) return false
+    let text = null
+    walk(next, (node) => {
+      if (text) return false
+      const part = node !== next && inlineParts(node.type)[0]
+      if (part && this.canEditField(node.id, part.key)) text = node
+    })
+    if (!text) {
+      this.select(next.id)
+    } else if (added) {
+      this.select(text.id)
+      this.scheduleCanvas.cancel()
+      this.renderCanvas().then(() => this.selectedId === text.id && this.startEditing(text.id))
+    } else {
+      this.startEditing(text.id)
+    }
+    return true
   }
 
   // --- code dialog ----------------------------------------------------------------

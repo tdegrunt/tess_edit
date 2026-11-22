@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { accepted, createDocument, createFromPalette, createNode, find, insert } from "tess_edit/core/document"
 import { extendBlock, getBlock, paletteItems, registerBlock, registerKit } from "tess_edit/core/registry"
-import { addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, nextCell, position, rows, setColumn, span, tableOf } from "tess_edit/core/table"
+import { addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, nextCell, position, rowGroups, rows, setColumn, setColumnAt, span, tableOf, wrapRow } from "tess_edit/core/table"
 import { toMjml } from "tess_edit/export/mjml"
 
 // A kit of HTML documents that takes the table in, as the host's PDF kit does
@@ -184,4 +184,26 @@ test("a table's lines around every cell, or only under each row", () => {
   const mjml = toMjml(doc)
   assert.match(mjml, /<td style="border-bottom:1px solid #d1d5db;/)
   assert.doesNotMatch(mjml, /style="border:/)
+})
+
+test("a row is wrapped in a Loop in its place, which the canvas marks with its rows", () => {
+  const { doc, table } = paper()
+  const second = table.children[1]
+  const loop = wrapRow(doc, second.children[0].id, "loop")
+  assert.equal(loop.type, "loop")
+  assert.equal(table.children[1], loop)
+  assert.deepEqual(loop.children, [second])
+  assert.equal(rows(table).length, 3)
+
+  const condition = wrapRow(doc, second.children[0].id, "condition")
+  assert.deepEqual(loop.children, [condition])
+  assert.deepEqual(rowGroups(table).map(({ node, depth }) => [node.type, depth]), [["loop", 0], ["condition", 1]])
+})
+
+test("a column's width is set by its index, as dragging its border does", () => {
+  const { doc, table } = paper()
+  setColumnAt(doc, table.id, 1, "width", "80pt")
+  assert.deepEqual(table.data.columns.map((column) => column.width), ["", "80pt", ""])
+  setColumnAt(doc, table.id, 5, "width", "1pt")
+  assert.equal(table.data.columns.length, 3)
 })
