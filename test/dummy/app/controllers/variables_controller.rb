@@ -2,8 +2,8 @@
 # order template's, one level at a time, as Liquidum's VariablesController
 # describes a host app's drops.
 class VariablesController < ApplicationController
-  def self.variable(name, label, type = "string", collection: false, children: false, hint: nil)
-    {name: name, label: label, type: type, hint: hint, collection: collection, children: children}.compact
+  def self.variable(name, label, type = "string", collection: false, children: false, hint: nil, values: nil)
+    {name: name, label: label, type: type, hint: hint, collection: collection, children: children, values: values}.compact
   end
 
   LEVELS = {
@@ -24,6 +24,7 @@ class VariablesController < ApplicationController
       variable("name", "Name")
     ],
     "order.order_lines" => [
+      variable("kind", "Kind", values: [{value: "product", label: "Product"}, {value: "shipping", label: "Shipping"}]),
       variable("product", "Product", "object", children: true),
       variable("quantity", "Quantity", "integer")
     ],
@@ -32,6 +33,20 @@ class VariablesController < ApplicationController
       variable("price", "Price", "money")
     ]
   }.freeze
+
+  # The filters (the editor's filtersUrl), some of them, as Liquidum's FiltersController gives them
+  FILTERS = [
+    {name: "date", label: "Date in a format", arguments: [{name: "format", kind: "format"}]},
+    {name: "first", label: "The first item", arguments: [], keeps: "item"},
+    {name: "money", label: "As money", arguments: []},
+    {name: "sort", label: "Sorted", arguments: [{name: "property", kind: "property"}], keeps: "collection"},
+    {name: "upcase", label: "In capitals", arguments: []},
+    {name: "where", label: "Those whose property has the value", arguments: [{name: "property", kind: "property"}, {name: "value", kind: "value"}], keeps: "collection"}
+  ].freeze
+
+  def filters
+    render json: {filters: FILTERS}
+  end
 
   def index
     path = params[:path].to_s

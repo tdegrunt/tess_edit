@@ -45,7 +45,7 @@ class VariablesTest < ApplicationSystemTestCase
     link.send_keys(:enter)
     assert_equal "{{ order.order_lines.first.", link.value
     assert_option "quantity"
-    assert_equal %w[product quantity], option_names
+    assert_equal %w[kind product quantity], option_names
   end
 
   test "arrow keys choose, Escape closes" do
@@ -89,7 +89,7 @@ class VariablesTest < ApplicationSystemTestCase
       find(".ProseMirror").send_keys(:end, " {{ line.")
     end
     assert_option "quantity"
-    assert_equal %w[product quantity], option_names
+    assert_equal %w[kind product quantity], option_names
     within_canvas { find(".ProseMirror").send_keys("pro", :enter) }
     assert_option "price"
     within_canvas { find(".ProseMirror").send_keys("na", :enter) }
@@ -118,6 +118,35 @@ class VariablesTest < ApplicationSystemTestCase
     find(".tess-edit button[title='Insert a variable']").click
     within("[role=listbox]") { click_on "Shop" }
     within_canvas { assert_text "Shop at {{ shop_url }}" }
+  end
+
+  test "after a | the filters, then a where's property and the values it can have" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys("{{ order.order_lines | wh")
+    assert_option "where"
+    link.send_keys(:enter)
+    assert_equal "{{ order.order_lines | where: ", link.value
+    assert_option '"kind"'
+    assert_equal ['"kind"', '"product"', '"quantity"'], option_names
+
+    link.send_keys(:enter)
+    assert_equal '{{ order.order_lines | where: "kind", ', link.value
+    assert_equal ['"product"', '"shipping"'], option_names
+    link.send_keys('"sh', :enter)
+    assert_equal '{{ order.order_lines | where: "kind", "shipping"', link.value
+    assert_no_selector "[role=listbox]"
+  end
+
+  test "a comparison suggests the values of what it compares, through an assign" do
+    link = setting("Link")
+    link.set("")
+    link.send_keys('{% assign line = order.order_lines | where: "kind", "product" | first %}{% if line.')
+    assert_option "kind"
+    link.send_keys("ki", :enter, " == ")
+    assert_equal ['"product"', '"shipping"'], option_names
+    link.send_keys(:down, :enter)
+    assert_equal '{% assign line = order.order_lines | where: "kind", "product" | first %}{% if line.kind == "shipping"', link.value
   end
 
   test "without a variablesUrl there are no suggestions or buttons" do

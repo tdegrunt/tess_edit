@@ -20,7 +20,7 @@ import { fieldType, getBlock, label } from "tess_edit/core/registry"
 import { ALIGN, fontOptions } from "tess_edit/blocks/fields"
 import { find, getValue } from "tess_edit/core/document"
 import { translationCalls } from "tess_edit/core/translations"
-import { loopScope } from "tess_edit/core/variables"
+import { liquidScope } from "tess_edit/core/liquid"
 import { CELL, ROW, TABLE, addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, position, rows, setColumn } from "tess_edit/core/table"
 import { codeInput } from "tess_edit/ui/code_input"
 import { FontPicker } from "tess_edit/ui/font_picker"
@@ -348,7 +348,7 @@ export class Inspector {
     this.inputs.set(field.key, input)
     if (!this.editor.variableMenu) return input
     const mode = field.liquid === "expression" || field.liquid === "collection" ? field.liquid : "output"
-    const adapter = inputAdapter(input, { mode, scope: loopScope(this.editor.doc, node.id) })
+    const adapter = inputAdapter(input, { mode, scope: liquidScope(this.editor.doc, node.id) })
     suggestIn(this.editor.variableMenu, input, adapter)
     this.adapters.set(field.key, adapter)
     return input

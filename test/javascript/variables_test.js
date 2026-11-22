@@ -15,21 +15,31 @@ const LEVELS = {
   ],
   "order.customer": [{ name: "name", label: "Name", type: "string", collection: false, children: false }],
   "order.order_lines": [
+    { name: "kind", label: "Kind", type: "string", collection: false, children: false, values: [{ value: "product", label: "Product" }, { value: "shipping", label: "Shipping" }] },
     { name: "product", label: "Product", type: "object", collection: false, children: true },
     { name: "quantity", label: "Quantity", type: "integer", collection: false, children: false }
   ],
   "order.order_lines.product": [{ name: "name", label: "Name", type: "string", collection: false, children: false }]
 }
 
-function variables() {
+// What Liquidum's FiltersController answers, in part
+const FILTERS = [
+  { name: "where", label: "Those whose property has the value", arguments: [{ name: "property", kind: "property" }, { name: "value", kind: "value" }], keeps: "collection" },
+  { name: "first", label: "The first item", arguments: [], keeps: "item" },
+  { name: "size", label: "Number of items", arguments: [] },
+  { name: "money", label: "As money", arguments: [] }
+]
+
+function variables({ filters = false } = {}) {
   const requests = []
   const fetch = async (url) => {
+    if (url.pathname === "/liquidum/filters") return { ok: true, status: 200, json: async () => ({ filters: FILTERS }) }
     const path = url.searchParams.get("path") || ""
     requests.push(path)
     if (!(path in LEVELS)) return { ok: false, status: 404 }
     return { ok: true, status: 200, json: async () => ({ path, variables: LEVELS[path] }) }
   }
-  const result = new Variables("/liquidum/variables?roots=signed", { fetch })
+  const result = new Variables("/liquidum/variables?roots=signed", { fetch, filtersUrl: filters ? "/liquidum/filters" : null })
   result.requests = requests
   return result
 }
@@ -65,7 +75,7 @@ test("keeps the roots it is given in the url, and asks for each level once", asy
 test("a collection has first, last and size, and first goes into its elements", async () => {
   const v = variables()
   assert.deepEqual(names(await v.options("order.order_lines")), ["first", "last", "size"])
-  assert.deepEqual(names(await v.options("order.order_lines.first")), ["product", "quantity"])
+  assert.deepEqual(names(await v.options("order.order_lines.first")), ["kind", "product", "quantity"])
   assert.deepEqual(names(await v.options("order.order_lines.last.product")), ["name"])
 })
 
@@ -80,7 +90,7 @@ test("in a loop its variable is a root, with the elements' variables", async () 
   const v = variables()
   const scope = [{ variable: "line", collection: "order.order_lines" }]
   assert.deepEqual(names(await v.options("", scope)), ["line", "order"])
-  assert.deepEqual(names(await v.options("line", scope)), ["product", "quantity"])
+  assert.deepEqual(names(await v.options("line", scope)), ["kind", "product", "quantity"])
   assert.deepEqual(names(await v.options("line.product", scope)), ["name"])
 })
 
@@ -139,4 +149,45 @@ test("a space after {{ when there is none, and a Loop's collection ends at a col
   const lines = { name: "order_lines", children: true, collection: true }
   assert.deepEqual(completion(lines, { collection: true }), { text: "order_lines", more: false })
   assert.deepEqual(completion(lines, {}), { text: "order_lines.", more: true })
+})
+
+test("the host's filters, by name; none without a filtersUrl", async () => {
+  assert.deepEqual([...(await variables({ filters: true }).filters()).keys()], ["where", "first", "size", "money"])
+  assert.equal((await variables().filters()).size, 0)
+})
+
+test("an Assign is a variable: a collection through filters that keep one, an item through first", async () => {
+  const v = variables({ filters: true })
+  const scope = [
+    { variable: "product", expression: "order.order_lines | first | money" },
+    { variable: "line", expression: "shipping | first" },
+    { variable: "shipping", expression: 'order.order_lines | where: "kind", "shipping"' },
+    { variable: "buyer", expression: "order.customer" }
+  ]
+  assert.deepEqual(await v.resolveScope(scope), [
+    { variable: "line", collection: "shipping" },
+    { variable: "shipping", path: "order.order_lines" },
+    { variable: "buyer", path: "order.customer" }
+  ])
+  const roots = await v.options("", scope)
+  assert.deepEqual(names(roots), ["line", "shipping", "buyer", "order"])
+  assert.equal(roots.find((root) => root.name === "shipping").collection, true)
+  assert.deepEqual(names(await v.options("shipping", scope)), ["first", "last", "size"])
+  assert.deepEqual(names(await v.options("line", scope)), ["kind", "product", "quantity"])
+  assert.deepEqual(names(await v.options("buyer", scope)), ["name"])
+  assert.deepEqual(names(await v.options("shipping.first.product", scope)), ["name"])
+})
+
+test("without the host's filters, Liquid's own that keep a collection still do", async () => {
+  const v = variables()
+  assert.deepEqual(await v.resolveScope([{ variable: "lines", expression: 'order.order_lines | where: "kind", "product" | sort' }]), [{ variable: "lines", path: "order.order_lines" }])
+  assert.deepEqual(await v.resolveScope([{ variable: "n", expression: "order.order_lines | size" }]), [])
+})
+
+test("a variable's values, through a loop or an Assign", async () => {
+  const v = variables({ filters: true })
+  const scope = [{ variable: "line", collection: "lines" }, { variable: "lines", expression: "order.order_lines" }]
+  assert.deepEqual((await v.lookup("line.kind", scope)).values.map((value) => value.value), ["product", "shipping"])
+  assert.equal((await v.lookup("order.number", scope)).values, undefined)
+  assert.equal(await v.lookup("", scope), null)
 })

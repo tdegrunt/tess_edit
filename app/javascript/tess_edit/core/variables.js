@@ -11,10 +11,28 @@
 // In Liquid a collection's elements are reached through a Loop block's
 // variable ({% for line in order.order_lines %} → line.product) or with
 // first and last (order.order_lines.first.product), so those are resolved to
-// such a path before asking.
+// such a path before asking. An Assign's variable is what its expression
+// comes to: through filters that keep a collection what it is (the host's
+// filtersUrl says which, `keeps`), `lines = order.order_lines | where: …` is
+// those lines still.
+//
+// The filters, for what follows a |, come from the editor's filtersUrl:
+//
+//   GET → { filters: [{ name, label, arguments: [{ name, kind }], keeps }] }
+//
+// as Liquidum's FiltersController answers. A variable with `values`
+// ([{ value, label }]) has those only, for a comparison or a where filter.
 
 import { ancestors } from "tess_edit/core/document"
 import { t } from "tess_edit/core/i18n"
+import { expressionParts } from "tess_edit/core/liquid"
+
+// What filters on a collection leave, without the host's: the same items, or one
+export const KEEPS = {
+  where: "collection", where_exp: "collection", reject: "collection", sort: "collection", sort_natural: "collection",
+  reverse: "collection", uniq: "collection", compact: "collection", concat: "collection",
+  first: "item", last: "item", find: "item"
+}
 
 // The members Liquid gives every collection
 export const COLLECTION_MEMBERS = [
@@ -26,10 +44,48 @@ export const COLLECTION_MEMBERS = [
 const ELEMENT = new Set(["first", "last"])
 
 export class Variables {
-  constructor(url, { fetch: fetcher = (...args) => fetch(...args) } = {}) {
+  constructor(url, { fetch: fetcher = (...args) => fetch(...args), filtersUrl = null } = {}) {
     this.url = url
+    this.filtersUrl = filtersUrl
     this.fetch = fetcher
     this.levels = new Map()
+  }
+
+  // The host's filters, by name, cached; none without its filtersUrl
+  filters() {
+    if (!this.filtersUrl) return Promise.resolve(new Map())
+    this.filterList ||= this.get(this.filtersUrl, {}).then((body) => new Map((body.filters || []).map((filter) => [filter.name, filter])))
+    this.filterList.catch(() => (this.filterList = null))
+    return this.filterList
+  }
+
+  async get(path, params) {
+    const url = new URL(path, window.location.href)
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+    const response = await this.fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
+    if (!response.ok) throw new Error(t("Loading the variables failed (%{status})", { status: `${response.status} ${response.statusText}` }))
+    return response.json()
+  }
+
+  // A scope from core/liquid.js with its Assigns made paths: a Loop's
+  // variable and an Assign of one item ({ variable, collection }) are each of
+  // a collection; an Assign of a collection or a value ({ variable, path })
+  // stands for its path. One that can't be followed isn't there.
+  async resolveScope(scope = []) {
+    if (!scope.some((entry) => entry.expression)) return scope
+    const filters = await this.filters().catch(() => new Map())
+    return scope.flatMap((entry) => {
+      if (!entry.expression) return [entry]
+      const parts = expressionParts(entry.expression)
+      if (!parts) return []
+      let item = false
+      for (const name of parts.filters) {
+        const keeps = filters.get(name)?.keeps ?? KEEPS[name]
+        if (keeps === "item" && !item) item = true
+        else if (keeps !== "collection") return []
+      }
+      return [item ? { variable: entry.variable, collection: parts.path } : { variable: entry.variable, path: parts.path }]
+    })
   }
 
   get enabled() {
@@ -59,13 +115,29 @@ export class Variables {
   // in a loop over order.order_lines, or "order.order_lines" (a collection:
   // first, last and size). scope is from loopScope.
   async options(path, scope = []) {
+    scope = await this.resolveScope(scope)
     const names = path ? path.split(".") : []
-    if (!names.length) return [...scope.map(loopVariable), ...(await this.at(""))]
+    if (!names.length) {
+      const own = []
+      for (const [index, entry] of scope.entries()) {
+        if (own.some((variable) => variable.name === entry.variable)) continue
+        // What it stands for, of the scope around it
+        const target = entry.path && (await this.variable(entry.path.split("."), scope.slice(index + 1)))
+        own.push(entry.path ? { ...(target || { children: false }), name: entry.variable, label: t("Assigned %{path}", { path: entry.path }), assign: true } : loopVariable(entry))
+      }
+      return [...own, ...(await this.at(""))]
+    }
 
     const variable = await this.variable(names, scope)
     if (!variable?.children) return []
     if (variable.collection) return COLLECTION_MEMBERS
     return this.at(resolve(names, scope))
+  }
+
+  // The variable a path as written comes to, with a scope from core/liquid.js
+  async lookup(path, scope = []) {
+    if (!path) return null
+    return this.variable(path.split("."), await this.resolveScope(scope))
   }
 
   // What the last name of a path is: a variable with children, a collection, …
@@ -74,6 +146,7 @@ export class Variables {
     const parent = names.slice(0, -1)
     if (!parent.length) {
       const own = scope.find((entry) => entry.variable === last)
+      if (own?.path) return { ...(await this.variable(own.path.split("."), scope.slice(scope.indexOf(own) + 1))), name: last }
       if (own) return loopVariable(own)
     } else if (ELEMENT.has(last)) {
       const collection = await this.variable(parent, scope)
@@ -94,8 +167,8 @@ export function resolve(names, scope = []) {
   let resolved = [...names]
   // Inner loops first: their collection can start with an outer loop's variable
   for (let i = 0; i < scope.length; i++) {
-    for (const { variable, collection } of scope) {
-      if (resolved[0] === variable) resolved = [...collection.split("."), ...resolved.slice(1)]
+    for (const { variable, collection, path } of scope) {
+      if (resolved[0] === variable && (collection || path)) resolved = [...(collection || path).split("."), ...resolved.slice(1)]
     }
   }
   return resolved.filter((name) => !ELEMENT.has(name) && !/^\d+$/.test(name)).join(".")

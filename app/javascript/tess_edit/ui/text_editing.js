@@ -79,7 +79,7 @@ export class TextEditing {
     return element
   }
 
-  // scope: the loop variables of the block (core/variables.js loopScope)
+  // scope: the Loops' and Assigns' variables of the block (core/liquid.js liquidScope)
   start(container, content, onUpdate, { scope = [] } = {}) {
     this.stop()
     container.replaceChildren()

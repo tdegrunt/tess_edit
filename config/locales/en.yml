@@ -39,6 +39,7 @@ en:
       all_panels_on_the_right: "All panels on the right"
       alt_text: "Alt text"
       assign: "Assign"
+      assigned_path: "Assigned %{path}"
       auto: "Auto"
       background: "Background"
       background_image: "Background image"

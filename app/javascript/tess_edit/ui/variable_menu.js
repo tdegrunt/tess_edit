@@ -11,10 +11,15 @@
 //   scope                    the loop variables there (core/variables.js loopScope)
 //
 // See inputAdapter below and TextEditing for Tiptap's. With the host's
-// translations it also suggests their keys while typing {{ '.
+// translations it also suggests their keys while typing {{ '. What it
+// suggests depends on what's being written (core/liquid.js liquidContext): a
+// variable; after a |, the host's filters; a filter's argument, a property of
+// the collection's items ("party") or a value it can have ("sponsor"); and
+// after == or !=, the values of the variable compared.
 
+import { expressionParts, liquidContext, quoted, textScope } from "tess_edit/core/liquid"
 import { keyCompletion, keyToken } from "tess_edit/core/translations"
-import { completion, liquidToken } from "tess_edit/core/variables"
+import { completion } from "tess_edit/core/variables"
 import { t } from "tess_edit/core/i18n"
 import { h } from "tess_edit/ui/dom"
 
@@ -47,27 +52,98 @@ export class VariableMenu {
     const key = this.editor.translations?.enabled && adapter.mode === "output" && keyToken(before)
     if (key) return this.suggestKeys(adapter, key)
     if (!this.editor.variables?.enabled) return this.close()
-    const token = liquidToken(before, adapter.mode === "output" ? "output" : "expression")
-    if (!token) return this.close()
-
-    const dot = token.path.lastIndexOf(".")
-    const parent = dot < 0 ? "" : token.path.slice(0, dot)
-    const partial = token.path.slice(dot + 1).toLowerCase()
-    const start = token.start + dot + 1
+    const context = liquidContext(before, adapter.mode === "output" ? "output" : "expression")
+    if (!context) return this.close()
+    const scope = [...textScope(before), ...(adapter.scope || [])]
     const request = ++this.request
-    let items
+    let found
     try {
-      items = await this.editor.variables.options(parent, adapter.scope)
+      found = await this.options(context, scope)
     } catch (error) {
-      items = []
+      found = null
     }
     if (request !== this.request) return
-    // Names that start with what's typed first, then labels that have it
-    const named = items.filter((item) => item.name.toLowerCase().startsWith(partial))
-    items = [...named, ...items.filter((item) => !named.includes(item) && item.label?.toLowerCase().includes(partial))]
-    if (!items.length || (items.length === 1 && items[0].name.toLowerCase() === partial && !items[0].children)) return this.close()
+    if (!found?.items.length) return this.close()
+    this.show({ adapter, browse: false, items: found.items, index: 0, choose: found.choose })
+  }
 
-    this.show({ adapter, browse: false, items, index: 0, choose: (item) => this.complete(adapter, token, start, item) })
+  // What fits a context, those starting with what's typed first, then those
+  // whose label has it: { items, choose }
+  async options(context, scope) {
+    const variables = this.editor.variables
+    if (context.kind === "variable") return this.variableOptions(context, context.path, scope)
+    if (context.kind === "filter") {
+      const filters = [...(await variables.filters()).values()]
+      const items = ranked(filters.map((filter) => ({ name: filter.name, label: filter.label, hint: signature(filter), filter })), context.partial)
+      if (items.length === 1 && items[0].name === context.partial && !items[0].filter.arguments?.length) return null
+      return {
+        items,
+        choose: async (item) => {
+          const adapter = this.state.adapter
+          const more = item.filter.arguments?.length > 0
+          adapter.replace(context.start, adapter.before().length, more ? `${item.name}: ` : item.name)
+          more ? await this.suggest(adapter) : this.close()
+        }
+      }
+    }
+    if (context.kind === "argument") {
+      const filter = (await variables.filters()).get(context.filter)
+      const kind = filter?.arguments?.[context.index]?.kind
+      const more = filter?.arguments?.length > context.index + 1
+      if (kind === "property" || kind === "value") {
+        const elements = await this.elements(context.input, scope)
+        if (!elements) return null
+        const choices = kind === "property"
+          ? elements.map((variable) => ({ value: variable.name, label: variable.label }))
+          : elements.find((variable) => variable.name === context.args[context.index - 1])?.values || []
+        return this.quotedOptions(context, choices, more)
+      }
+      return context.quote ? null : this.variableOptions(context, context.partial, scope)
+    }
+    if (context.kind === "value") {
+      const variable = await variables.lookup(context.of, scope)
+      return this.quotedOptions(context, variable?.values || [], false)
+    }
+    return null
+  }
+
+  // The variables for a path being typed, from `context.start`
+  async variableOptions(context, path, scope) {
+    const dot = path.lastIndexOf(".")
+    const parent = dot < 0 ? "" : path.slice(0, dot)
+    const partial = path.slice(dot + 1)
+    const start = context.start + dot + 1
+    const items = ranked(await this.editor.variables.options(parent, scope), partial)
+    if (items.length === 1 && items[0].name.toLowerCase() === partial.toLowerCase() && !items[0].children) return null
+    return { items, choose: (item) => this.complete(this.state.adapter, context, start, item) }
+  }
+
+  // The variables of a collection's items, for a filter on it: in
+  // `lines | where: "`, those of each line
+  async elements(input, scope) {
+    const parts = expressionParts(input)
+    if (!parts) return null
+    const [entry] = await this.editor.variables.resolveScope([{ variable: "\u0000", expression: input }])
+    if (!entry?.path) return null
+    const collection = await this.editor.variables.lookup(entry.path, scope)
+    if (!collection?.collection) return null
+    return this.editor.variables.options(`${entry.path}.first`, scope)
+  }
+
+  // Values in quotes ({ value, label }), then a comma for the next argument
+  quotedOptions(context, choices, more) {
+    const items = ranked(choices.map((choice) => ({ name: `"${choice.value}"`, value: choice.value, label: choice.label })), context.partial, (item) => item.value)
+    if (!items.length || (items.length === 1 && items[0].value === context.partial)) return null
+    return {
+      items,
+      choose: async (item) => {
+        const adapter = this.state.adapter
+        const before = adapter.before()
+        const { text, through } = quoted(item.value, { quote: context.quote, after: adapter.after() })
+        adapter.replace(context.start, before.length + through, more ? `${text}, ` : text)
+        more ? await this.suggest(adapter) : this.close()
+      }
+    }
   }
 
   // The translation keys with what's typed, those that start with it first,
@@ -94,6 +170,7 @@ export class VariableMenu {
   }
 
   async complete(adapter, token, start, item) {
+    if (!adapter) return
     const before = adapter.before()
     const { text, more } = completion(item, { tag: token.tag, before: before.slice(0, start), after: adapter.after(), collection: adapter.mode === "collection" })
     adapter.replace(start, before.length, text)
@@ -258,4 +335,18 @@ export function suggestIn(menu, input, adapter) {
   input.addEventListener("input", (event) => event.isTrusted && menu.suggest(adapter))
   input.addEventListener("keydown", (event) => menu.key(event))
   input.addEventListener("blur", () => !menu.state?.browse && menu.close())
+}
+
+// Those whose name (or `name(item)`) starts with what's typed, then those
+// whose label has it
+function ranked(items, partial, name = (item) => item.name) {
+  const typed = (partial || "").toLowerCase()
+  const named = items.filter((item) => name(item).toLowerCase().startsWith(typed))
+  return [...named, ...items.filter((item) => !named.includes(item) && item.label?.toLowerCase().includes(typed))]
+}
+
+// A filter as it's written: date: format
+function signature(filter) {
+  const args = (filter.arguments || []).map((argument) => argument.name)
+  return args.length ? `${filter.name}: ${args.join(", ")}` : filter.name
 }

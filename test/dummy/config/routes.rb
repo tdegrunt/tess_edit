@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get "media", to: "media#index", as: :media
   post "media", to: "media#create"
   get "variables", to: "variables#index", as: :variables
+  get "filters", to: "variables#filters", as: :filters
   get "snippets", to: "snippets#index", as: :snippets
   get "translations", to: "translations#index", as: :translations
   patch "translations", to: "translations#update"

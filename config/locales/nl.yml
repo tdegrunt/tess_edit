@@ -39,6 +39,7 @@ nl:
       all_panels_on_the_right: "Alle panelen rechts"
       alt_text: "Alternatieve tekst"
       assign: "Toekennen"
+      assigned_path: "Toegewezen: %{path}"
       auto: "Automatisch"
       background: "Achtergrond"
       background_image: "Achtergrondafbeelding"

@@ -18,7 +18,7 @@ It completes Liquid tags and variables as you type, making it easier to work wit
 - **Tables**: Table, Row and Cell blocks, a cell holding any blocks, with Loops and Conditions (and Assigns) between the rows. On the canvas a cell's menu adds and deletes rows and columns and puts its row in a Loop or Condition, a column's border is dragged to set its width, Tab goes from cell to cell (adding a row after the last), and a bracket by a Loop's or Condition's rows shows what they are.
 - Drag from the Blocks panel onto the canvas or into the Layers tree; move blocks on the canvas (drag handle) or in the tree; plus buttons and empty-column placeholders open an "Add block" menu.
 - Rich text editing on the canvas with [Tiptap](https://tiptap.dev): bold, italic, underline, strikethrough, colour, links (Liquid allowed in the URL), alignment, lists and headings. A block can have several texts edited on the canvas, rich or a plain line, such as a question's label and its description.
-- Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block.
+- Your app's Liquid variables suggested while typing `{{`, in text and in settings, and browsable from `{ }` buttons, including those of the Loop blocks around a block and the Assigns before it; after a `|` your app's filters, with a where's property and the values it can have, and after `==` the values of what's compared.
 - Your app's translations for Liquid's `t` filter (`{{ '.greeting' | t }}`) shown as their text in a language of your choice, with every language's text, missing ones marked, editable when pointed at, and selected text made translatable.
 - Your app's values for the Liquid in a document (`{{ customer.first_name }}` as "Ada"), shown in its place until the caret goes into it.
 - Clicking a tile in the Blocks panel adds the block in or after the selection, or else at the end of the last block it fits in.
@@ -252,6 +252,18 @@ The endpoint answers `GET` with the variables at `path` (the roots without one),
 ```
 
 `children` says a variable has variables of its own, at the path with its name added; a `collection` is a list of them, and its path goes into its elements (`order.order_lines.product`). The editor offers a collection's `first`, `last` and `size`, and inside a Loop block (`{% for line in order.order_lines %}`) its variable, `line`, asking for `order.order_lines.…` for it. An unknown path answers 404. [Liquidum](https://github.com/entdec/liquidum)'s `/liquidum/variables` answers this way from your drops; the dummy app's `VariablesController` is a fixed example (`/?variables=1`).
+
+An Assign block before a block (in its container, or in one around it), and `{% assign %}` or an open `{% for %}` earlier in the same text, are variables there too. An Assign's variable is what its expression comes to: `{% assign lines = order.order_lines | where: "kind", "product" %}` is still order lines, through filters that keep a collection (`where`, `sort`, `reverse`, …), and `| first` makes it one of them, so `{% for line in lines %}` completes `line.` as a line.
+
+A variable with `values` (`"values": [{"value": "shipping", "label": "Shipping"}]`) can only be those: after `line.kind == ` the editor suggests them, quoted.
+
+With `data-tess-edit-filters-url-value` the editor also completes filters: after a `|` the filters, each with its label, and choosing one writes `| where: `, going on with its arguments: a property of the collection's items (`"kind"`) and the values it can have (`"shipping"`). The endpoint answers `GET` with:
+
+```json
+{"filters": [{"name": "where", "label": "Those whose property has the value", "arguments": [{"name": "property", "kind": "property"}, {"name": "value", "kind": "value"}], "keeps": "collection"}]}
+```
+
+An argument's `kind` is `property`, `value` (one the property before it can have) or anything else, where the editor suggests variables. `keeps` says what a filter on a collection leaves: the same items (`"collection"`) or one of them (`"item"`); without the endpoint Liquid's own are known. Liquidum's `/liquidum/filters` answers this way, with your app's filters as well; the dummy app's `VariablesController#filters` is an example.
 
 The endpoint can change while the editor is open, say when the record a template is for changes: set `data-tess-edit-variables-url-value` again and the editor asks the new one.
 

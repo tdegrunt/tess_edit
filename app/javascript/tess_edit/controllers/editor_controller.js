@@ -23,6 +23,8 @@
 //                 and browsed with { } buttons (see core/variables.js), e.g.
 //                 Liquidum's /liquidum/variables?roots=…; a host can change it,
 //                 e.g. when the class a template is for changes
+//   filtersUrl  the filters a template can use, suggested after a | with their
+//               arguments (see core/variables.js), e.g. Liquidum's /liquidum/filters
 //   translationsUrl  the host's translations for Liquid's t filter ({{ '.greeting' | t }}),
 //                    shown in a language chosen in the top bar, listed and edited
 //                    while pointed at, and made from selected text (see
@@ -61,7 +63,8 @@ import { COMPILE_URL } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
 import { Values } from "tess_edit/core/values"
-import { Variables, loopScope } from "tess_edit/core/variables"
+import { Variables } from "tess_edit/core/variables"
+import { liquidScope } from "tess_edit/core/liquid"
 import { addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, nextCell, position, rows, wrapRow } from "tess_edit/core/table"
 import { Canvas } from "tess_edit/ui/canvas"
 import { freeChild, number } from "tess_edit/ui/free_layout"
@@ -93,7 +96,7 @@ function placed(node, at) {
 }
 
 export default class extends Controller {
-  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
+  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, filtersUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
   static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot", "translations"]
 
   connect() {
@@ -123,7 +126,7 @@ export default class extends Controller {
     this.sheetOpen = false
     this.requests = {}
     this.media = { enabled: Boolean(this.mediaUrlValue), images: [], uploading: false, error: null }
-    this.variables = new Variables(this.variablesUrlValue)
+    this.variables = new Variables(this.variablesUrlValue, { filtersUrl: this.filtersUrlValue })
     this.translations = new Translations(this.translationsUrlValue)
     this.translationPopover = this.translations.enabled ? new TranslationPopover(this) : null
     this.values = new Values()
@@ -163,7 +166,7 @@ export default class extends Controller {
   // Points the editor at other variables (variablesUrl), once it's connected
   variablesUrlValueChanged() {
     if (!this.variables) return
-    this.variables = new Variables(this.variablesUrlValue)
+    this.variables = new Variables(this.variablesUrlValue, { filtersUrl: this.filtersUrlValue })
     if (!this.variableMenu && this.variables.enabled) {
       this.variableMenu = new VariableMenu(this)
       this.textEditing.menu = this.variableMenu
@@ -838,7 +841,7 @@ export default class extends Controller {
       this.scheduleOutputs()
     }
     if (part.plain) this.textEditing.startPlain(container, getValue(hit.node, part.key), update, () => this.stopEditing())
-    else this.textEditing.start(container, getValue(hit.node, part.key), update, { scope: loopScope(this.doc, id) })
+    else this.textEditing.start(container, getValue(hit.node, part.key), update, { scope: liquidScope(this.doc, id) })
     this.canvas.refresh()
   }
 
