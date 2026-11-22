@@ -10,6 +10,7 @@ const LEVELS = {
   "": [{ name: "order", label: "Order", type: "object", collection: false, children: true }],
   order: [
     { name: "number", label: "Order number", type: "string", collection: false, children: false },
+    { name: "paid?", label: "Paid", type: "boolean", collection: false, children: false },
     { name: "lines", label: "Lines", type: "object", collection: true, children: true }
   ],
   "order.lines": [
@@ -77,6 +78,8 @@ test("variables that aren't there, the first name that isn't", async () => {
   assert.deepEqual(await check("{{ order.lines.first.prodct.name }}"), [["prodct", "order.lines.first has no prodct"]])
   // Not past a value, whose variables aren't known
   assert.deepEqual(await check("{{ order.number.whatever }}"), [])
+  // A name ending in ?, with or without it
+  assert.deepEqual(await check("{%if order.paid?%}{% endif %}{{ order.paid }}{{ order.number? }}"), [])
   // Nor what's quoted, numbers, words, named arguments
   assert.deepEqual(await check(`{{ "ordr.x" | t: name: order.number }} {% if order.number == blank and 1.5 > 1 %}{% endif %}`), [])
 })

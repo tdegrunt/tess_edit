@@ -256,7 +256,7 @@ async function checkPath(path, context, local) {
   if (!own) {
     context.roots ||= await variables.options("", context.scope).catch(() => [])
     if (!context.roots.length) return null
-    if (!context.roots.some((variable) => variable.name === root)) return { at: 0, length: root.length, message: t("There's no variable %{name}", { name: root }) }
+    if (!context.roots.some((variable) => [root, names[0]].includes(variable.name))) return { at: 0, length: root.length, message: t("There's no variable %{name}", { name: root }) }
   }
   // Each name after it, as far as its parent's variables are known
   let at = names[0].length + 1
@@ -266,8 +266,9 @@ async function checkPath(path, context, local) {
     if (!variable?.children) return null
     const options = await variables.options(parent, scope).catch(() => [])
     if (!options.length) return null
+    // A method's name may end in ? (screening.payment_needed?), as Liquid allows, with or without it
     const name = names[i].replace(/\?$/, "")
-    if (name !== "size" && !options.some((option) => option.name === name)) return { at, length: names[i].length, message: t("%{path} has no %{name}", { path: parent, name }) }
+    if (name !== "size" && !options.some((option) => [name, `${name}?`].includes(option.name))) return { at, length: names[i].length, message: t("%{path} has no %{name}", { path: parent, name }) }
     at += names[i].length + 1
   }
   return null
