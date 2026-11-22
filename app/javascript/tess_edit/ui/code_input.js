@@ -97,6 +97,8 @@ function insert(textarea, text) {
 }
 
 function onKeydown(event) {
+  // Taken by the variable menu
+  if (event.defaultPrevented) return
   const textarea = event.target
   const { value, selectionStart: start, selectionEnd: end } = textarea
   if (event.key === "Tab" && !event.altKey && !event.metaKey && !event.ctrlKey) {

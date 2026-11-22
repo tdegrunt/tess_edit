@@ -70,7 +70,7 @@ class TranslationsTest < ApplicationSystemTestCase
   test "selected text on the canvas becomes a translation, shown as its text" do
     within_canvas do
       find("td[class^='tess-']", text: "Thanks for your order,").double_click
-      find(".ProseMirror").send_keys([select_all_key, "a"])
+      select_all_text
     end
     find(".tess-edit button[title^='Make translatable']").click
     within("[role=dialog][aria-label='Make translatable']") { assert_selector "[data-tess-edit-translation-text] span", text: "first_name" }

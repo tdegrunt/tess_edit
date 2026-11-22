@@ -51,7 +51,7 @@ class VariablesController < ApplicationController
   FORMATS = [{value: "%e %B %Y", label: "Date, long"}, {value: "%d-%m-%Y", label: "Date, default"}].freeze
 
   FILTERS = [
-    {name: "date", label: "Date in a format", arguments: [{name: "format", kind: "format", values: FORMATS}]},
+    {name: "date", label: "Date in a format", arguments: [{name: "format", kind: "format", values: FORMATS, optional: false}]},
     {name: "first", label: "The first item", arguments: [], keeps: "item"},
     {name: "localize", label: "In a language", arguments: [{name: "locale", kind: "locale", values: [{value: "en", label: "en"}, {value: "nl", label: "nl"}]}, {name: "format", kind: "format"}]},
     {name: "money", label: "As money", arguments: []},

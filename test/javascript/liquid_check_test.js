@@ -22,7 +22,9 @@ const FILTERS = [
   { name: "where", label: "", arguments: [{ name: "property", kind: "property" }, { name: "value", kind: "value" }], keeps: "collection" },
   { name: "first", label: "", arguments: [], keeps: "item" },
   { name: "t", label: "", arguments: [{ name: "key", kind: "key" }] },
-  { name: "money", label: "", arguments: [] }
+  { name: "money", label: "", arguments: [] },
+  { name: "date", label: "", arguments: [{ name: "format", kind: "format", optional: false }] },
+  { name: "truncate", label: "", arguments: [{ name: "length", kind: "any", optional: true }, { name: "ellipsis", kind: "any", optional: true }] }
 ]
 const TAGS = ["assign", "capture", "case", "comment", "for", "if", "raw", "unless", "increment"].map((name) => ({ name, block: ["capture", "case", "comment", "for", "if", "raw", "unless"].includes(name) }))
   .concat([{ name: "signature_field", block: true }])
@@ -136,4 +138,12 @@ test("a document's Liquid: its fields in their mode, its rich texts, and other t
   await checker.check()
   assert.deepEqual(checker.field(loop.id, "data.collection").problems.map((problem) => problem.message), ["order has no lins"])
   assert.equal(checker.problems(text.id).length, 0)
+})
+
+test("a filter without an argument it needs, when the host says which can be left out", async () => {
+  assert.deepEqual(await check("{{ order.number | date }} {{ order.number | date: }}"), [["date", "date needs 1 argument"], ["date", "date needs 1 argument"]])
+  assert.deepEqual(await check("{{ order.number | date: '%Y' | truncate }} {{ order.number | truncate: 5, '…' }}"), [])
+  assert.deepEqual(await check("{{ order.number | truncate: 1, 2, 3 }}"), [["truncate", "truncate takes 2 arguments, not 3"]])
+  // Not when it doesn't say (where's here)
+  assert.deepEqual(await check("{{ order.lines | where }}"), [])
 })

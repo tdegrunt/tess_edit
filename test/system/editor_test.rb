@@ -43,7 +43,7 @@ class EditorTest < ApplicationSystemTestCase
   test "a link is added, changed and removed in a dialog" do
     within_canvas do
       find("td[class^='tess-']", text: "We've received order").double_click
-      find(".ProseMirror").send_keys([select_all_key, "a"])
+      select_all_text
     end
     find(".tess-edit button[title='Link']").click
     within("[role=dialog][aria-label='Add link']") do

@@ -405,7 +405,8 @@ export function inputAdapter(input, { mode = "output", scope = [] } = {}) {
 // Suggestions while typing in an input or textarea
 export function suggestIn(menu, input, adapter) {
   input.addEventListener("input", (event) => event.isTrusted && menu.suggest(adapter))
-  input.addEventListener("keydown", (event) => menu.key(event))
+  // Before the input's own keys (a code field's Tab and Enter)
+  input.addEventListener("keydown", (event) => menu.key(event), true)
   input.addEventListener("blur", () => !menu.state?.browse && menu.close())
 }
 

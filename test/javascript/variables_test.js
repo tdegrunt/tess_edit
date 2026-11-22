@@ -221,3 +221,17 @@ test("a capture's variable is a text", async () => {
   assert.deepEqual(await v.options("greeting", scope), [])
   assert.equal((await v.lookup("greeting", scope)).type, "string")
 })
+
+test("a map is a list of the property, its first and last that property", async () => {
+  const v = variables({ filters: true })
+  const scope = [{ variable: "kinds", expression: 'order.order_lines | map: "kind" | uniq' }, { variable: "names", expression: 'order.order_lines | map: "product" | first' }]
+  assert.deepEqual(await v.resolveScope(scope), [
+    { variable: "kinds", path: "order.order_lines.first.kind", list: true },
+    { variable: "names", path: "order.order_lines.first.product" }
+  ])
+  const roots = await v.options("", scope)
+  assert.equal(roots.find((root) => root.name === "kinds").collection, true)
+  assert.deepEqual(names(await v.options("kinds", scope)), ["first", "last", "size"])
+  assert.deepEqual((await v.lookup("kinds.first", scope)).values.map((value) => value.value), ["product", "shipping"])
+  assert.deepEqual(names(await v.options("names", scope)), ["name"])
+})

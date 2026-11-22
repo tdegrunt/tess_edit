@@ -28,8 +28,18 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   private
 
   # The browser's: a Mac's own Chrome, or Linux's through Selenium
-  def select_all_key
-    (RUBY_PLATFORM.include?("darwin") && ENV["SELENIUM_URL"].blank?) ? :command : :control
+  # Selects all the text being edited (inside within_canvas): a select-all
+  # key doesn't reach the text through every browser's driver (Chrome 157's
+  # ignores ⌘A), a selection in the page does, as ProseMirror follows it
+  def select_all_text
+    execute_script(<<~JS)
+      const text = document.querySelector(".ProseMirror")
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      text.focus()
+      document.getSelection().removeAllRanges()
+      document.getSelection().addRange(range)
+    JS
   end
 
   # The canvas of the email editor, or of the kit with the given name

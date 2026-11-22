@@ -76,6 +76,11 @@ export function checkStructure(text, { blocks = BLOCKS } = {}) {
   return problems
 }
 
+// A message with a number, its own text for 1
+function count(many, one, number, values) {
+  return number === 1 ? t(one, values) : t(many, { ...values, count: number })
+}
+
 function problem({ start, end }, message) {
   return { start, end, message }
 }
@@ -192,15 +197,20 @@ async function checkFilter(piece, offset, context, local) {
 
   const problems = []
   const call = piece.slice(named[0].length).match(/^(\s*:)([\s\S]*)$/)
-  if (!call) return problems
-  const argsAt = offset + named[0].length + call[1].length
-  const args = splitOutside(call[2], ",")
+  const args = call ? splitOutside(call[2], ",") : []
   // Named arguments (t: name: user.name) aren't counted
   const positional = args.filter((arg) => arg.trim() && !/^\s*\w+\s*:/.test(arg))
   const takes = filter?.arguments?.length || 0
+  // Those it needs, when the host says of each whether it can be left out
+  const known = takes > 0 && filter.arguments.every((argument) => typeof argument.optional === "boolean")
+  const needs = known ? filter.arguments.filter((argument) => !argument.optional).length : 0
   if (takes && positional.length > takes) {
-    problems.push({ start, end: start + name.length, message: t("%{filter} takes %{count} arguments, not %{given}", { filter: name, count: takes, given: positional.length }) })
+    problems.push({ start, end: start + name.length, message: count("%{filter} takes %{count} arguments, not %{given}", "%{filter} takes 1 argument, not %{given}", takes, { filter: name, given: positional.length }) })
+  } else if (positional.length < needs) {
+    problems.push({ start, end: start + name.length, message: count("%{filter} needs %{count} arguments, not %{given}", "%{filter} needs 1 argument", needs, { filter: name, given: positional.length }) })
   }
+  if (!call) return problems
+  const argsAt = offset + named[0].length + call[1].length
   let at = argsAt
   for (const arg of args) {
     problems.push(...(await checkPaths(arg.replace(/^\s*\w+\s*:/, (key) => " ".repeat(key.length)), at, context, local)))

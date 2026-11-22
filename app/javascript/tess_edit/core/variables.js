@@ -30,11 +30,12 @@
 
 import { ancestors } from "tess_edit/core/document"
 import { t } from "tess_edit/core/i18n"
-import { expressionParts } from "tess_edit/core/liquid"
+import { expressionParts, splitOutside, unquote } from "tess_edit/core/liquid"
 
-// What filters on a collection leave, without the host's: the same items, or one
+// What filters on a collection leave, without the host's: the same items, one,
+// or a list of the property map names
 export const KEEPS = {
-  where: "collection", where_exp: "collection", reject: "collection", sort: "collection", sort_natural: "collection",
+  map: "property", where: "collection", where_exp: "collection", reject: "collection", sort: "collection", sort_natural: "collection",
   reverse: "collection", uniq: "collection", compact: "collection", concat: "collection",
   first: "item", last: "item", find: "item"
 }
@@ -104,12 +105,26 @@ export class Variables {
       const parts = expressionParts(entry.expression)
       if (!parts) return []
       let item = false
-      for (const name of parts.filters) {
+      let path = parts.path
+      let list = false
+      // Each filter with its first argument: map: "name"
+      const pieces = splitOutside(entry.expression, "|").slice(1)
+      for (const [index, name] of parts.filters.entries()) {
         const keeps = filters.get(name)?.keeps ?? KEEPS[name]
-        if (keeps === "item" && !item) item = true
-        else if (keeps !== "collection") return []
+        const property = unquote(pieces[index]?.split(":")[1]?.split(",")[0] || "")
+        if (keeps === "property" && !item && !list && /^\w+$/.test(property)) {
+          // A list of each item's property
+          path = `${path}.first.${property}`
+          list = true
+        } else if (keeps === "item" && !item) {
+          item = true
+        } else if (keeps !== "collection") {
+          return []
+        }
       }
-      return [item ? { variable: entry.variable, collection: parts.path } : { variable: entry.variable, path: parts.path }]
+      // One of a list of properties is that property
+      if (list) return [item ? { variable: entry.variable, path } : { variable: entry.variable, path, list: true }]
+      return [item ? { variable: entry.variable, collection: path } : { variable: entry.variable, path }]
     })
   }
 
@@ -149,6 +164,7 @@ export class Variables {
         // What it stands for, of the scope around it
         const target = entry.path && (await this.variable(entry.path.split("."), scope.slice(index + 1)))
         if (entry.captured) own.push(capturedVariable(entry))
+        else if (entry.list) own.push(listVariable(entry))
         else own.push(entry.path ? { ...(target || { children: false }), name: entry.variable, label: t("Assigned %{path}", { path: entry.path }), assign: true } : loopVariable(entry))
       }
       if (scope.some((entry) => entry.collection)) own.push(FORLOOP)
@@ -175,10 +191,14 @@ export class Variables {
     if (!parent.length) {
       const own = scope.find((entry) => entry.variable === last)
       if (last === "forloop" && !own && scope.some((entry) => entry.collection)) return FORLOOP
+      if (own?.list) return listVariable(own)
       if (own?.path) return { ...(await this.variable(own.path.split("."), scope.slice(scope.indexOf(own) + 1))), name: last }
       if (own?.captured) return capturedVariable(own)
       if (own) return loopVariable(own)
     } else if (ELEMENT.has(last)) {
+      // first and last of a list of properties: that property
+      const list = parent.length === 1 && scope.find((entry) => entry.variable === parent[0] && entry.list)
+      if (list) return { ...(await this.variable(list.path.split("."), scope.slice(scope.indexOf(list) + 1))), name: last }
       const collection = await this.variable(parent, scope)
       return collection?.collection ? { name: last, children: true } : null
     }
@@ -188,6 +208,11 @@ export class Variables {
 }
 
 const FORLOOP = { name: "forloop", label: "This loop", type: "object", children: true, forloop: true }
+
+// A map's: a list of an item's property (lines | map: "name")
+function listVariable({ variable, path }) {
+  return { name: variable, label: t("Assigned %{path}", { path }), type: "object", collection: true, children: true, list: true }
+}
 
 // A {% capture %}'s variable: the text between it and its endcapture
 function capturedVariable({ variable }) {

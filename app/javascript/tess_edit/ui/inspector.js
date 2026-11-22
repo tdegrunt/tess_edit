@@ -234,8 +234,12 @@ export class Inspector {
       case "textarea":
         return this.variables(h("textarea", { class: `${INPUT} min-h-32`, rows: 4, value, oninput: (event) => set(event.target.value) }), node, field)
 
-      case "code":
-        return codeInput({ value, language: field.language, oninput: set, class: "h-60" })
+      case "code": {
+        const code = codeInput({ value, language: field.language, oninput: set, class: "h-60" })
+        // Liquid in it is completed as in a text field
+        if (field.liquid) this.variables(code.querySelector("textarea"), node, field)
+        return code
+      }
 
       case "size":
         return h("input", {

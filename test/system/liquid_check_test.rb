@@ -55,6 +55,32 @@ class LiquidCheckTest < ApplicationSystemTestCase
     end
   end
 
+  test "in an HTML block its Liquid is completed and checked, Enter and Tab choosing before they indent" do
+    execute_script(<<~JS)
+      const editor = document.querySelector("[data-controller='tess-edit']").tessEdit
+      const doc = editor.getDocument()
+      doc.children.push({ id: "bhtml", type: "raw", attributes: {}, data: { html: "<p>Hand-written</p>" }, children: [] })
+      editor.setDocument(doc)
+    JS
+    within_canvas { find("p", text: "Hand-written").click }
+    html = find("[data-tess-edit-panel='inspect'] textarea")
+    html.send_keys(:end, "<p>{{ order.nu")
+    assert_selector "[role=listbox] [role=option] span", text: "number", exact_text: true
+    html.send_keys(:enter)
+    assert_equal "<p>Hand-written</p><p>{{ order.number }}", html.value
+
+    html.send_keys("{% if order.numbr %}")
+    within(field("HTML")) do
+      assert_selector ".tess-liquid-problems", text: "order has no numbr"
+      assert_selector ".tess-liquid-problems", text: "{% if %} isn't closed"
+    end
+  end
+
+  test "a filter without an argument it needs" do
+    setting("Link").set("{{ order.placed_at | date }}")
+    within(field("Link")) { assert_selector ".tess-liquid-problems", text: "date needs 1 argument" }
+  end
+
   private
 
   def field(label)
