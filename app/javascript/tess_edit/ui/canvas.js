@@ -12,7 +12,7 @@ import { getBlock, inlinePart, label } from "tess_edit/core/registry"
 import { missingArguments, textParts, translationCalls } from "tess_edit/core/translations"
 import { valueCalls } from "tess_edit/core/values"
 import { cellOf, columnCount, rowGroups, rows, setColumnAt, span, tableOf } from "tess_edit/core/table"
-import { FREE_CSS, FreeLayout } from "tess_edit/ui/free_layout"
+import { FREE_CSS, FreeLayout, freeChild } from "tess_edit/ui/free_layout"
 import { icon } from "tess_edit/ui/icons"
 
 const OVERLAY_CSS = `
@@ -359,6 +359,11 @@ export class Canvas {
     if (editingId !== selectedId && !this.free.dragging) {
       // In a table's cell (the cell, or its text): its rows and columns
       const cell = free && cellOf(this.editor.doc, selectedId)
+      // A free container's own block moves by its handle as when it's dragged
+      // itself (ui/free_layout.js): as it goes, on the grid and the guides;
+      // any other block by dragging it elsewhere in the document
+      const placed = freeChild(this.editor.doc, selectedId)
+      const freeMove = placed?.node.id === selectedId
       const tools = this.doc.createElement("div")
       tools.className = "tess-tools"
       tools.innerHTML = [
@@ -366,7 +371,7 @@ export class Canvas {
         ...(cell ? [["table", t("Rows and columns")]] : []),
         ...(free ? [["drag", t("Drag to move")], ["duplicate", t("Duplicate")], ["delete", t("Delete")]] : [])
       ]
-        .map(([tool, title]) => `<span data-tool="${tool}" title="${title}" ${tool === "drag" ? 'draggable="true"' : ""}>${icon({ parent: "parent", drag: "move", duplicate: "copy", delete: "trash", table: TABLE_ICON }[tool], "tess-icon")}</span>`)
+        .map(([tool, title]) => `<span data-tool="${tool}" title="${title}" ${tool === "drag" && !freeMove ? 'draggable="true"' : ""}>${icon({ parent: "parent", drag: "move", duplicate: "copy", delete: "trash", table: TABLE_ICON }[tool], "tess-icon")}</span>`)
         .join("")
       tools.querySelectorAll("svg").forEach((svg) => svg.setAttribute("style", "width:14px;height:14px"))
       tools.addEventListener("mousedown", (event) => event.stopPropagation())
@@ -379,6 +384,13 @@ export class Canvas {
         if (tool === "duplicate") this.editor.duplicate(selectedId)
         if (tool === "delete") this.editor.remove(selectedId)
       })
+      if (freeMove) {
+        tools.querySelector('[data-tool="drag"]')?.addEventListener("pointerdown", (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          this.free.start(event, "move", placed)
+        })
+      }
       tools.querySelector('[data-tool="drag"]')?.addEventListener("dragstart", (event) => {
         event.dataTransfer.effectAllowed = "move"
         event.dataTransfer.setData("text/plain", selectedId)
