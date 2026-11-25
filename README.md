@@ -31,7 +31,8 @@ Liquid is completed as you type, in text and in settings:
 - Clicking a tile in the Blocks panel adds the block in or after the selection, or else at the end of the last block it fits in.
 - Undo/redo, duplicate, delete, keyboard shortcuts (⌘Z, ⇧⌘Z, ⌘D, Delete, Enter to edit text, Tab to the next table cell, Esc).
 - A preview of the output, and the canvas at the widths a kit gives, such as an email's desktop and mobile.
-- Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room.
+- Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room; each tab can be dragged to the other side.
+- Zoom on the canvas: buttons, ⌘+ / ⌘− / ⌘0, ⇧1 to fit, and pinch or ⌘ and the wheel.
 - Dark mode that follows the host app's.
 - Code dialog to view, copy or download the JSON and the kit's outputs, and to load JSON.
 - Kits: any kind of document, registered by your app or a gem, with its own blocks and output and TessEdit's blocks brought in.
@@ -102,7 +103,7 @@ Give the controller an element with a height, the kit it makes and, optionally, 
 
 The editor loads the document from the `jsonInput` (or from `data-tess-edit-document-value`). With neither, it starts with the kit's sample, if it has one; set `data-tess-edit-sample-value="false"` to start with an empty document.
 
-`data-tess-edit-panels-value` sets the default panel layout: `split` (Blocks and Layers on the left, Inspect on the right, the default), `left` or `right` (Blocks, Layers and Inspect as tabs in one sidebar on that side). People can switch with the buttons in the top bar; their choice is remembered in the browser. When the editor is narrower than 1000px, it puts all panels on the left so the canvas keeps its room, and goes back to the chosen layout when it is wide enough again.
+`data-tess-edit-panels-value` sets the default panel layout: `split` (Blocks and Layers on the left, Inspect on the right, the default), `left` or `right` (Blocks, Layers and Inspect as tabs in one sidebar on that side). People can switch with the buttons in the top bar, or drag a tab (Blocks, Layers, Inspect, a kit's own panel) to the other pane, or to a side without one to make a pane there; where each tab is is remembered in the browser, per kit. When the editor is narrower than 1000px, it puts all panels on the left so the canvas keeps its room, and goes back to the chosen layout when it is wide enough again.
 
 The editor has a border with rounded corners. A page that frames it itself, such as a card it fills, turns it off with `data-tess-edit-frame-value="false"`.
 
@@ -458,7 +459,7 @@ TessEdit's own blocks are part of no kit until a kit takes them in: `extendBlock
 
 The demo's Note kit (`test/dummy/app/javascript/kits/note.js`) is a small kit of a host app's own. [Nuntius](https://github.com/entdec/nuntius)' email kit (`app/javascript/nuntius/email`) is a complete one: it takes in TessEdit's blocks with their MJML, adds the email's own (Email, Wrapper, Hero, Social, Navbar), orders the Blocks panel's tiles with `palette`, loads documents from before its root's rename with `aliases`, and has its MJML compiled to HTML on the server (see [Compiling](#compiling)).
 
-A kit can bring panels of its own, each a tab after Layers (and Inspect, when that is a tab), such as a test run of what is being designed:
+A kit can bring panels of its own, each a tab after Inspect, which can be dragged to either pane like the others, such as a test run of what is being designed:
 
 ```js
 registerKit({
@@ -468,7 +469,7 @@ registerKit({
 })
 ```
 
-`render` fills the panel's element once, when the editor is built; `editor` is the editor, with its `doc`, `select(id)`, `renderCanvas()` and its `element`, which sends `tess-edit:change`. The canvas is drawn again when the open panel changes, so it can show what the panel is about; a panel that changes what it shows calls `editor.renderCanvas()`. The demo's Note kit has an Outline panel.
+`render` fills the panel's element once, when the editor is built; `editor` is the editor, with its `doc`, `select(id)`, `renderCanvas()` and its `element`, which sends `tess-edit:change`. The canvas is drawn again when the open panel changes, so it can show what the panel is about; a panel that changes what it shows calls `editor.renderCanvas()`. A panel dragged to the other pane moves its element, so Stimulus controllers in it disconnect and connect again: the same controller, so state kept in `initialize` survives it. The demo's Note kit has an Outline panel.
 
 Loading a document into the editor of another kit fails with a message saying which editor it is for.
 

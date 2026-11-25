@@ -87,6 +87,13 @@ const TOOL = "w-8 h-8 flex items-center justify-center rounded-md text-gray-600 
 const TAB = "shrink-0 whitespace-nowrap px-3 h-12 text-[13px] font-medium border-b-2 -mb-px"
 const PANELS = ["left", "split", "right"]
 const PANELS_KEY = "tess_edit:panels"
+// Where each tab is, per kit (its own panels are tabs too)
+const TABS_KEY = "tess_edit:tabs"
+const SIDES = ["left", "right"]
+// The canvas's zoom: the steps the buttons and keys go through, and its range
+const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2]
+const MIN_ZOOM = ZOOMS[0]
+const MAX_ZOOM = ZOOMS[ZOOMS.length - 1]
 const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
 // Two sidebars (256px + 320px) leave too little canvas below this editor width.
 const NARROW_WIDTH = 1000
@@ -98,6 +105,13 @@ const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], Arrow
 function placed(node, at) {
   if (at) node.data = { ...node.data, x: at.x, y: at.y }
   return node
+}
+
+// Puts the children in an element unless they're there already: moving them
+// would reconnect the controllers in them
+function setChildren(element, children) {
+  const current = [...element.children]
+  if (current.length !== children.length || children.some((child, index) => current[index] !== child)) element.replaceChildren(...children)
 }
 
 export default class extends Controller {
@@ -126,8 +140,9 @@ export default class extends Controller {
     this.drag = null
     this.mode = "edit"
     this.device = this.kit.devices?.[0]?.key || null
-    this.leftTab = "blocks"
-    this.panels = [this.storedPanels(), this.panelsValue].find((value) => PANELS.includes(value)) || "split"
+    // The tab open in each pane, by the side it shows on ("sheet" on a compact editor)
+    this.openTabs = {}
+    this.zoom = 1
     this.narrow = false
     this.compact = false
     this.sheetOpen = false
@@ -437,16 +452,29 @@ export default class extends Controller {
   build() {
     this.blocksElement = h("div", { class: "flex-1 overflow-y-auto pb-4" })
     this.treeElement = h("div", { class: "flex-1 overflow-y-auto" })
-    this.leftTabs = h("div", { class: "flex border-b border-gray-200 dark:border-gray-700 px-2 shrink-0 overflow-x-auto" })
-    // The kit's own panels (registerKit's panels), a tab each after Layers
+    // The kit's own panels (registerKit's panels), a tab each after Inspect
     this.kitPanels = (this.hasBlocks ? this.kit.panels || [] : []).map((panel) => ({ ...panel, element: h("div", { class: "hidden flex-1 overflow-y-auto min-h-0", dataset: { tessEditPanel: panel.key } }) }))
     this.inspectorElement = h("div", { class: "flex flex-1 flex-col min-h-0", dataset: { tessEditPanel: "inspect" } })
-    this.sidePanel = h("aside")
+    // Each tab is a panel, in the pane on either side of the canvas it was put in
+    this.tabs = this.hasBlocks
+      ? [
+          { key: "blocks", label: "Blocks", element: this.blocksElement },
+          { key: "layers", label: "Layers", element: this.treeElement },
+          { key: "inspect", label: "Inspect", element: this.inspectorElement },
+          ...this.kitPanels.map((panel) => ({ key: panel.key, label: panel.label, element: panel.element }))
+        ]
+      : []
+    this.arrangement = this.storedArrangement() || this.preset([this.storedPanels(), this.panelsValue].find((value) => PANELS.includes(value)) || "split")
+    this.panes = Object.fromEntries(SIDES.map((side) => [side, { side, element: h("aside", { dataset: { tessEditPane: side } }), strip: this.tabStrip(side) }]))
     this.inspectPanel = h("aside")
     this.sheetClose = h("button", { type: "button", title: t("Hide panels"), class: `${TOOL} ml-auto self-center`, html: icon("close"), onclick: () => this.setSheetOpen(false) })
     this.textToolbar = h("div", { class: "hidden absolute left-1/2 top-3 z-20 -translate-x-1/2 flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-1.5 py-1 shadow-md" })
-    this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white transition-[width] duration-200", title: t("%{name} canvas", { name: t(this.kit.name) }) })
-    this.frameWrap = h("div", { class: "relative h-full mx-auto" }, this.frame)
+    // Zoomed by scaling the iframe (applyZoom): what's in it lays out as in a
+    // browser zoomed as much
+    this.frame = h("iframe", { class: "block h-full w-full border-0 bg-white origin-top-left", title: t("%{name} canvas", { name: t(this.kit.name) }) })
+    this.frameWrap = h("div", { class: "relative h-full mx-auto overflow-hidden transition-[width] duration-200" }, this.frame)
+    // Where a tab dragged off its pane makes a pane of its own on a side that has none
+    this.dropZones = Object.fromEntries(SIDES.map((side) => [side, this.dropZone(side)]))
     this.topBar = h("div", { class: "flex items-center gap-1 h-12 px-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0" })
     this.body = h("div", { class: "flex flex-1 min-h-0" })
 
@@ -457,7 +485,7 @@ export default class extends Controller {
       this.body
     )
     this.errorBar = h("div", { class: "hidden absolute inset-x-3 bottom-3 z-20 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/40 px-3 py-2 text-xs text-red-700 dark:text-red-300 shadow-sm", role: "alert" })
-    this.main = h("main", { class: "relative flex-1 min-w-0 min-h-0 bg-gray-100 dark:bg-gray-900", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar)
+    this.main = h("main", { class: "relative flex-1 min-w-0 min-h-0 bg-gray-100 dark:bg-gray-900", ondragover: (event) => this.drag && event.preventDefault() }, this.textToolbar, this.frameWrap, this.errorBar, this.dropZones.left, this.dropZones.right)
     this.arrangePanels()
     this.element.append(this.root)
 
@@ -487,9 +515,10 @@ export default class extends Controller {
     window.addEventListener("resize", this.closeMenuOnResize)
   }
 
-  // Split: Blocks and Layers on the left, Inspect on the right. Left or right:
-  // one sidebar on that side with Blocks, Layers and Inspect as tabs. Sheet:
-  // those tabs in the lower half, below the canvas, while it is open.
+  // The panes either side of the canvas, each with the tabs put in it (see
+  // moveTab); one without tabs isn't shown. Narrow, the panes are one on the
+  // left (or the right, when that's the only one); compact, they're one sheet
+  // below the canvas, while it is open.
   arrangePanels() {
     const panelClass = (border, width) => `${width} shrink-0 flex flex-col ${border} border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 min-h-0`
     const sheetClass = `${panelClass("border-t", "h-1/2")}${this.sheetOpen ? "" : " hidden"}`
@@ -500,29 +529,176 @@ export default class extends Controller {
     if (!this.hasBlocks) {
       this.inspectPanel.className = this.compact ? sheetClass : panelClass("border-l", "w-80")
       const children = this.compact ? [this.sheetHeader(t("Inspect")), this.inspectorElement] : [this.inspectorElement]
-      const current = [...this.inspectPanel.children]
-      if (current.length !== children.length || children.some((child, index) => current[index] !== child)) this.inspectPanel.replaceChildren(...children)
+      setChildren(this.inspectPanel, children)
       if (this.main.nextSibling !== this.inspectPanel) this.main.after(this.inspectPanel)
       return
     }
-    this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement, ...this.kitPanels.map((panel) => panel.element))
-    if (this.layout === "sheet") {
-      this.sidePanel.className = sheetClass
-      this.sidePanel.append(this.inspectorElement)
-      this.inspectPanel.remove()
-      this.main.after(this.sidePanel)
-    } else if (this.layout === "split") {
-      this.sidePanel.className = panelClass("border-r", "w-64")
-      this.inspectPanel.className = panelClass("border-l", "w-80")
-      this.inspectPanel.replaceChildren(this.inspectorElement)
-      this.main.before(this.sidePanel)
-      this.main.after(this.inspectPanel)
-    } else {
-      this.sidePanel.className = panelClass(this.layout === "left" ? "border-r" : "border-l", "w-80")
-      this.sidePanel.append(this.inspectorElement)
-      this.inspectPanel.remove()
-      this.layout === "left" ? this.main.before(this.sidePanel) : this.main.after(this.sidePanel)
+    const shown = this.shownPanes
+    const both = shown.length === 2
+    for (const side of SIDES) {
+      const pane = this.panes[side]
+      const showing = shown.find((each) => each.element === pane.element)
+      if (!showing) {
+        pane.element.remove()
+        continue
+      }
+      const width = !both ? "w-80" : showing.keys.includes("inspect") ? "w-80" : "w-64"
+      pane.element.className = showing.side === "sheet" ? sheetClass : panelClass(side === "left" ? "border-r" : "border-l", width)
+      setChildren(pane.element, [pane.strip, ...showing.keys.map((key) => this.tab(key).element)])
+      if (side === "left" && showing.side !== "sheet") {
+        if (this.main.previousSibling !== pane.element) this.main.before(pane.element)
+      } else if (this.main.nextSibling !== pane.element) this.main.after(pane.element)
     }
+  }
+
+  // The panes shown, by the side they show on, with their tabs in order
+  get shownPanes() {
+    const { left, right } = this.arrangement
+    if (this.compact) return [{ side: "sheet", element: this.panes.left.element, strip: this.panes.left.strip, keys: [...left, ...right] }]
+    if (this.narrow && left.length && right.length) return [{ side: "left", element: this.panes.left.element, strip: this.panes.left.strip, keys: [...left, ...right] }]
+    return SIDES.filter((side) => this.arrangement[side].length).map((side) => ({ ...this.panes[side], keys: this.arrangement[side] }))
+  }
+
+  tab(key) {
+    return this.tabs.find((tab) => tab.key === key)
+  }
+
+  // The tabs in the panes a preset puts them in: all on one side, or split
+  // with Inspect on the right
+  preset(panels) {
+    const keys = this.tabs.map((tab) => tab.key)
+    if (panels === "left") return { left: keys, right: [] }
+    if (panels === "right") return { left: [], right: keys }
+    return { left: keys.filter((key) => key !== "inspect"), right: keys.filter((key) => key === "inspect") }
+  }
+
+  // Where the tabs were put last, with tabs it doesn't know of yet (a kit's
+  // new panel) where the split preset puts them
+  storedArrangement() {
+    if (!this.hasBlocks) return null
+    let stored
+    try {
+      stored = JSON.parse(this.stored(`${TABS_KEY}:${this.kit.key}`) || "null")
+    } catch {
+      return null
+    }
+    if (!stored || !SIDES.every((side) => Array.isArray(stored[side]))) return null
+    const keys = this.tabs.map((tab) => tab.key)
+    const arrangement = Object.fromEntries(SIDES.map((side) => [side, [...new Set(stored[side])].filter((key) => keys.includes(key))]))
+    arrangement.right = arrangement.right.filter((key) => !arrangement.left.includes(key))
+    const split = this.preset("split")
+    for (const key of keys) {
+      if (arrangement.left.includes(key) || arrangement.right.includes(key)) continue
+      arrangement[split.left.includes(key) ? "left" : "right"].push(key)
+    }
+    return arrangement
+  }
+
+  // The preset the arrangement is: a side with no tabs, or split
+  get panels() {
+    if (!this.arrangement.right.length) return "left"
+    if (!this.arrangement.left.length) return "right"
+    return "split"
+  }
+
+  // A pane's tabs, which a tab can be dragged to from the other pane, and
+  // within to put it elsewhere in the row
+  tabStrip(side) {
+    const strip = h("div", { role: "tablist", class: "flex border-b border-gray-200 dark:border-gray-700 px-2 shrink-0 overflow-x-auto" })
+    strip.addEventListener("dragover", (event) => {
+      if (!this.tabDrag) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = "move"
+      this.showTabDrop(strip, this.tabDropIndex(strip, event.clientX))
+    })
+    strip.addEventListener("dragleave", (event) => !strip.contains(event.relatedTarget) && this.showTabDrop(null))
+    strip.addEventListener("drop", (event) => {
+      if (!this.tabDrag) return
+      event.preventDefault()
+      this.moveTab(this.tabDrag, this.paneSide(strip), this.tabDropIndex(strip, event.clientX))
+    })
+    return strip
+  }
+
+  // The side of the pane a strip is in (the left pane is also the combined one)
+  paneSide(strip) {
+    return SIDES.find((side) => this.panes[side].strip === strip)
+  }
+
+  // Where in a strip's row of tabs a tab let go at x goes
+  tabDropIndex(strip, x) {
+    const buttons = [...strip.querySelectorAll("[data-tess-edit-tab]")].filter((button) => button.dataset.tessEditTab !== this.tabDrag)
+    const index = buttons.findIndex((button) => {
+      const rect = button.getBoundingClientRect()
+      return x < rect.left + rect.width / 2
+    })
+    return index === -1 ? buttons.length : index
+  }
+
+  showTabDrop(strip, index) {
+    this.tabIndicator ||= h("span", { class: "pointer-events-none self-stretch my-2 w-0.5 shrink-0 rounded bg-blue-600 dark:bg-blue-400" })
+    if (!strip) return this.tabIndicator.remove()
+    const buttons = [...strip.querySelectorAll("[data-tess-edit-tab]")].filter((button) => button.dataset.tessEditTab !== this.tabDrag)
+    if (buttons[index]) buttons[index].before(this.tabIndicator)
+    else if (buttons.length) buttons.at(-1).after(this.tabIndicator)
+    else strip.append(this.tabIndicator)
+  }
+
+  // A side without a pane, while a tab is dragged: let go there, it's that
+  // side's pane
+  dropZone(side) {
+    const zone = h("div", { class: `hidden absolute inset-y-3 ${side === "left" ? "left-3" : "right-3"} z-30 w-28 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-400 bg-blue-50/90 dark:bg-blue-950/80 p-2 text-center text-xs font-medium text-blue-700 dark:text-blue-300`, dataset: { tessEditDropZone: side } }, t(side === "left" ? "Put it in a panel on the left" : "Put it in a panel on the right"))
+    zone.addEventListener("dragover", (event) => {
+      if (!this.tabDrag) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = "move"
+      zone.classList.add("bg-blue-100")
+    })
+    zone.addEventListener("dragleave", () => zone.classList.remove("bg-blue-100"))
+    zone.addEventListener("drop", (event) => {
+      if (!this.tabDrag) return
+      event.preventDefault()
+      this.moveTab(this.tabDrag, side, 0)
+    })
+    return zone
+  }
+
+  startTabDrag(event, key) {
+    this.tabDrag = key
+    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData("text/plain", key)
+    // A side with no pane takes one; not while the panes are combined
+    for (const side of SIDES) this.dropZones[side].classList.toggle("hidden", !!this.arrangement[side].length)
+  }
+
+  endTabDrag() {
+    this.tabDrag = null
+    this.showTabDrop(null)
+    for (const zone of Object.values(this.dropZones)) {
+      zone.classList.add("hidden")
+      zone.classList.remove("bg-blue-100")
+    }
+  }
+
+  // Puts a tab in a pane, at a place in its row, open there; remembered for
+  // the kit. The pane it left opens its first tab, or goes when it has none.
+  moveTab(key, side, index) {
+    const panel = this.panel
+    const arrangement = Object.fromEntries(SIDES.map((each) => [each, this.arrangement[each].filter((other) => other !== key)]))
+    arrangement[side].splice(Math.min(index, arrangement[side].length), 0, key)
+    this.endTabDrag()
+    this.setArrangement(arrangement)
+    this.openTabs[side] = key
+    this.renderLeftTabs()
+    if (panel !== this.panel) this.renderCanvas()
+  }
+
+  setArrangement(arrangement) {
+    this.arrangement = arrangement
+    try {
+      localStorage.setItem(`${TABS_KEY}:${this.kit.key}`, JSON.stringify(arrangement))
+    } catch {}
+    this.applyPanels()
   }
 
   // The sheet's title bar for a kit without blocks, which has no tabs
@@ -536,25 +712,25 @@ export default class extends Controller {
   setSheetOpen(open) {
     if (!this.compact || open === this.sheetOpen) return
     this.sheetOpen = open
-    ;(this.hasBlocks ? this.sidePanel : this.inspectPanel).classList.toggle("hidden", !open)
+    ;(this.hasBlocks ? this.panes.left.element : this.inspectPanel).classList.toggle("hidden", !open)
     this.renderTopBar()
     this.canvas.refresh()
   }
 
+  // Puts the tabs as a preset does: all on the left or the right, or split
   setPanels(panels) {
     if (!PANELS.includes(panels)) return
-    this.panels = panels
-    try {
-      localStorage.setItem(PANELS_KEY, panels)
-    } catch {}
-    this.applyPanels()
+    const panel = this.panel
+    this.setArrangement(this.preset(panels))
+    if (panel !== this.panel) this.renderCanvas()
   }
 
   applyPanels() {
-    if (!this.combined && this.leftTab === "inspect") this.leftTab = "blocks"
+    const panel = this.panel
     this.arrangePanels()
     this.renderTopBar()
     this.renderLeftTabs()
+    if (this.canvas && panel !== this.panel) this.renderCanvas()
   }
 
   // Combines the panels while the editor is narrower than NARROW_WIDTH, and
@@ -569,17 +745,18 @@ export default class extends Controller {
       if (compact !== this.compact) this.sheetOpen = false
       this.compact = compact
       this.applyPanels()
-      this.canvas.refresh()
+      this.applyZoom()
     })
     this.resizeObserver.observe(this.root)
   }
 
-  // The layout in use: the chosen one, unless the editor is too narrow to
-  // split, or the kit has no blocks
+  // The layout in use: a pane on each side ("split"), one on the left or the
+  // right, or the sheet; a kit without blocks has Inspect on the right
   get layout() {
     if (!this.hasBlocks) return "split"
     if (this.compact) return "sheet"
-    return this.narrow && this.panels === "split" ? "left" : this.panels
+    const shown = this.shownPanes
+    return shown.length === 2 ? "split" : shown[0]?.side || "left"
   }
 
   get hasBlocks() {
@@ -596,10 +773,6 @@ export default class extends Controller {
     } catch {
       return null
     }
-  }
-
-  get combined() {
-    return this.layout !== "split"
   }
 
   renderAll() {
@@ -636,12 +809,13 @@ export default class extends Controller {
       this.compact ? null : h("span", { class: "font-semibold text-gray-900 dark:text-gray-100 mr-3" }, t(this.kit.name)),
       toggle(this.mode, [["edit", "edit", t("Edit")], ["preview", "eye", this.kit.previewTitle ? t(this.kit.previewTitle) : t("Preview")]], (mode) => this.setMode(mode)),
       this.kit.devices?.length ? toggle(this.device, this.kit.devices.map((device) => [device.key, device.icon, t(device.title)]), (device) => this.setDevice(device)) : null,
+      this.zoomControls(),
       this.translations.enabled ? this.translationLocaleMenu() : null,
       h("div", { class: "flex-1" }),
       // A compact editor shows its panels or not; one without blocks has none to arrange
       this.compact && h("button", { type: "button", title: t(this.sheetOpen ? "Hide panels" : "Show panels"), "aria-pressed": String(this.sheetOpen), class: `${TOOL} ${this.sheetOpen ? "bg-gray-100 dark:bg-gray-700" : ""}`, html: icon("panels-bottom"), onclick: () => this.setSheetOpen(!this.sheetOpen) }),
       this.hasBlocks && !this.compact && toggle(
-        this.layout,
+        this.narrow ? this.layout : this.panels,
         [
           ["left", "panels-left", t("All panels on the left")],
           ["split", "panels-split", t(this.narrow ? "Too narrow to split the panels" : "Blocks on the left, Inspect on the right"), this.narrow],
@@ -681,32 +855,134 @@ export default class extends Controller {
     )
   }
 
+  // Each pane's tabs, and its open one shown. A tab is dragged to the other
+  // pane, or to a side without one, while the panes are side by side.
   renderLeftTabs() {
-    const tab = (key, name) =>
-      h("button", { type: "button", class: `${TAB} ${this.leftTab === key ? "border-blue-600 dark:border-blue-400 text-blue-700 dark:text-blue-300" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`, onclick: () => this.setLeftTab(key) }, name)
-    // replaceChildren would turn a null into the text "null", so only pass real tabs.
-    const tabs = [tab("blocks", t("Blocks")), tab("layers", t("Layers"))]
-    if (this.combined) tabs.push(tab("inspect", t("Inspect")))
-    for (const panel of this.kitPanels) tabs.push(tab(panel.key, t(panel.label)))
-    if (this.compact && this.hasBlocks) tabs.push(this.sheetClose)
-    this.leftTabs.replaceChildren(...tabs)
-    this.blocksElement.classList.toggle("hidden", this.leftTab !== "blocks")
-    this.treeElement.classList.toggle("hidden", this.leftTab !== "layers")
-    this.inspectorElement.classList.toggle("hidden", this.combined && this.leftTab !== "inspect")
-    for (const panel of this.kitPanels) panel.element.classList.toggle("hidden", this.leftTab !== panel.key)
+    if (!this.hasBlocks) return
+    const movable = !this.compact && !(this.narrow && this.arrangement.left.length && this.arrangement.right.length)
+    for (const pane of this.shownPanes) {
+      const open = this.openTab(pane)
+      const tabs = pane.keys.map((key) =>
+        h(
+          "button",
+          {
+            type: "button",
+            role: "tab",
+            "aria-selected": String(open === key),
+            draggable: movable ? "true" : null,
+            title: movable ? t("Drag to move it to another panel") : null,
+            dataset: { tessEditTab: key },
+            class: `${TAB} ${open === key ? "border-blue-600 dark:border-blue-400 text-blue-700 dark:text-blue-300" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"}`,
+            onclick: () => this.setLeftTab(key),
+            ondragstart: (event) => this.startTabDrag(event, key),
+            ondragend: () => this.endTabDrag()
+          },
+          t(this.tab(key).label)
+        )
+      )
+      if (this.compact) tabs.push(this.sheetClose)
+      pane.strip.replaceChildren(...tabs)
+      for (const key of pane.keys) this.tab(key).element.classList.toggle("hidden", key !== open)
+    }
+  }
+
+  // The tab open in a pane: the one opened there last, else its first
+  openTab(pane) {
+    const open = this.openTabs[pane.side]
+    if (pane.keys.includes(open)) return open
+    if (pane.side !== "left" && pane.keys.includes(this.openTabs.left)) return this.openTabs.left
+    return pane.keys[0]
+  }
+
+  // Whether a tab is showing in its pane
+  isOpen(key) {
+    return this.shownPanes.some((pane) => this.openTab(pane) === key)
   }
 
   // The kit's panel that is open, if one is
   get panel() {
-    return this.kitPanels.some((panel) => panel.key === this.leftTab) ? this.leftTab : null
+    if (!this.kitPanels.length) return null
+    return this.kitPanels.find((panel) => this.isOpen(panel.key))?.key || null
   }
 
-  setLeftTab(tab) {
+  // Opens a tab in the pane it is in
+  setLeftTab(key) {
+    const pane = this.shownPanes.find((each) => each.keys.includes(key))
+    if (!pane) return
     const panel = this.panel
-    this.leftTab = tab
+    this.openTabs[pane.side] = key
     this.renderLeftTabs()
     // The canvas is told which of the kit's panels is open, so it draws again when that changes
     if (panel !== this.panel) this.renderCanvas()
+  }
+
+  // --- zoom -------------------------------------------------------------------------
+
+  // Out, the zoom (which fits the canvas, or back to 100%), and in
+  zoomControls() {
+    const percent = `${Math.round(this.zoom * 100)}%`
+    return h(
+      "div",
+      { class: "ml-1 flex items-center rounded-lg bg-gray-100 dark:bg-gray-900 p-0.5" },
+      h("button", { type: "button", title: t("Zoom out (⌘−)"), class: "w-7 h-7 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-40", disabled: this.zoom <= MIN_ZOOM, html: icon("minus"), onclick: () => this.zoomBy(-1) }),
+      h("button", { type: "button", title: t(this.zoom === 1 ? "Fit the canvas (⇧1)" : "Back to 100% (⌘0)"), "aria-label": t("Zoom"), dataset: { tessEditZoom: "" }, class: "h-7 min-w-12 px-1 rounded-md text-xs tabular-nums text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100", onclick: () => (this.zoom === 1 ? this.zoomToFit() : this.setZoom(1)) }, percent),
+      h("button", { type: "button", title: t("Zoom in (⌘+)"), class: "w-7 h-7 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-40", disabled: this.zoom >= MAX_ZOOM, html: icon("plus"), onclick: () => this.zoomBy(1) })
+    )
+  }
+
+  // To the next step in or out
+  zoomBy(direction) {
+    const next = direction > 0 ? ZOOMS.find((zoom) => zoom > this.zoom + 0.001) : [...ZOOMS].reverse().find((zoom) => zoom < this.zoom - 0.001)
+    this.setZoom(next ?? this.zoom)
+  }
+
+  // Zooms the canvas, keeping the point `at` (in the canvas's viewport) where
+  // it is; without it, the top left of what shows
+  setZoom(zoom, { at = null } = {}) {
+    zoom = Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) * 100) / 100
+    if (zoom === this.zoom) return
+    const win = this.frame.contentWindow
+    const before = this.zoom
+    const point = at || { x: 0, y: 0 }
+    const scroll = win ? { x: win.scrollX + point.x, y: win.scrollY + point.y } : null
+    this.zoom = zoom
+    this.applyZoom()
+    if (scroll) win.scrollTo(scroll.x - (point.x * before) / zoom, scroll.y - (point.y * before) / zoom)
+    this.renderTopBar()
+  }
+
+  // The whole canvas in view, at most at 100%
+  zoomToFit() {
+    const doc = this.frame.contentDocument
+    if (!doc?.body) return
+    const range = doc.createRange()
+    range.selectNodeContents(doc.body)
+    const content = range.getBoundingClientRect()
+    const win = this.frame.contentWindow
+    const width = Math.max(content.width, 1) + 32
+    const height = Math.max(content.bottom + win.scrollY, 1) + 16
+    const box = this.frameWrap.parentElement.getBoundingClientRect()
+    const device = this.deviceWidth
+    const fit = Math.min(1, (device || box.width) / width, box.height / height)
+    this.setZoom(Math.floor(fit * 20) / 20)
+    win.scrollTo(0, 0)
+  }
+
+  // The iframe at the size that, scaled, fills its place: what's in it lays
+  // out in a viewport as much larger (or smaller) as it is zoomed out (or in)
+  applyZoom() {
+    const zoom = this.zoom
+    const scaled = zoom !== 1
+    Object.assign(this.frame.style, { width: scaled ? `${100 / zoom}%` : "", height: scaled ? `${100 / zoom}%` : "", transform: scaled ? `scale(${zoom})` : "" })
+    const width = this.deviceWidth
+    this.frameWrap.style.width = width ? `${width * zoom}px` : ""
+    this.canvas?.refresh()
+  }
+
+  // The device's width in pixels, when it has one (mobile, 375px)
+  get deviceWidth() {
+    const width = this.kit.devices?.find((option) => option.key === this.device)?.width
+    return width ? parseFloat(width) : null
   }
 
   setMode(mode) {
@@ -720,8 +996,8 @@ export default class extends Controller {
     this.device = device
     // A device without a width (desktop) fills the canvas area; one with a
     // width (mobile, 375px) shows a full-height frame in the middle of it.
-    const width = this.kit.devices?.find((option) => option.key === device)?.width
-    this.frameWrap.style.width = width || ""
+    const width = this.deviceWidth
+    this.applyZoom()
     this.frameWrap.classList.toggle("shadow-sm", !!width)
     this.main.classList.toggle("px-4", !!width)
     this.renderTopBar()
@@ -819,10 +1095,10 @@ export default class extends Controller {
 
   // --- selection and editing ---------------------------------------------------
 
-  // `reveal` (a click on the canvas) shows the Inspect tab when the panels are
-  // combined, and opens their sheet on a compact editor.
+  // `reveal` (a click on the canvas) opens the Inspect tab in its pane, and
+  // the sheet on a compact editor.
   select(id, { reveal = false } = {}) {
-    if (reveal && this.combined && this.leftTab !== "inspect") this.setLeftTab("inspect")
+    if (reveal && this.hasBlocks && !this.isOpen("inspect")) this.setLeftTab("inspect")
     if (reveal) this.setSheetOpen(true)
     if (this.editingId && this.editingId !== id) this.stopEditing()
     if (!find(this.doc, id)) id = this.doc.id
@@ -977,7 +1253,7 @@ export default class extends Controller {
     const node = createFromPalette(key)
     this.commit((doc) => insert(doc, parentId, index, node))
     this.select(node.id)
-    this.leftTab === "layers" && this.tree.render()
+    this.isOpen("layers") && this.tree.render()
   }
 
   // Clicking a tile: add inside the selection when it fits, otherwise after the
@@ -1155,8 +1431,17 @@ export default class extends Controller {
       }
       return
     }
+    // Zoom, also while typing in a field: ⌘+ and ⌘− in steps, ⌘0 back to 100%
+    if (mod && !event.altKey && ["=", "+", "-", "0"].includes(event.key)) {
+      event.preventDefault()
+      event.key === "0" ? this.setZoom(1) : this.zoomBy(event.key === "-" ? -1 : 1)
+      return
+    }
     if (typing) return
-    if (mod && event.key.toLowerCase() === "z") {
+    if (event.shiftKey && !mod && !event.altKey && event.code === "Digit1") {
+      event.preventDefault()
+      this.zoomToFit()
+    } else if (mod && event.key.toLowerCase() === "z") {
       event.preventDefault()
       event.shiftKey ? this.redo() : this.undo()
     } else if (mod && event.key.toLowerCase() === "y") {

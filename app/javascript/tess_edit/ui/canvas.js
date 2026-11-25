@@ -62,6 +62,17 @@ a{cursor:default}
 .tess-liquid-error{text-decoration:underline wavy rgba(220,38,38,.9);text-decoration-skip-ink:none;text-underline-offset:3px}
 `
 
+// A rect in an iframe's viewport in the page's, the iframe maybe scaled
+export function frameToPage(frame, rect) {
+  const box = frame?.getBoundingClientRect() || { left: 0, top: 0, width: 1 }
+  const scale = frame?.offsetWidth ? box.width / frame.offsetWidth : 1
+  const left = box.left + rect.left * scale
+  const top = box.top + rect.top * scale
+  const width = (rect.right - rect.left) * scale
+  const height = (rect.bottom - rect.top) * scale
+  return { left, top, right: left + width, bottom: top + height, width, height }
+}
+
 // A file dragged in from outside the browser (block drags set editor.drag)
 function isFileDrag(event, editor) {
   return !editor.drag && Array.from(event.dataTransfer?.types || []).includes("Files")
@@ -107,6 +118,8 @@ export class Canvas {
     // overlay's coordinates are the document's
     doc.documentElement.append(this.overlay)
     this.win.scrollTo(0, scrollY)
+    // ⌘ or Ctrl and the wheel, or a pinch on a trackpad, zooms where the pointer is
+    doc.addEventListener("wheel", (event) => this.onWheel(event), { passive: false })
     if (mode === "edit") {
       this.listen()
       this.annotate()
@@ -496,13 +509,20 @@ export class Canvas {
     this.refresh()
   }
 
-  // Converts a rect in iframe viewport coordinates to the parent page's viewport.
+  // Converts a rect in iframe viewport coordinates to the parent page's
+  // viewport, the iframe scaled as the canvas is zoomed
   toParentRect(rect) {
-    const frame = this.frame.getBoundingClientRect()
-    return { left: rect.left + frame.left, top: rect.top + frame.top, right: rect.right + frame.left, bottom: rect.bottom + frame.top, width: rect.width, height: rect.height }
+    return frameToPage(this.frame, rect)
   }
 
   // --- events ---------------------------------------------------------------
+
+  onWheel(event) {
+    if (!event.ctrlKey && !event.metaKey) return
+    event.preventDefault()
+    const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
+    this.editor.setZoom(this.editor.zoom * Math.exp(-delta / 200), { at: { x: event.clientX, y: event.clientY } })
+  }
 
   onMove(event) {
     if (this.editor.drag || this.free.dragging || this.resizing) return

@@ -16,7 +16,7 @@ import { Color, Decoration, DecorationSet, Editor, Extension, Plugin, PluginKey,
 import { t } from "tess_edit/core/i18n"
 import { missingArguments, translationCalls } from "tess_edit/core/translations"
 import { valueCalls } from "tess_edit/core/values"
-import { showText } from "tess_edit/ui/canvas"
+import { frameToPage, showText } from "tess_edit/ui/canvas"
 import { askText } from "tess_edit/ui/dialog"
 import { h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
@@ -291,8 +291,8 @@ function tiptapAdapter(editor, scope) {
     // The caret's place in the iframe, in the page's viewport
     rect() {
       const caret = editor.view.coordsAtPos(editor.state.selection.from)
-      const frame = editor.view.dom.ownerDocument.defaultView.frameElement?.getBoundingClientRect() || { left: 0, top: 0 }
-      return { left: caret.left + frame.left, right: caret.right + frame.left, top: caret.top + frame.top, bottom: caret.bottom + frame.top }
+      const frame = editor.view.dom.ownerDocument.defaultView.frameElement
+      return frame ? frameToPage(frame, caret) : caret
     }
   }
 }
