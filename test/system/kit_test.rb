@@ -24,6 +24,24 @@ class KitTest < ApplicationSystemTestCase
     assert_selector "[data-controller='tess-edit'][data-tess-edit-kit-value='note']"
   end
 
+  test "a panel of the kit's own is a tab after Layers, filled by the kit, and the canvas knows it's open" do
+    panel = find("[data-tess-edit-panel='outline']", visible: :all)
+    assert_not panel.visible?
+
+    within(".tess-edit") { click_on "Outline" }
+    assert_selector "[data-tess-edit-panel='outline']", text: /\A\d+ blocks\z/
+    blocks = find("[data-tess-edit-panel='outline']").text.to_i
+    within_canvas { assert_selector "body[data-panel='outline']" }
+
+    within(".tess-edit") { click_on "Blocks" }
+    within(".tess-edit") { click_on "Divider" }
+    within(".tess-edit") { click_on "Outline" }
+    assert_selector "[data-tess-edit-panel='outline']", text: "#{blocks + 1} blocks"
+
+    within(".tess-edit") { click_on "Layers" }
+    within_canvas { assert_no_selector "body[data-panel]" }
+  end
+
   test "it offers TessEdit's blocks it took in, and its own" do
     within(".tess-edit") do
       ["2 columns", "Column", "Text", "Image", "Button", "Divider", "Spacer", "HTML", "Content", "Table", "Loop", "Card"].each do |tile|

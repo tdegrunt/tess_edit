@@ -60,12 +60,13 @@
 //     starter: () => doc,              // optional: the sample document
 //     devices: [{ key, icon, title, width }],  // optional: canvas widths in the top bar
 //     previewTitle: "…",               // the Preview button's title
-//     canvas: async (doc, { editor, compileUrl, signal, options, element }) => ({ html, errors }),
+//     canvas: async (doc, { editor, compileUrl, signal, options, element, panel }) => ({ html, errors }),
 //                                      // the canvas's HTML, with the tess-<id> and tessph-<id>
 //                                      // classes when editor is true; null when aborted.
 //                                      // options are the editor's (data-tess-edit-options-value),
 //                                      // element its element, for a kit that reads its page;
 //                                      // a link with data-tess-open opens in a new tab
+//                                      // panel is the key of the kit's panel that is open, or null
 //     outputs: async (doc, { compileUrl, signal, options, element }) => ({ outputs: { html: "…" }, errors }),
 //                                      // what the editor stores besides the JSON (the inputs,
 //                                      // the change event and the Code dialog); null when aborted
@@ -73,6 +74,15 @@
 //                                      // by key; tiles it leaves out follow in registration order
 //     blocks: false,                   // optional: a kit of its root alone, such as a text
 //                                      // message, has no Blocks and Layers panels
+//     panels: [{ key: "test", label: "Test", render: (element, editor) => {} }],
+//                                      // optional: panels of the kit's own, a tab each after
+//                                      // Layers (and Inspect, when it is a tab). render fills its
+//                                      // element once, when the editor is built; editor is the
+//                                      // editor (its doc, select, renderCanvas, and its element,
+//                                      // which sends tess-edit:change). The canvas is told which
+//                                      // one is open (panel) and drawn again when that changes;
+//                                      // a panel that changes what it shows calls
+//                                      // editor.renderCanvas(). label is translated (t)
 //     notes: { html: "…" },            // optional: what each output is, in the Code dialog
 //     errors: "The note could not be rendered"  // shown before the reasons
 //   })
@@ -104,7 +114,7 @@ export function registerKit(kit) {
   if (!key || !name) throw new Error("A kit needs a key and a name")
   if (!root) throw new Error(`Kit ${key} needs a root block type`)
   if (typeof canvas !== "function" || typeof outputs !== "function") throw new Error(`Kit ${key} needs canvas(doc, options) and outputs(doc, options)`)
-  kitList.set(key, { devices: null, notes: {}, errors: KIT_ERRORS, aliases: [], ...kit })
+  kitList.set(key, { devices: null, notes: {}, errors: KIT_ERRORS, aliases: [], panels: [], ...kit })
   return kitList.get(key)
 }
 

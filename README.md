@@ -458,6 +458,18 @@ TessEdit's own blocks are part of no kit until a kit takes them in: `extendBlock
 
 The demo's Note kit (`test/dummy/app/javascript/kits/note.js`) is a small kit of a host app's own. [Nuntius](https://github.com/entdec/nuntius)' email kit (`app/javascript/nuntius/email`) is a complete one: it takes in TessEdit's blocks with their MJML, adds the email's own (Email, Wrapper, Hero, Social, Navbar), orders the Blocks panel's tiles with `palette`, loads documents from before its root's rename with `aliases`, and has its MJML compiled to HTML on the server (see [Compiling](#compiling)).
 
+A kit can bring panels of its own, each a tab after Layers (and Inspect, when that is a tab), such as a test run of what is being designed:
+
+```js
+registerKit({
+  …,
+  panels: [{ key: "test", label: "Test", render: (element, editor) => { /* fill element, once */ } }],
+  canvas: async (doc, { editor, panel }) => …  // panel: the key of the kit's panel that is open, or null
+})
+```
+
+`render` fills the panel's element once, when the editor is built; `editor` is the editor, with its `doc`, `select(id)`, `renderCanvas()` and its `element`, which sends `tess-edit:change`. The canvas is drawn again when the open panel changes, so it can show what the panel is about; a panel that changes what it shows calls `editor.renderCanvas()`. The demo's Note kit has an Outline panel.
+
 Loading a document into the editor of another kit fails with a message saying which editor it is for.
 
 A kit can leave out `blocks`: with `blocks: false` it is its root alone, such as a text message with its fields in Inspect, and the editor has no Blocks and Layers panels. Its `canvas` and `outputs` hooks get the editor's `options` and `element` too, for a canvas that previews from your app (`/?kit=memo` in the demo), where a link with `data-tess-open` opens in a new tab instead of selecting; the canvas renders again when `data-tess-edit-variables-url-value` changes. A field's `hint` can be a function of its value, `` hint: (value, node) => `${value.length} / 160` ``, kept up to date as it's typed. Code fields color `html`, `xml`, `css` and `yaml`.

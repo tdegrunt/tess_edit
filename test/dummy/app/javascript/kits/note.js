@@ -143,15 +143,27 @@ function starter() {
   return doc
 }
 
+// The Outline panel: the note's blocks counted, again on every change
+function outlinePanel(element, editor) {
+  const count = (node) => (node.children || []).reduce((sum, child) => sum + 1 + count(child), 0)
+  const show = () => (element.textContent = `${count(editor.doc)} blocks`)
+  show()
+  editor.element.addEventListener("tess-edit:change", show)
+}
+
 registerKit({
   key: "note",
   name: "Note",
   root: "note",
   starter,
   previewTitle: "Preview the note",
-  canvas: async (doc, { editor }) => {
+  // A panel of its own: how many blocks the note has, kept up to date; the
+  // canvas marks its body while it is open
+  panels: [{ key: "outline", label: "Outline", render: outlinePanel }],
+  canvas: async (doc, { editor, panel }) => {
     const errors = problems(doc)
-    return { html: errors.length ? null : toNoteHtml(doc, { editor }), errors }
+    const html = errors.length ? null : toNoteHtml(doc, { editor })
+    return { html: html && panel ? html.replace("<body", `<body data-panel="${panel}"`) : html, errors }
   },
   outputs: async (doc) => {
     const errors = problems(doc)

@@ -84,7 +84,7 @@ import { debounce, h } from "tess_edit/ui/dom"
 import { icon } from "tess_edit/ui/icons"
 
 const TOOL = "w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
-const TAB = "px-3 h-12 text-[13px] font-medium border-b-2 -mb-px"
+const TAB = "shrink-0 whitespace-nowrap px-3 h-12 text-[13px] font-medium border-b-2 -mb-px"
 const PANELS = ["left", "split", "right"]
 const PANELS_KEY = "tess_edit:panels"
 const TRANSLATION_LOCALE_KEY = "tess_edit:translation_locale"
@@ -437,7 +437,9 @@ export default class extends Controller {
   build() {
     this.blocksElement = h("div", { class: "flex-1 overflow-y-auto pb-4" })
     this.treeElement = h("div", { class: "flex-1 overflow-y-auto" })
-    this.leftTabs = h("div", { class: "flex border-b border-gray-200 dark:border-gray-700 px-2 shrink-0" })
+    this.leftTabs = h("div", { class: "flex border-b border-gray-200 dark:border-gray-700 px-2 shrink-0 overflow-x-auto" })
+    // The kit's own panels (registerKit's panels), a tab each after Layers
+    this.kitPanels = (this.hasBlocks ? this.kit.panels || [] : []).map((panel) => ({ ...panel, element: h("div", { class: "hidden flex-1 overflow-y-auto min-h-0", dataset: { tessEditPanel: panel.key } }) }))
     this.inspectorElement = h("div", { class: "flex flex-1 flex-col min-h-0", dataset: { tessEditPanel: "inspect" } })
     this.sidePanel = h("aside")
     this.inspectPanel = h("aside")
@@ -464,6 +466,7 @@ export default class extends Controller {
     this.inspector = new Inspector(this, this.inspectorElement)
     this.textEditing = new TextEditing(this.textToolbar, { menu: this.variableMenu, editor: this })
     renderBlocksPanel(this, this.blocksElement)
+    for (const panel of this.kitPanels) panel.render?.(panel.element, this)
     this.observeWidth()
 
     // The insert menu closes on a mousedown outside it (here or in the canvas,
@@ -502,7 +505,7 @@ export default class extends Controller {
       if (this.main.nextSibling !== this.inspectPanel) this.main.after(this.inspectPanel)
       return
     }
-    this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement)
+    this.sidePanel.replaceChildren(this.leftTabs, this.blocksElement, this.treeElement, ...this.kitPanels.map((panel) => panel.element))
     if (this.layout === "sheet") {
       this.sidePanel.className = sheetClass
       this.sidePanel.append(this.inspectorElement)
@@ -684,16 +687,26 @@ export default class extends Controller {
     // replaceChildren would turn a null into the text "null", so only pass real tabs.
     const tabs = [tab("blocks", t("Blocks")), tab("layers", t("Layers"))]
     if (this.combined) tabs.push(tab("inspect", t("Inspect")))
+    for (const panel of this.kitPanels) tabs.push(tab(panel.key, t(panel.label)))
     if (this.compact && this.hasBlocks) tabs.push(this.sheetClose)
     this.leftTabs.replaceChildren(...tabs)
     this.blocksElement.classList.toggle("hidden", this.leftTab !== "blocks")
     this.treeElement.classList.toggle("hidden", this.leftTab !== "layers")
     this.inspectorElement.classList.toggle("hidden", this.combined && this.leftTab !== "inspect")
+    for (const panel of this.kitPanels) panel.element.classList.toggle("hidden", this.leftTab !== panel.key)
+  }
+
+  // The kit's panel that is open, if one is
+  get panel() {
+    return this.kitPanels.some((panel) => panel.key === this.leftTab) ? this.leftTab : null
   }
 
   setLeftTab(tab) {
+    const panel = this.panel
     this.leftTab = tab
     this.renderLeftTabs()
+    // The canvas is told which of the kit's panels is open, so it draws again when that changes
+    if (panel !== this.panel) this.renderCanvas()
   }
 
   setMode(mode) {
@@ -729,7 +742,7 @@ export default class extends Controller {
 
   async renderCanvas() {
     if (this.editingId) return
-    const result = await this.run("canvas", (options) => this.kit.canvas(this.doc, { ...options, editor: this.mode === "edit" }))
+    const result = await this.run("canvas", (options) => this.kit.canvas(this.doc, { ...options, editor: this.mode === "edit", panel: this.panel }))
     if (!result || this.editingId) return
     // A canvas the host renders can give the values it has
     if (result.values) this.values.set(result.values)
