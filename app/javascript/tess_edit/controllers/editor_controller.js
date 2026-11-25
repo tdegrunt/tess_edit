@@ -367,6 +367,7 @@ export default class extends Controller {
     document.removeEventListener("mousedown", this.outsideClick)
     document.removeEventListener("keydown", this.menuKeydown, true)
     window.removeEventListener("resize", this.closeMenuOnResize)
+    window.removeEventListener("blur", this.endPanReady)
     this.root?.remove()
     delete this.element.tessEdit
   }
@@ -480,7 +481,7 @@ export default class extends Controller {
 
     this.root = h(
       "div",
-      { class: `tess-edit relative flex flex-col h-full min-h-[560px] overflow-hidden ${this.frameValue ? "rounded-lg border border-gray-200 dark:border-gray-700 " : ""}bg-gray-50 dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 antialiased dark:[color-scheme:dark]`, tabindex: "-1", onkeydown: (event) => this.onKeydown(event) },
+      { class: `tess-edit relative flex flex-col h-full min-h-[560px] overflow-hidden ${this.frameValue ? "rounded-lg border border-gray-200 dark:border-gray-700 " : ""}bg-gray-50 dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-200 antialiased dark:[color-scheme:dark]`, tabindex: "-1", onkeydown: (event) => this.onKeydown(event), onkeyup: (event) => this.onKeyup(event) },
       this.topBar,
       this.body
     )
@@ -510,6 +511,8 @@ export default class extends Controller {
       }
     }
     this.closeMenuOnResize = () => this.closeMenu()
+    this.endPanReady = () => this.canvas.pan.setReady(false)
+    window.addEventListener("blur", this.endPanReady)
     document.addEventListener("mousedown", this.outsideClick)
     document.addEventListener("keydown", this.menuKeydown, true)
     window.addEventListener("resize", this.closeMenuOnResize)
@@ -1407,6 +1410,10 @@ export default class extends Controller {
 
   // --- keyboard -----------------------------------------------------------------
 
+  onKeyup(event) {
+    if (event.code === "Space") this.canvas.pan.setReady(false)
+  }
+
   onKeydown(event) {
     const target = event.target
     const typing = target.closest?.("input, textarea, select, [contenteditable='true']")
@@ -1438,6 +1445,12 @@ export default class extends Controller {
       return
     }
     if (typing) return
+    // Space held: the canvas is dragged around (Pan, ui/canvas.js)
+    if (event.code === "Space" && !mod && !event.altKey) {
+      event.preventDefault()
+      this.canvas.pan.setReady(true)
+      return
+    }
     if (event.shiftKey && !mod && !event.altKey && event.code === "Digit1") {
       event.preventDefault()
       this.zoomToFit()

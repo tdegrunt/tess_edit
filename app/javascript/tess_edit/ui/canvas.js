@@ -59,6 +59,8 @@ a{cursor:default}
 .ProseMirror .tess-v-filled{cursor:text}
 .tess-v-hidden{display:none}
 .tess-v-empty{border-radius:3px;background:rgba(220,38,38,.08);box-shadow:inset 0 -1px 0 rgba(220,38,38,.65)}
+html.tess-pan-ready,html.tess-pan-ready *{cursor:grab!important}
+html.tess-panning,html.tess-panning *{cursor:grabbing!important;user-select:none!important}
 .tess-liquid-error{text-decoration:underline wavy rgba(220,38,38,.9);text-decoration-skip-ink:none;text-underline-offset:3px}
 `
 
@@ -89,6 +91,7 @@ export class Canvas {
     this.hoverId = null
     this.mode = "edit"
     this.free = new FreeLayout(this)
+    this.pan = new Pan(this)
   }
 
   get doc() {
@@ -120,6 +123,13 @@ export class Canvas {
     this.win.scrollTo(0, scrollY)
     // ⌘ or Ctrl and the wheel, or a pinch on a trackpad, zooms where the pointer is
     doc.addEventListener("wheel", (event) => this.onWheel(event), { passive: false })
+    // Space held or the middle button drags the canvas around; in the editor,
+    // so does a drag from its background (see Pan)
+    doc.addEventListener("pointerdown", (event) => this.pan.onPointerDown(event), true)
+    // Not the browser's own scrolling with the middle button
+    doc.addEventListener("mousedown", (event) => event.button === 1 && event.preventDefault(), true)
+    doc.addEventListener("keyup", (event) => this.editor.onKeyup(event))
+    this.pan.showReady()
     if (mode === "edit") {
       this.listen()
       this.annotate()
@@ -540,6 +550,7 @@ export class Canvas {
     if (event.target.closest?.("#tess-overlay")) return
     event.preventDefault()
     if (this.resized) return
+    if (this.pan.swallowClick()) return
     if (this.openLink(event)) return
     if (this.free.swallowClick()) return
     const hit = this.hit(event.target)
@@ -753,4 +764,113 @@ export function showText(element, value) {
       return placeholder
     })
   )
+}
+
+// Moving the canvas around by dragging it, as its scroll position: with
+// Space held or the middle button anywhere, or, in the editor, from its
+// background (no block but the root under the pointer) once it has moved a
+// little, so a click there still selects the root. The pointer is the
+// iframe's, so the content follows it whatever the zoom.
+const PAN_THRESHOLD = 4
+
+export class Pan {
+  constructor(canvas) {
+    this.canvas = canvas
+    this.ready = false
+    this.gesture = null
+    this.panned = false
+  }
+
+  get editor() {
+    return this.canvas.editor
+  }
+
+  // Space held: the canvas shows it can be dragged
+  setReady(ready) {
+    if (ready === this.ready) return
+    this.ready = ready
+    this.showReady()
+  }
+
+  showReady() {
+    this.canvas.doc?.documentElement?.classList.toggle("tess-pan-ready", this.ready && !this.gesture)
+  }
+
+  onPointerDown(event) {
+    const canvas = this.canvas
+    if (this.gesture || this.editor.editingId || canvas.free.dragging) return
+    const background = event.button === 0 && canvas.mode === "edit" && !event.target.closest?.("#tess-overlay") && this.isBackground(event.target)
+    const now = event.button === 1 || (event.button === 0 && this.ready)
+    if (!now && !background) return
+    if (now) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const win = canvas.win
+    this.gesture = { x: event.clientX, y: event.clientY, scrollX: win.scrollX, scrollY: win.scrollY, active: now, pointerId: event.pointerId, target: event.target }
+    if (now) this.activate()
+    const doc = canvas.doc
+    this.onMove = (moveEvent) => this.move(moveEvent)
+    this.onUp = (upEvent) => this.end(upEvent)
+    doc.addEventListener("pointermove", this.onMove)
+    doc.addEventListener("pointerup", this.onUp)
+    doc.addEventListener("pointercancel", this.onUp)
+  }
+
+  // Nothing but the root under the pointer: what a kit draws around its blocks
+  isBackground(target) {
+    const hit = this.canvas.hit(target)
+    if (hit?.placeholder) return false
+    if (hit && hit.id !== this.editor.doc.id) return false
+    // Not a field or link of the kit's own
+    return !target.closest?.("a, button, input, select, textarea, [contenteditable='true'], .ProseMirror")
+  }
+
+  activate() {
+    const gesture = this.gesture
+    gesture.active = true
+    try {
+      gesture.target.setPointerCapture?.(gesture.pointerId)
+    } catch {}
+    const root = this.canvas.doc.documentElement
+    root.classList.add("tess-panning")
+    root.classList.remove("tess-pan-ready")
+    this.editor.closeMenu()
+    this.canvas.setHover(null)
+  }
+
+  move(event) {
+    const gesture = this.gesture
+    if (!gesture || event.pointerId !== gesture.pointerId) return
+    const dx = event.clientX - gesture.x
+    const dy = event.clientY - gesture.y
+    if (!gesture.active) {
+      if (Math.hypot(dx, dy) < PAN_THRESHOLD) return
+      this.activate()
+    }
+    event.preventDefault()
+    // The pointer's place in the viewport, which scrolling doesn't change
+    this.canvas.win.scrollTo(gesture.scrollX - dx, gesture.scrollY - dy)
+  }
+
+  end(event) {
+    const gesture = this.gesture
+    if (!gesture || (event && event.pointerId !== gesture.pointerId)) return
+    const doc = this.canvas.doc
+    doc.removeEventListener("pointermove", this.onMove)
+    doc.removeEventListener("pointerup", this.onUp)
+    doc.removeEventListener("pointercancel", this.onUp)
+    doc.documentElement.classList.remove("tess-panning")
+    this.gesture = null
+    // The click that ends a pan doesn't select
+    if (gesture.active) {
+      this.panned = true
+      setTimeout(() => (this.panned = false))
+    }
+    this.showReady()
+  }
+
+  swallowClick() {
+    return this.panned
+  }
 }

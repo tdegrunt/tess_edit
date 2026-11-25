@@ -33,6 +33,7 @@ Liquid is completed as you type, in text and in settings:
 - A preview of the output, and the canvas at the widths a kit gives, such as an email's desktop and mobile.
 - Panels on both sides, or combined as tabs in one sidebar on the left or right to give the canvas more room; each tab can be dragged to the other side.
 - Zoom on the canvas: buttons, ⌘+ / ⌘− / ⌘0, ⇧1 to fit, and pinch or ⌘ and the wheel.
+- Panning the canvas: drag its background, or anywhere with Space held or the middle button.
 - Dark mode that follows the host app's.
 - Code dialog to view, copy or download the JSON and the kit's outputs, and to load JSON.
 - Kits: any kind of document, registered by your app or a gem, with its own blocks and output and TessEdit's blocks brought in.

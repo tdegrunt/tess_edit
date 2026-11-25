@@ -58,7 +58,60 @@ class PanesAndZoomTest < ApplicationSystemTestCase
     assert_equal "View your order", setting("Label").value
   end
 
+  test "the canvas is dragged around from its background, or anywhere with Space held" do
+    5.times { click_on "Zoom in (⌘+)" }
+    assert_selector ZOOM, text: "200%"
+    within_canvas do
+      assert_equal [0, 0], scroll
+      drag_on "body", at: [4, 40], by: [-120, -150]
+      # The Note reflows to fit the zoomed view, so it only scrolls down
+      assert_operator scroll[1], :>=, 140
+    end
+    # A plain click on a block still selects it (from the page: WebDriver
+    # aims as if the canvas weren't scaled, the browser hit-tests through it)
+    within_canvas { execute_script("arguments[0].click()", canvas_block("View your order")) }
+    assert_equal "View your order", setting("Label").value
+
+    within_canvas do
+      before = scroll
+      key "keydown"
+      assert_selector "html.tess-pan-ready"
+      drag_on "a", at: [10, 10], by: [60, 60]
+      key "keyup"
+      assert_no_selector "html.tess-pan-ready"
+      assert_equal before[1] - 60, scroll[1]
+    end
+    # Space held, a drag from a block moves the canvas, not the selection
+    assert_equal "View your order", setting("Label").value
+  end
+
   private
+
+  def scroll
+    page.evaluate_script("[Math.round(window.scrollX), Math.round(window.scrollY)]")
+  end
+
+  # Space pressed or let go, in the frame being used
+  def key(type)
+    execute_script("document.dispatchEvent(new KeyboardEvent(arguments[0], { key: ' ', code: 'Space', bubbles: true, cancelable: true }))", type)
+  end
+
+  # Presses the pointer on the first element matching a selector (in the
+  # frame being used) at an offset from its top left in the viewport, moves
+  # it by some pixels and lets go, as the browser's events
+  def drag_on(selector, at:, by:)
+    execute_script(<<~JS, selector, at, by)
+      const [selector, at, by] = arguments
+      const target = document.querySelector(selector)
+      const rect = target.getBoundingClientRect()
+      const x = Math.max(rect.left, 0) + at[0], y = Math.max(rect.top, 0) + at[1]
+      const event = (type, dx, dy, on = document) => on.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, button: 0, buttons: type === "pointerup" ? 0 : 1, clientX: x + dx, clientY: y + dy }))
+      event("pointerdown", 0, 0, target)
+      event("pointermove", by[0] / 2, by[1] / 2)
+      event("pointermove", by[0], by[1])
+      event("pointerup", by[0], by[1])
+    JS
+  end
 
   ZOOM = "[data-tess-edit-zoom]"
 
