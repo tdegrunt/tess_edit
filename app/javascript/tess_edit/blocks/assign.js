@@ -7,7 +7,7 @@
 // It shows nothing; in the editor, Layers shows it. In a table it goes
 // between rows.
 
-const assignTag = (node) => `{% assign ${node.data.variable || "value"} = ${node.data.expression || "nil"} %}`
+export const assignTag = (node) => `{% assign ${node.data.variable || "value"} = ${node.data.expression || "nil"} %}`
 
 export default {
   type: "assign",
@@ -26,8 +26,5 @@ export default {
     }
   ],
   hint: "Sets a Liquid variable for the blocks after it: {% assign variable = value %}.",
-  label: (node) => `${node.data.variable || "…"} = ${node.data.expression || "…"}`,
-  render: {
-    mjml: (node, { editor }) => (editor ? "" : `<mj-raw>${assignTag(node)}</mj-raw>`)
-  }
+  label: (node) => `${node.data.variable || "…"} = ${node.data.expression || "…"}`
 }

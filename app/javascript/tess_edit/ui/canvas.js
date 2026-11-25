@@ -1,7 +1,7 @@
-// The editing canvas: an iframe showing the compiled email, with an overlay for
+// The editing canvas: an iframe showing the kit's canvas HTML, with an overlay for
 // hover and selection outlines, block tools, plus buttons and drop indicators.
 // Elements are mapped back to blocks through the "tess-<id>" classes that the
-// editor-mode MJML puts on every element. With the host's translations, t
+// kit puts on every block's element in the editor. With the host's translations, t
 // filters show their text in the editor's language, and with its values
 // other Liquid output shows its value (see annotate).
 
@@ -148,7 +148,7 @@ export class Canvas {
 
   // --- translations and values -----------------------------------------------
 
-  // Wraps every t filter in the email's text in a span that shows its text
+  // Wraps every t filter in the canvas's text in a span that shows its text
   // (showTranslations), and with the host's values every other output tag in
   // one that shows its value (showValues), keeping the Liquid for when there's
   // none. Again when the values change: what's wrapped stays as it is.
@@ -580,8 +580,8 @@ export class Canvas {
   }
 
   // An image file dragged from the desktop onto a block with an image field
-  // uploads it there: an Image block's image, or the background of the hero,
-  // section or wrapper the pointer is in. Elsewhere the drop is refused, so
+  // uploads it there: an Image block's image, or the background of the
+  // section (or other block with an image field) the pointer is in. Elsewhere the drop is refused, so
   // the browser doesn't open the file.
   onFileDragOver(event) {
     event.preventDefault()

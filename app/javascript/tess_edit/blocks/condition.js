@@ -1,4 +1,4 @@
-const ifTag = (node) => `{% if ${node.data.expression || "true"} %}`
+export const ifTag = (node) => `{% if ${node.data.expression || "true"} %}`
 
 export default {
   type: "condition",
@@ -11,8 +11,5 @@ export default {
   defaults: () => ({ data: { expression: "customer.vip" } }),
   fields: [{ title: "Condition", fields: [{ key: "data.expression", label: "Show when", type: "text", liquid: "condition", hint: "A Liquid condition, e.g. order.total > 100." }] }],
   hint: "Shows its blocks only when the condition is true: {% if expression %}.",
-  label: (node) => `If ${node.data.expression || "…"}`,
-  render: {
-    mjml: (node, { liquid }) => liquid(node, ifTag(node), "{% endif %}")
-  }
+  label: (node) => `If ${node.data.expression || "…"}`
 }

@@ -2,6 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
 import { FORLOOP_MEMBERS, Variables, completion, liquidToken, loopScope, resolve } from "tess_edit/core/variables"
+import "./page_kit.js"
 
 globalThis.window ||= { location: { href: "https://www.example.com/editor" } }
 
@@ -110,7 +111,7 @@ test("loop variables resolve to their collection, inner loops through outer ones
 })
 
 test("a block's loop variables are those of its Loop blocks, the innermost first", () => {
-  const doc = createDocument()
+  const doc = createDocument("page")
   const section = insert(doc, doc.id, 0, createNode("section"))
   const outer = insert(doc, section.id, 0, createNode("loop", { data: { variable: "line", collection: "order.order_lines" } }))
   const column = insert(doc, outer.id, 0, createNode("column"))

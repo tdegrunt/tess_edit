@@ -3,9 +3,10 @@ import assert from "node:assert/strict"
 import { accepted, canInsert, createDocument, createNode, duplicate, find, getValue, insert, move, normalize, remove, setValue } from "tess_edit/core/document"
 import { createFromPalette } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
+import "./page_kit.js"
 
 function sample() {
-  const doc = createDocument()
+  const doc = createDocument("page")
   const section = insert(doc, doc.id, 0, createFromPalette("section-2"))
   const [left, right] = section.children
   const text = insert(doc, left.id, 0, createNode("text"))
@@ -80,13 +81,19 @@ test("a value deeper in a list, such as an option's label", () => {
 test("normalize accepts JSON and rejects unknown blocks", () => {
   const { doc } = sample()
   assert.deepEqual(normalize(JSON.stringify(doc)), doc)
-  assert.throws(() => normalize({ type: "email", children: [{ type: "carousel" }] }), /Unknown block type/)
+  assert.throws(() => normalize({ type: "page", children: [{ type: "carousel" }] }), /Unknown block type/)
   assert.throws(() => normalize({ type: "section" }), /must be a root block/)
 })
 
-test("normalize loads emails whose root is still called page or root", () => {
-  assert.equal(normalize({ type: "page", children: [] }).type, "email")
-  assert.equal(normalize({ type: "root", children: [] }).type, "email")
+test("normalize loads a document whose root has a type the kit had before, one of its aliases, as the kit's root", () => {
+  assert.equal(normalize({ type: "sheet", children: [] }).type, "page")
+  assert.equal(normalize({ type: "sheet", children: [] }, { kit: "page" }).type, "page")
+  assert.throws(() => normalize({ type: "email", children: [] }), /must be a root block/)
+})
+
+test("a document needs a kit", () => {
+  assert.throws(() => createDocument(), /Unknown kit/)
+  assert.equal(createDocument("page").type, "page")
 })
 
 test("history coalesces changes with the same key", () => {

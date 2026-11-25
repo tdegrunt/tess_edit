@@ -10,7 +10,6 @@ class DemoController < ApplicationController
     render json: {
       json_bytes: params[:json].to_s.bytesize,
       title: (JSON.parse(params[:json].to_s).dig("data", "title") if params[:json].present?),
-      mjml_bytes: params[:mjml].to_s.bytesize,
       html_bytes: params[:html].to_s.bytesize,
       liquid_tags: params[:html].to_s.scan(/\{[{%].*?[}%]\}/).uniq,
       sender: params.values_at(:sender_team, :sender_name).compact

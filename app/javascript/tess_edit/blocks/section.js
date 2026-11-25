@@ -27,7 +27,6 @@ export default {
       fields: [
         background,
         imageField("attributes.background-url", "Background image", "data.background"),
-        { key: "attributes.full-width", label: "Full width", type: "toggle", on: "full-width", off: "", visible: (node, editor) => editor?.kit?.key === "email" },
         { key: "attributes.direction", label: "Column order", type: "segmented", options: [{ value: "ltr", label: "Left to right" }, { value: "rtl", label: "Right to left" }] },
         { key: "attributes.text-align", label: "Align", type: "segmented", options: ALIGN },
         padding
@@ -35,8 +34,5 @@ export default {
     },
     border
   ],
-  palette: layouts.map(([key, label, icon, widths]) => ({ key, label, icon, category: "layout", create: ({ createNode }) => section(createNode, widths) })),
-  render: {
-    mjml: (node, { container }) => container("mj-section", node)
-  }
+  palette: layouts.map(([key, label, icon, widths]) => ({ key, label, icon, category: "layout", create: ({ createNode }) => section(createNode, widths) }))
 }

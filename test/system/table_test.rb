@@ -1,9 +1,16 @@
 require "application_system_test_case"
 
-# A table in an email (blocks/table.js): an mj-table of HTML, edited from a
-# selected cell, also in the demo's Note (a kit that takes it in)
+# A table (blocks/table.js) in the demo's Note, which takes it in: HTML
+# (export/table.js), edited from a selected cell
 class TableTest < ApplicationSystemTestCase
   def table = document_json.then { |doc| find_node(doc, "table") }
+
+  # Near the top of the note, after its heading, where the canvas has room for it
+  def add_table
+    visit "/"
+    within_canvas { canvas_block("Thanks for your order").click }
+    within(".tess-edit") { click_on "Table" }
+  end
 
   def find_node(node, type)
     return node if node["type"] == type
@@ -16,11 +23,9 @@ class TableTest < ApplicationSystemTestCase
   end
 
   test "a table is added from the palette, and a cell adds rows and columns" do
-    visit "/"
-    within(".tess-edit") { click_on "Table" }
+    add_table
     within_canvas do
       assert_selector "thead th", count: 3
-      # Its own rows, not the email's layout tables
       assert_selector "table > tbody > tr[class^='tess-']", count: 2
       first("table > tbody > tr[class^='tess-'] > td").click
     end
@@ -41,10 +46,11 @@ class TableTest < ApplicationSystemTestCase
   end
 
   test "Tab goes to the next cell's text, Shift+Tab back, and from the last cell adds a row" do
-    visit "/"
-    within(".tess-edit") { click_on "Table" }
+    add_table
     within_canvas do
-      first("thead th").double_click
+      # Left of the middle (offsets are from there): in the middle of a
+      # one-line cell the second click would be on the selected text's + button
+      first("thead th p").double_click(x: -80, y: -3)
       find(".ProseMirror").send_keys("Name", :tab)
       assert_selector "thead th:nth-child(2) .ProseMirror"
       find(".ProseMirror").send_keys("Price", [:shift, :tab])
@@ -66,8 +72,7 @@ class TableTest < ApplicationSystemTestCase
   end
 
   test "a cell's menu on the canvas adds rows and wraps its row in a Loop, marked by a bracket" do
-    visit "/"
-    within(".tess-edit") { click_on "Table" }
+    add_table
     within_canvas do
       all("table > tbody > tr[class^='tess-'] > td")[0].click
       find(".tess-tools [data-tool='table']").click
@@ -94,8 +99,7 @@ class TableTest < ApplicationSystemTestCase
   end
 
   test "a column's border is dragged to set its width" do
-    visit "/"
-    within(".tess-edit") { click_on "Table" }
+    add_table
     within_canvas { first("table > tbody > tr[class^='tess-'] > td").click }
     # Once the canvas has the table as it is, not written again under the drag
     assert_field "Column width"
@@ -106,12 +110,5 @@ class TableTest < ApplicationSystemTestCase
     end
     eventually { assert_match(/\A\d+px\z/, table.dig("data", "columns", 0, "width")) }
     within_canvas { assert_selector "col[style^='width:']" }
-  end
-
-  test "the demo's Note has tables too" do
-    visit "/?kit=note"
-    within(".tess-edit") { click_on "Table" }
-    within_canvas("Note") { assert_selector "thead th", count: 3 }
-    eventually { assert_includes output("html"), "<thead>" }
   end
 end

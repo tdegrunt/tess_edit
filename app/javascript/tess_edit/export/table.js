@@ -1,13 +1,15 @@
-// A table (blocks/table.js) as HTML, for a kit whose tables are HTML: the
-// email's mj-table, which MJML copies as it is, so a cell's blocks are HTML
-// too, not MJML. Its styles are inline, as mail clients need: borders,
-// padding and heading rows on each cell.
+// A table (blocks/table.js) as HTML, for a kit whose tables are HTML, such
+// as an email's mj-table, which MJML copies as it is, so a cell's blocks are
+// HTML too. Its styles are inline, as mail clients need: borders, padding
+// and heading rows on each cell.
 //
-//   tableHtml(node, { editor, richText, escapeText, escapeAttribute })
+//   tableHtml(node, { editor, richText, escapeText, escapeAttribute, cellBlock })
 //   // → "<colgroup>…</colgroup><thead>…</thead><tbody>…</tbody>"
 //
 // A cell's blocks are rendered here (cellBlock): Text, Image, Button,
-// Divider, Spacer, Loop, Condition, Assign and tables; others show nothing.
+// Divider, Spacer, Loop, Condition, Assign and tables. The kit's own blocks
+// go through its cellBlock(node, ctx), if it gives one; without it they show
+// nothing.
 // With editor, every element has its tess-<id> class, an empty container a
 // placeholder that fits there, and Liquid tags are left out, so a Loop's
 // rows show once.
@@ -157,6 +159,6 @@ export function cellBlock(node, ctx) {
       return ctx.editor ? children() : `${open}${children()}${close}`
     }
     default:
-      return ""
+      return ctx.cellBlock?.(node, { ...ctx, style, classes: (block) => classes(block, ctx) }) || ""
   }
 }

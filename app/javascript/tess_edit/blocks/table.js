@@ -7,14 +7,14 @@
 // selected cell, whose Table group also adds and deletes rows and columns
 // (core/table.js, the "table" field in ui/inspector.js).
 //
-// In an email the table is an mj-table, which MJML copies as it is, so its
-// cells' blocks are HTML (export/table.js), not MJML. Another kit takes them
-// in with extendBlock and its own render hook, as a host's PDF kit does.
+// A kit takes them in with extendBlock and its own render hooks. The table's
+// HTML, with its rows and cells, is export/table.js's tableHtml, which an
+// email's mj-table and a note's <table> both use; a row and a cell render
+// nothing of their own there.
 
 import { ALIGN, VERTICAL_ALIGN, background, padding } from "tess_edit/blocks/fields"
 import { plainText } from "tess_edit/blocks/text"
 import { newTable } from "tess_edit/core/table"
-import { tableHtml } from "tess_edit/export/table"
 
 const tableActions = { key: "data", label: "", type: "table" }
 
@@ -23,7 +23,7 @@ export const table = {
   name: "Table",
   icon: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 10h18M3 15h18M9 10v9M15 10v9"/>',
   category: "layout",
-  // Content, as Text is: in an email inside a column, as an mj-table must be
+  // Content, as Text is
   roles: ["content"],
   accepts: ["row"],
   defaults: () => ({ attributes: { padding: "10px 25px" }, data: { columns: [], borderColor: "#d1d5db", borderWidth: "1px", cellPadding: "6px 8px", headingBackground: "#f3f4f6" } }),
@@ -50,10 +50,7 @@ export const table = {
       ]
     }
   ],
-  hint: "Rows of cells. Select a cell to add rows and columns. Put rows in a Loop to repeat them for each item.",
-  render: {
-    mjml: (node, ctx) => ctx.element("mj-table", node, tableHtml(node, ctx))
-  }
+  hint: "Rows of cells. Select a cell to add rows and columns. Put rows in a Loop to repeat them for each item."
 }
 
 export const tableRow = {
@@ -76,9 +73,7 @@ export const tableRow = {
       ]
     }
   ],
-  label: (node) => (node.data.heading ? "Heading row" : "Row"),
-  // In its table's (export/table.js)
-  render: { mjml: () => "" }
+  label: (node) => (node.data.heading ? "Heading row" : "Row")
 }
 
 export const tableCell = {
@@ -106,7 +101,5 @@ export const tableCell = {
   label(node) {
     const text = (node.children || []).map((child) => plainText(child.data?.content)).join(" ").trim()
     return text ? `Cell · ${text.slice(0, 32)}` : "Cell"
-  },
-  // In its table's (export/table.js)
-  render: { mjml: () => "" }
+  }
 }

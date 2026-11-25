@@ -19,8 +19,5 @@ export default {
         padding
       ]
     }
-  ],
-  render: {
-    mjml: (node, { element }) => element("mj-divider", node)
-  }
+  ]
 }

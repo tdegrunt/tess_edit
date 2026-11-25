@@ -3,7 +3,7 @@ require "application_system_test_case"
 class VariablesTest < ApplicationSystemTestCase
   setup do
     visit "/?variables=1"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
   end
 
@@ -73,7 +73,7 @@ class VariablesTest < ApplicationSystemTestCase
   end
 
   test "a Loop's collection ends at a collection, and its blocks can use its variable" do
-    within_canvas { find("td[class^='tess-']", text: "× {{ line.name }}").click }
+    within_canvas { canvas_block("× {{ line.name }}").click }
     find(".tess-edit button[title='Select parent']").click
     assert_selector ".tess-edit h2", text: "For line in order.lines"
     collection = setting("Collection")
@@ -85,7 +85,7 @@ class VariablesTest < ApplicationSystemTestCase
     assert_no_selector "[role=listbox]"
 
     within_canvas do
-      find("td[class^='tess-']", text: "× {{ line.name }}").double_click
+      canvas_block("× {{ line.name }}").double_click
       find(".ProseMirror").send_keys(:end, " {{ line.")
     end
     assert_option "quantity"
@@ -98,7 +98,7 @@ class VariablesTest < ApplicationSystemTestCase
 
   test "typing {{ in text on the canvas suggests the variables" do
     within_canvas do
-      find("td[class^='tess-']", text: "We've received order").double_click
+      canvas_block("We've received order").double_click
       find(".ProseMirror").send_keys(:end, " {{ order.cu")
     end
     assert_option "customer"
@@ -112,7 +112,7 @@ class VariablesTest < ApplicationSystemTestCase
 
   test "the text toolbar's { } button inserts a variable" do
     within_canvas do
-      find("td[class^='tess-']", text: "We've received order").double_click
+      canvas_block("We've received order").double_click
       find(".ProseMirror").send_keys(:end, " Shop at ")
     end
     find(".tess-edit button[title='Insert a variable']").click
@@ -212,7 +212,7 @@ class VariablesTest < ApplicationSystemTestCase
 
   test "without a variablesUrl there are no suggestions or buttons" do
     visit "/"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     setting("Link").send_keys(" {{ or")
     assert_no_selector "[role=listbox]"
     assert_no_selector ".tess-edit button[title='Insert a variable']"
@@ -220,7 +220,7 @@ class VariablesTest < ApplicationSystemTestCase
 
   test "the editor takes other variables when the host changes its variablesUrl" do
     visit "/"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
     assert_no_button "{ }"
 

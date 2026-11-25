@@ -34,9 +34,9 @@ test("a background image is uploaded when it refers to one of the host's images"
   assert.equal(imageSource(createNode("section", { data: { background: "abc", backgroundSource: "web" } }), withMedia, field), "web")
 })
 
-test("the Image block, heroes, sections and wrappers have an image field", () => {
+test("the Image block and sections have an image field", () => {
   const keys = (type) => imageFields(getBlock(type)).map((field) => [field.key, field.image])
   assert.deepEqual(keys("image"), [["attributes.src", "data.image"]])
-  for (const type of ["hero", "section", "wrapper"]) assert.deepEqual(keys(type), [["attributes.background-url", "data.background"]])
+  assert.deepEqual(keys("section"), [["attributes.background-url", "data.background"]])
   assert.deepEqual(keys("text"), [])
 })

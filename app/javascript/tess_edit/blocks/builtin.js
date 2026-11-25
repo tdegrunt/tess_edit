@@ -1,19 +1,16 @@
-// The built-in blocks, registered by core/registry.js in this order. The
-// order is also the order of tiles in the Blocks panel.
+// TessEdit's own blocks, registered by core/registry.js in this order, the
+// order of their tiles in the Blocks panel unless a kit orders them. They are
+// part of no kit: a kit takes them in with extendBlock, with how they render
+// in it (see core/registry.js).
 
-import email from "tess_edit/blocks/email"
-import content from "tess_edit/blocks/content"
-import wrapper from "tess_edit/blocks/wrapper"
 import section from "tess_edit/blocks/section"
 import column from "tess_edit/blocks/column"
-import hero from "tess_edit/blocks/hero"
+import content from "tess_edit/blocks/content"
 import text from "tess_edit/blocks/text"
 import image from "tess_edit/blocks/image"
 import button from "tess_edit/blocks/button"
 import divider from "tess_edit/blocks/divider"
 import spacer from "tess_edit/blocks/spacer"
-import social from "tess_edit/blocks/social"
-import navbar from "tess_edit/blocks/navbar"
 import raw from "tess_edit/blocks/raw"
 import loop from "tess_edit/blocks/loop"
 import condition from "tess_edit/blocks/condition"
@@ -26,4 +23,4 @@ export const builtinCategories = [
   { key: "liquid", label: "Liquid", order: 30 }
 ]
 
-export const builtinBlocks = [email, section, column, wrapper, hero, content, text, image, button, divider, spacer, social, navbar, raw, loop, condition, assign, table, tableRow, tableCell]
+export const builtinBlocks = [section, column, content, text, image, button, divider, spacer, raw, loop, condition, assign, table, tableRow, tableCell]

@@ -1,13 +1,13 @@
 // The document is a plain JSON tree:
 //   { id, type, attributes: {}, data: {}, children: [] }
-// `attributes` hold a block's styling, named after MJML's attributes (a kit
-// with other output maps them onto its own), `data` holds everything else
+// `attributes` hold a block's styling, named after CSS properties and
+// MJML's attributes (each kit maps them onto its own output), `data` holds everything else
 // (rich text, Liquid expressions, link lists). A block copied from elsewhere,
 // such as a host's reusable content, may also have `origin`: the id of the
 // block it is a copy of (see renumber). All functions here are pure apart
 // from the mutating helpers, which change the tree they are given in place.
 
-import { DEFAULT_KIT, getBlock, getKit, kitOf, paletteItem, typesForRoles } from "tess_edit/core/registry"
+import { getBlock, getKit, kitOf, paletteItem, typesForRoles } from "tess_edit/core/registry"
 
 export const VERSION = 1
 
@@ -33,8 +33,8 @@ export function createNode(type, overrides = {}) {
   }
 }
 
-// An empty document of a kit (see core/registry.js), an email by default.
-export function createDocument(kit = DEFAULT_KIT) {
+// An empty document of a kit (see core/registry.js)
+export function createDocument(kit) {
   const definition = getKit(kit)
   if (!definition) throw new Error(`Unknown kit: ${kit}`)
   return { version: VERSION, ...createNode(definition.root) }
@@ -178,7 +178,7 @@ export function duplicate(doc, id) {
 // Sets a value on a node. `key` is "attributes.padding" or "data.subject",
 // or deeper into a list, "data.options.0.label" (an inline part of each item,
 // see `inline` in core/registry.js).
-// An empty string removes an attribute, so MJML falls back to its default.
+// An empty string removes an attribute, so the kit's output falls back to its default.
 export function setValue(doc, id, key, value) {
   const hit = find(doc, id)
   if (!hit) return
@@ -203,10 +203,10 @@ export function getValue(node, key) {
 // `kit`, the document has to be one of that kit's.
 export function normalize(input, { kit } = {}) {
   const doc = typeof input === "string" ? JSON.parse(input) : clone(input)
-  // The email's root block was called "page", then "root"; such documents still load.
-  if (doc?.type === "page" || doc?.type === "root") doc.type = "email"
   const own = kitOf(doc)
   if (!own) throw new Error("Not a TessEdit document: the top node must be a root block")
+  // A root type the kit had before (its aliases) loads as its root
+  doc.type = own.root
   if (kit && own.key !== kit) throw new Error(`This is a document for the ${own.name} editor, not the ${getKit(kit)?.name || kit} one`)
   walk(doc, (node) => {
     if (!getBlock(node.type)) throw new Error(`Unknown block type: ${node.type}`)

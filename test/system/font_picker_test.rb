@@ -3,7 +3,7 @@ require "application_system_test_case"
 class FontPickerTest < ApplicationSystemTestCase
   setup do
     visit "/"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
   end
 

@@ -2,14 +2,13 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
 import { createFromPalette } from "tess_edit/core/document"
-import { registerBlock } from "tess_edit/core/registry"
 import { canEditField, canFill, isFree, parseLock } from "tess_edit/core/lock"
 
-registerBlock({ type: "content", name: "Content", roles: ["body", "content"], accepts: "inherit", render: { mjml: (node, { children }) => children(node).join("\n") } })
+import "./page_kit.js"
 
 // A layout: a header section, the content block holding a section, and a footer.
 function layout() {
-  const doc = createDocument()
+  const doc = createDocument("page")
   const header = insert(doc, doc.id, 0, createFromPalette("section-1"))
   const content = insert(doc, doc.id, 1, createNode("content"))
   const body = insert(doc, content.id, 0, createFromPalette("section-1"))

@@ -9,20 +9,20 @@ class EditorTest < ApplicationSystemTestCase
   test "loads the sample and fills the hidden inputs" do
     eventually do
       assert_includes output("html"), "{% for line in order.lines %}"
-      assert_includes output("mjml"), "<mj-raw>{% if customer.orders_count == 1 %}</mj-raw>"
-      assert_equal "email", document_json["type"]
+      assert_includes output("html"), "{% if customer.orders_count == 1 %}"
+      assert_equal "note", document_json["type"]
     end
     assert_no_match(/tess-/, output("html"))
   end
 
   test "selecting a block on the canvas shows it in Inspect" do
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
     assert_equal "View your order", setting("Label").value
   end
 
   test "changing a setting updates the canvas and the outputs" do
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     setting("Label").fill_in(with: "Track {{ order.number }}")
 
     within_canvas { assert_selector "a", text: "Track {{ order.number }}" }
@@ -31,7 +31,7 @@ class EditorTest < ApplicationSystemTestCase
 
   test "editing text on the canvas" do
     within_canvas do
-      find("td[class^='tess-']", text: "We've received order").double_click
+      canvas_block("We've received order").double_click
       find(".ProseMirror").send_keys(:end, " See you soon.")
       find(".ProseMirror").send_keys(:escape)
       assert_no_selector ".ProseMirror"
@@ -42,7 +42,7 @@ class EditorTest < ApplicationSystemTestCase
 
   test "a link is added, changed and removed in a dialog" do
     within_canvas do
-      find("td[class^='tess-']", text: "We've received order").double_click
+      canvas_block("We've received order").double_click
       select_all_text
     end
     find(".tess-edit button[title='Link']").click
@@ -67,7 +67,7 @@ class EditorTest < ApplicationSystemTestCase
   end
 
   test "clicking a tile adds the block after the selected one" do
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     click_on "Spacer"
 
     eventually do
@@ -96,8 +96,11 @@ class EditorTest < ApplicationSystemTestCase
 
     placeholder.call
     assert_selector "[role=menu]"
-    within_canvas { find("td[class^='tess-']", text: "Thanks for your order", match: :first).click }
+    within_canvas { canvas_block("Thanks for your order").click }
     assert_no_selector "[role=menu]"
+    # A click on the placeholder right after the menu closed closes it, as the
+    # second of two clicks on it; this one comes later, as a person's would
+    sleep 0.5
 
     placeholder.call
     assert_selector "[role=menu]"
@@ -132,7 +135,7 @@ class EditorTest < ApplicationSystemTestCase
   end
 
   test "undo and redo" do
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     find(".tess-edit [title='Delete']", match: :first).click
     within_canvas { assert_no_text "View your order" }
 
@@ -142,7 +145,7 @@ class EditorTest < ApplicationSystemTestCase
     within_canvas { assert_no_text "View your order" }
   end
 
-  test "preview shows the email as sent" do
+  test "preview shows the note as it is output, with its Liquid" do
     find("[title^='Preview']").click
     within_canvas do
       assert_text "{% for line in order.lines %}"
@@ -159,8 +162,9 @@ class EditorTest < ApplicationSystemTestCase
     within_canvas { assert_text "NEW NAME" }
   end
 
-  test "MJML that can't be compiled shows why and keeps the last email on the canvas" do
-    # Puts an HTML block with this HTML at the end of the email, replacing the one added before.
+  test "a canvas the kit can't render shows why and keeps the last one" do
+    # Puts an HTML block with this HTML at the end of the note, replacing the
+    # one added before: the Note kit can't render a tag that isn't closed.
     set_raw_html = ->(html) do
       execute_script(<<~JS, html)
         const editor = document.querySelector("[data-controller='tess-edit']").tessEdit
@@ -172,7 +176,7 @@ class EditorTest < ApplicationSystemTestCase
     end
 
     set_raw_html.call("<div>not closed")
-    assert_selector "[role=alert]", text: "The email could not be compiled"
+    assert_selector "[role=alert]", text: "The note could not be rendered: <div> isn't closed in an HTML block"
     within_canvas { assert_text "Thanks for your order" }
     eventually { assert_equal "", output("html") }
 
@@ -227,7 +231,7 @@ class EditorTest < ApplicationSystemTestCase
     assert_no_selector "[data-tess-edit-panel='inspect']"
 
     # A click on the canvas opens the block in Inspect
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_equal "View your order", setting("Label").value
     click_on "Blocks"
     assert_no_selector "[data-tess-edit-panel='inspect']"
@@ -252,7 +256,7 @@ class EditorTest < ApplicationSystemTestCase
     assert_selector ".tess-edit aside", count: 1
     assert_selector ".tess-edit aside + main"
     assert_selector "[title='Too narrow to split the panels'][disabled]"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_equal "View your order", setting("Label").value
 
     page.current_window.resize_to(*original)
@@ -277,7 +281,7 @@ class EditorTest < ApplicationSystemTestCase
     assert_no_selector ".tess-edit aside"
 
     # A tap on a block opens the sheet on Inspect
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_equal "View your order", setting("Label").value
 
     page.current_window.resize_to(*original)
@@ -292,7 +296,7 @@ class EditorTest < ApplicationSystemTestCase
       find("[title='#{layout}']").click
       assert_no_text(/\bnull\b/)
     end
-    within_canvas { find("td[class^='tess-']", text: "We've received order").double_click }
+    within_canvas { canvas_block("We've received order").double_click }
     assert_selector "[title='Bold (⌘B)']"
     assert_no_text(/\bnull\b/)
   end
@@ -301,7 +305,7 @@ class EditorTest < ApplicationSystemTestCase
     visit "/?panels=right"
     assert_selector ".tess-edit main + aside"
     click_on "Inspect"
-    assert_selector ".tess-edit h2", text: "Email"
+    assert_selector ".tess-edit h2", text: "Note"
   end
 
   private
@@ -310,12 +314,12 @@ class EditorTest < ApplicationSystemTestCase
   # events the browser would: dragstart on the tile, dragover and drop on the
   # canvas, below the block with the given text.
   def drag_tile_onto_canvas(tile, below:)
-    execute_script(<<~JS, tile, below)
+    execute_script(<<~JS, tile, below, BLOCK)
       const [tileLabel, targetText] = arguments
       const tile = [...document.querySelectorAll(".tess-edit button[draggable]")].find((b) => b.textContent.trim() === tileLabel)
-      const frame = document.querySelector("iframe[title='Email canvas']")
+      const frame = document.querySelector("iframe[title='Note canvas']")
       const doc = frame.contentDocument
-      const target = [...doc.querySelectorAll("td[class^='tess-']")].find((td) => td.textContent.includes(targetText))
+      const target = [...doc.querySelectorAll(arguments[2])].find((block) => block.textContent.includes(targetText))
       const rect = target.getBoundingClientRect()
       const at = { clientX: rect.left + rect.width / 2, clientY: rect.bottom - 2, bubbles: true, cancelable: true }
       const dataTransfer = new DataTransfer()
@@ -337,12 +341,13 @@ class EditorTest < ApplicationSystemTestCase
   end
 
   test "a clicked tile that doesn't fit near the selection goes in the last block it fits in" do
-    columns = -> { blocks_of(document_json, "column") }
-    dividers = columns.call.sum { |column| column["children"].count { |child| child["type"] == "divider" } }
-    within(".tess-edit") { click_on "Divider" }
+    sections = -> { blocks_of(document_json, "section") }
+    columns = sections.call.sum { |section| section["children"].size }
+    # A column goes in a section, not in the note
+    within(".tess-edit") { click_on "Column" }
     eventually do
-      assert_equal "divider", columns.call.last["children"].last["type"]
-      assert_equal dividers + 1, columns.call.sum { |column| column["children"].count { |child| child["type"] == "divider" } }
+      assert_equal %w[column column column], sections.call.last["children"].map { |child| child["type"] }
+      assert_equal columns + 1, sections.call.sum { |section| section["children"].size }
     end
   end
 
@@ -352,4 +357,3 @@ class EditorTest < ApplicationSystemTestCase
     [(node if node["type"] == type), *Array(node["children"]).flat_map { |child| blocks_of(child, type) }].compact
   end
 end
-

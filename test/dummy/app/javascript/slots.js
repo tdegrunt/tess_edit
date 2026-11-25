@@ -1,14 +1,14 @@
-// A slot the demo adds to the email's root the way a host app adds its own
+// A slot the demo adds to the note's root the way a host app adds its own
 // form fields to Inspect: the element is the page's (demo/show.html.erb, at
 // /?slots=1), its values submit with the form. Without it the group doesn't show.
 
 import { extendBlock } from "tess_edit"
 
-extendBlock("email", {
+extendBlock("note", {
   fields: [
     {
       title: "Sender",
-      before: "Message",
+      before: "Note",
       fields: [
         {
           key: "sender",

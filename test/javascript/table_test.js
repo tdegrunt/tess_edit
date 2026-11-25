@@ -3,12 +3,16 @@ import assert from "node:assert/strict"
 import { accepted, createDocument, createFromPalette, createNode, find, insert } from "tess_edit/core/document"
 import { extendBlock, getBlock, paletteItems, registerBlock, registerKit } from "tess_edit/core/registry"
 import { addColumn, addRow, cellOf, columnCount, deleteColumn, deleteRow, nextCell, position, rowGroups, rows, setColumn, setColumnAt, span, tableOf, wrapRow } from "tess_edit/core/table"
-import { toMjml } from "tess_edit/export/mjml"
+import { escapeAttribute, escapeText, richTextToHtml } from "tess_edit/export/richtext"
+import { tableHtml } from "tess_edit/export/table"
+
+// What a kit gives tableHtml, as the Note kit does
+const html = (table, options = {}) => tableHtml(table, { editor: false, richText: richTextToHtml, escapeText, escapeAttribute, ...options })
 
 // A kit of HTML documents that takes the table in, as the host's PDF kit does
 registerKit({ key: "paper", name: "Paper", root: "paper", canvas: async () => ({ html: "", errors: [] }), outputs: async () => ({ outputs: {}, errors: [] }) })
 registerBlock({ type: "paper", name: "Paper", icon: "", roles: [], accepts: ["body"], kits: ["paper"], render: { html: () => "" } })
-for (const type of ["section", "column", "text", "image", "loop", "condition", "assign", "table", "table_row", "table_cell"]) extendBlock(type, { kits: ["paper"] })
+for (const type of ["section", "column", "text", "image", "button", "spacer", "loop", "condition", "assign", "table", "table_row", "table_cell"]) extendBlock(type, { kits: ["paper"] })
 
 const text = (cell) => cell.children[0].data.content.content[0].content?.[0]?.text || ""
 
@@ -19,16 +23,14 @@ function paper() {
   return { doc, table }
 }
 
-test("a table is the email's, and a kit's that takes it in", () => {
-  assert.deepEqual(getBlock("table").kits, ["email", "paper"])
-  assert.ok(paletteItems("email").some((item) => item.key === "table"))
+test("a table is part of no kit until a kit takes it in", () => {
+  assert.deepEqual(getBlock("table").kits, ["paper"])
+  assert.deepEqual(getBlock("table").render, {})
   assert.ok(paletteItems("paper").some((item) => item.key === "table"))
 })
 
-test("in an email an mj-table of HTML, its styles inline, its Loops' rows between Liquid tags", () => {
-  const doc = createDocument()
-  const section = insert(doc, doc.id, 0, createFromPalette("section-1"))
-  const table = insert(doc, section.children[0].id, 0, createFromPalette("table"))
+test("a table's HTML has its styles inline, its Loops' rows between Liquid tags", () => {
+  const { doc, table } = paper()
   const [heading, first, second] = rows(table)
   table.data.columns[2].width = "60px"
   table.data.stripe = "#f9fafb"
@@ -41,16 +43,32 @@ test("in an email an mj-table of HTML, its styles inline, its Loops' rows betwee
   second.children[0].data.colspan = "2"
   second.children.splice(1, 1)
 
-  const mjml = toMjml(doc)
-  assert.match(mjml, /<mj-table padding="10px 25px"><colgroup><col><col><col style="width:60px"><\/colgroup><thead><tr><th style="border:1px solid #d1d5db;padding:6px 8px;text-align:left;vertical-align:top;background-color:#f3f4f6;font-weight:bold">/)
-  assert.match(mjml, /<tbody>\{% for line in order\.lines %\}\n\s*<tr><td style="[^"]*"><div style="padding:0px"><p[^>]*>\{\{ line\.name \}\}<\/p><\/div><\/td>/)
-  assert.match(mjml, /<img src="https:\/\/example\.com\/a\.png" alt="" style="display:block;max-width:100%;height:auto;border:0"><\/div><\/td><\/tr>\n\s*\{% endfor %\}/)
-  assert.match(mjml, /<td colspan="2" style="border:1px solid #d1d5db;border-top-width:3px;[^"]*background-color:#f9fafb">/)
+  const output = html(table)
+  assert.match(output, /^<colgroup><col><col><col style="width:60px"><\/colgroup><thead><tr><th style="border:1px solid #d1d5db;padding:6px 8px;text-align:left;vertical-align:top;background-color:#f3f4f6;font-weight:bold">/)
+  assert.match(output, /<tbody>\{% for line in order\.lines %\}\n\s*<tr><td style="[^"]*"><div style="padding:0px"><p[^>]*>\{\{ line\.name \}\}<\/p><\/div><\/td>/)
+  assert.match(output, /<img src="https:\/\/example\.com\/a\.png" alt="" style="display:block;max-width:100%;height:auto;border:0"><\/div><\/td><\/tr>\n\s*\{% endfor %\}/)
+  assert.match(output, /<td colspan="2" style="border:1px solid #d1d5db;border-top-width:3px;[^"]*background-color:#f9fafb">/)
 
-  const editor = toMjml(doc, { editor: true })
+  const editor = html(table, { editor: true })
   assert.doesNotMatch(editor, /\{%/)
-  assert.match(editor, new RegExp(`<mj-table padding="10px 25px" css-class="tess-${table.id}">`))
   assert.match(editor, new RegExp(`<tr class="tess-${first.id}"><td class="tess-${first.children[0].id}"`))
+})
+
+test("a cell's TessEdit blocks are rendered by the table, a kit's own by its cellBlock", () => {
+  registerBlock({ type: "stamp", name: "Stamp", roles: ["content"], kits: ["paper"], render: { html: () => "" } })
+  const { doc, table } = paper()
+  const cell = rows(table)[1].children[0]
+  insert(doc, cell.id, 0, createNode("button", { attributes: { href: "{{ url }}" }, data: { content: "Pay" } }))
+  insert(doc, cell.id, 1, createNode("spacer", { attributes: { height: "8px" } }))
+  const stamp = insert(doc, cell.id, 2, createNode("stamp"))
+
+  assert.match(html(table), /<a href="\{\{ url \}\}" style="display:inline-block;[^"]*">Pay<\/a>/)
+  assert.match(html(table), /<div style="height:8px"><\/div>/)
+  assert.doesNotMatch(html(table), /STAMP/, "without a cellBlock a kit's block shows nothing")
+
+  const cellBlock = (node, ctx) => `<b${ctx.classes(node)}${ctx.style({ color: "red" })}>${node.type.toUpperCase()}</b>`
+  assert.match(html(table, { cellBlock }), /<b style="color:red">STAMP<\/b>/)
+  assert.match(html(table, { cellBlock, editor: true }), new RegExp(`<b class="tess-${stamp.id}" style="color:red">STAMP</b>`))
 })
 
 test("the palette's table: a heading row and two rows of three cells, each with a Text", () => {
@@ -166,24 +184,21 @@ test("a cell's position, the next cell and the cell a block is in", () => {
   assert.equal(cellOf(doc, table.id), null)
 })
 
-test("an Assign sets a variable for what follows it, nothing on the canvas", () => {
-  const doc = createDocument()
-  const section = insert(doc, doc.id, 0, createFromPalette("section-1"))
-  insert(doc, section.children[0].id, 0, createNode("assign", { data: { variable: "lines", expression: 'order.lines | where: "kind", "product"' } }))
-  assert.match(toMjml(doc), /<mj-raw>\{% assign lines = order\.lines \| where: "kind", "product" %\}<\/mj-raw>/)
-  assert.doesNotMatch(toMjml(doc, { editor: true }), /assign/)
+test("an Assign between a table's rows sets a variable for what follows it, nothing on the canvas", () => {
+  const { doc, table } = paper()
+  insert(doc, table.id, 1, createNode("assign", { data: { variable: "lines", expression: 'order.lines | where: "kind", "product"' } }))
+  assert.match(html(table), /\{% assign lines = order\.lines \| where: "kind", "product" %\}/)
+  assert.doesNotMatch(html(table, { editor: true }), /assign/)
   assert.equal(getBlock("assign").label({ data: { variable: "lines", expression: "order.lines" } }), "lines = order.lines")
 })
 
 test("a table's lines around every cell, or only under each row", () => {
-  const doc = createDocument()
-  const section = insert(doc, doc.id, 0, createFromPalette("section-1"))
-  const table = insert(doc, section.children[0].id, 0, createFromPalette("table"))
-  assert.match(toMjml(doc), /<td style="border:1px solid #d1d5db;/)
+  const { table } = paper()
+  assert.match(html(table), /<td style="border:1px solid #d1d5db;/)
   table.data.borders = "rows"
-  const mjml = toMjml(doc)
-  assert.match(mjml, /<td style="border-bottom:1px solid #d1d5db;/)
-  assert.doesNotMatch(mjml, /style="border:/)
+  const output = html(table)
+  assert.match(output, /<td style="border-bottom:1px solid #d1d5db;/)
+  assert.doesNotMatch(output, /style="border:/)
 })
 
 test("a row is wrapped in a Loop in its place, which the canvas marks with its rows", () => {

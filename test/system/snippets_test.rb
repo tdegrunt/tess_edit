@@ -23,7 +23,7 @@ class SnippetsTest < ApplicationSystemTestCase
   end
 
   test "a snippet goes after the selected block as a copy that knows where it came from" do
-    within_canvas { find("td[class^='tess-']", text: "ACME STORE").click }
+    within_canvas { canvas_block("ACME STORE").click }
     within("[data-tess-edit-source='snippets']") { click_on "Greeting" }
 
     copy = nil
@@ -34,19 +34,19 @@ class SnippetsTest < ApplicationSystemTestCase
   end
 
   test "a snippet goes where it fits" do
-    within_canvas { find("td[class^='tess-']", text: "ACME STORE").click }
+    within_canvas { canvas_block("ACME STORE").click }
     within("[data-tess-edit-source='snippets']") { click_on "Footer" }
 
     copy = nil
     eventually { assert(copy = copy_of("bfoot1")) }
-    assert_equal "email", find_node(copy["id"])[1]["type"], "a section doesn't go in a column"
+    assert_equal "note", find_node(copy["id"])[1]["type"], "a section doesn't go in a column"
     assert_equal "bfoot3", copy.dig("children", 0, "children", 0, "origin")
   end
 
   test "a duplicated copy is new content" do
-    within_canvas { find("td[class^='tess-']", text: "ACME STORE").click }
+    within_canvas { canvas_block("ACME STORE").click }
     within("[data-tess-edit-source='snippets']") { click_on "Greeting" }
-    within_canvas { find("td[class^='tess-']", text: "Dear {{ customer.name }},").click }
+    within_canvas { canvas_block("Dear {{ customer.name }},").click }
     find("[data-tess-edit-panel='inspect'] [title='Duplicate']").click
 
     eventually { assert_equal 2, blocks.count { |type, label| type == "text" && label == "Dear {{ customer.name }}," } }

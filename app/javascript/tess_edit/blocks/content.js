@@ -8,13 +8,12 @@
 //
 //   <!-- tess-edit:content --> … <!-- /tess-edit:content -->
 //
-// In MJML the comments are in <mj-raw> tags, which MJML keeps. A kit that
-// uses it renders the same comments (see extendBlock in core/registry.js).
+// A kit that uses it renders these comments around its children, in a tag
+// of its own if it needs one, such as an email's <mj-raw> (see extendBlock in
+// core/registry.js).
 
 export const CONTENT_START = "<!-- tess-edit:content -->"
 export const CONTENT_END = "<!-- /tess-edit:content -->"
-
-const mjRaw = (comment) => `<mj-raw>${comment}</mj-raw>`
 
 export default {
   type: "content",
@@ -26,11 +25,5 @@ export default {
   // parent takes, so it works at the top level and inside a column.
   roles: ["body", "content"],
   accepts: "inherit",
-  hint: "The content of the documents using this layout goes here. What you put inside is example content for designing the layout.",
-  render: {
-    mjml(node, { editor, children }) {
-      const inner = children(node)
-      return editor ? inner.join("\n") : [mjRaw(CONTENT_START), ...inner, mjRaw(CONTENT_END)].join("\n")
-    }
-  }
+  hint: "The content of the documents using this layout goes here. What you put inside is example content for designing the layout."
 }

@@ -4,7 +4,7 @@ class TranslationsTest < ApplicationSystemTestCase
   setup do
     TranslationsController.reset!
     visit "/?translations=1"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
   end
 
@@ -69,7 +69,7 @@ class TranslationsTest < ApplicationSystemTestCase
 
   test "selected text on the canvas becomes a translation, shown as its text" do
     within_canvas do
-      find("td[class^='tess-']", text: "Thanks for your order,").double_click
+      canvas_block("Thanks for your order,").double_click
       select_all_text
     end
     find(".tess-edit button[title^='Make translatable']").click
@@ -106,7 +106,7 @@ class TranslationsTest < ApplicationSystemTestCase
 
   test "without a translationsUrl there's no language menu or translate button" do
     visit "/"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_no_selector "select[aria-label='Show translations in']"
     assert_no_selector ".tess-edit button[title^='Make translatable']"
   end

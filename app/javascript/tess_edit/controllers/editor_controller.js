@@ -1,8 +1,8 @@
 // <div data-controller="tess-edit"> … </div>
 //
 // Values:
-//   kit       what the editor makes: "email" (the default), or a kit the host
-//             registered (see core/registry.js)
+//   kit       what the editor makes: the key of a kit the host registered
+//             (see core/registry.js); may be left out when there is one
 //   document  JSON of the document to load (falls back to the json input, then a sample)
 //   sample    load the sample document when there is nothing else (default true)
 //   frame     a border with rounded corners around the editor (default true); a
@@ -15,8 +15,9 @@
 //             below the canvas, shown and hidden from the top bar and opened
 //             by a tap on a block. A kit without blocks (blocks: false) has
 //             Inspect on the right only, or in the sheet.
-//   compileUrl  the endpoint that compiles the email kit's MJML to HTML (default
-//               /tess_edit/compile, the engine mounted at /tess_edit)
+//   compileUrl  the engine's compile endpoint, for a kit that compiles on the
+//               server (default /tess_edit/compile, the engine mounted at
+//               /tess_edit, see export/compile.js)
 //   mediaUrl    the host's images, chosen and uploaded in Image blocks (see
 //               core/media.js); without it images only have a URL
 //   variablesUrl  the variables a template can use, suggested while typing {{
@@ -44,23 +45,24 @@
 //               editor.options, e.g. the choices of a select field
 //               (options: (editor) => editor.options.parties)
 // Targets (all optional, usually hidden inputs in a form):
-//   jsonInput, mjmlInput, htmlInput  kept up to date with every change, with
-//                    the kit's outputs (an <output>Input target for each)
+//   jsonInput, htmlInput, …  kept up to date with every change: the JSON and
+//                    the kit's outputs, an <output>Input target for each
+//                    (e.g. mjmlInput for an email's mjml)
 //   slot             an element of the host's, named by data-tess-edit-slot,
 //                    that a "slot" field shows in Inspect (see ui/inspector.js)
 //   translations     a <script type="application/json"> with the editor's words
 //                    in the page's language (see core/i18n.js)
 // Events:
-//   tess-edit:change  detail: { json, ...the kit's outputs, errors, document }:
-//                     for an email { json, mjml, html, errors, document }, with
-//                     html empty when the MJML could not be compiled and errors saying why
+//   tess-edit:change  detail: { json, ...the kit's outputs, errors, document },
+//                     e.g. { json, html, errors, document }, with errors saying
+//                     why an output could not be made
 
 import { Controller } from "@hotwired/stimulus"
 import { accepted, ancestors, createDocument, createFromPalette, duplicate, find, findType, getValue, insert, itemType, misfit, move, normalize, remove, setValue, walk } from "tess_edit/core/document"
 import { History } from "tess_edit/core/history"
 import { setTranslations, t } from "tess_edit/core/i18n"
 import { canEditField, canFill, isFree, parseLock } from "tess_edit/core/lock"
-import { DEFAULT_KIT, getBlock, getKit, inlinePart, inlineParts, paletteItems, paletteSources } from "tess_edit/core/registry"
+import { getBlock, getKit, kits, inlinePart, inlineParts, paletteItems, paletteSources } from "tess_edit/core/registry"
 import { COMPILE_URL } from "tess_edit/export/compile"
 import { IMAGE_FIELD, fetchMedia, uploadMedia } from "tess_edit/core/media"
 import { Translations, keysIn, suggestKey, toTranslation, translationTag } from "tess_edit/core/translations"
@@ -99,15 +101,17 @@ function placed(node, at) {
 }
 
 export default class extends Controller {
-  static values = { kit: { type: String, default: DEFAULT_KIT }, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, filtersUrl: String, tagsUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
-  static targets = ["jsonInput", "mjmlInput", "htmlInput", "slot", "translations"]
+  static values = { kit: String, document: String, sample: { type: Boolean, default: true }, frame: { type: Boolean, default: true }, panels: { type: String, default: "split" }, compileUrl: { type: String, default: COMPILE_URL }, mediaUrl: String, variablesUrl: String, filtersUrl: String, tagsUrl: String, translationsUrl: String, values: String, lock: String, blocks: String, options: String }
+  static targets = ["jsonInput", "slot", "translations"]
 
   connect() {
     if (this.hasTranslationsTarget) setTranslations(this.parseJson(this.translationsTarget.textContent, "translations"))
-    this.kit = getKit(this.kitValue)
+    // Without a kit, the one the host registered
+    this.kit = this.kitValue ? getKit(this.kitValue) : kits().length === 1 ? kits()[0] : null
     if (!this.kit) {
-      console.error(`TessEdit: unknown kit ${this.kitValue}, editing an email instead`)
-      this.kit = getKit(DEFAULT_KIT)
+      const problem = this.kitValue ? `there is no kit ${this.kitValue}` : kits().length ? "say which kit with data-tess-edit-kit-value" : "no kit is registered"
+      this.element.textContent = `TessEdit: ${problem} (see registerKit)`
+      throw new Error(`TessEdit: ${problem}`)
     }
     this.lock = parseLock(this.lockValue)
     this.allowedTypes = this.parseJson(this.blocksValue, "blocks")
@@ -361,7 +365,7 @@ export default class extends Controller {
         console.error("TessEdit: could not load the document", error)
       }
     }
-    return this.sampleValue ? this.kit.starter() : createDocument(this.kit.key)
+    return this.sampleValue && this.kit.starter ? this.kit.starter() : createDocument(this.kit.key)
   }
 
   // --- public API -------------------------------------------------------------
@@ -383,7 +387,7 @@ export default class extends Controller {
     this.renderAll()
   }
 
-  // The JSON and the kit's outputs, e.g. { json, mjml, html, errors } for an email
+  // The JSON and the kit's outputs, e.g. { json, html, errors }
   async export() {
     const { outputs, errors } = await this.kit.outputs(this.doc, { compileUrl: this.compileUrlValue })
     return { json: JSON.stringify(this.doc), ...outputs, errors }
@@ -713,8 +717,8 @@ export default class extends Controller {
 
   // --- rendering --------------------------------------------------------------
 
-  // Runs one of the kit's renderings, which may go to the server (the email's
-  // compiling). A newer run on the same channel aborts the older one, which
+  // Runs one of the kit's renderings, which may go to the server (a kit that
+  // compiles there). A newer run on the same channel aborts the older one, which
   // then resolves to null.
   async run(channel, render) {
     this.requests[channel]?.abort()
@@ -759,6 +763,13 @@ export default class extends Controller {
     }))
   }
 
+  // The input of an output (jsonInput, htmlInput, …): a target named after
+  // it, which isn't declared, as a kit has outputs of its own
+  outputInput(name) {
+    const target = `${name}Input`
+    return [...this.element.querySelectorAll(`[data-${this.identifier}-target]`)].find((element) => element.getAttribute(`data-${this.identifier}-target`).split(/\s+/).includes(target))
+  }
+
   writeOutputs() {
     const writing = (this.writing = this.write().finally(() => {
       if (this.writing === writing) this.writing = null
@@ -773,7 +784,8 @@ export default class extends Controller {
     if (!result) return
     const outputs = { json, ...result.outputs }
     for (const [name, value] of Object.entries(outputs)) {
-      if (this[`has${name[0].toUpperCase()}${name.slice(1)}InputTarget`]) this[`${name}InputTarget`].value = value
+      const input = this.outputInput(name)
+      if (input) input.value = value
     }
     this.dispatch("change", { detail: { ...outputs, errors: result.errors, document: this.doc } })
   }

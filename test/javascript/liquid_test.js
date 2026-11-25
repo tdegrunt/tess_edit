@@ -2,6 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
 import { expressionParts, liquidContext, liquidScope, openBlocks, quoted, splitOutside, textScope } from "tess_edit/core/liquid"
+import "./page_kit.js"
 
 const kind = (before, mode) => liquidContext(before, mode)?.kind ?? null
 
@@ -54,7 +55,7 @@ test("an expression's path and its filters", () => {
 })
 
 test("a block has its Loops' variables and the Assigns before it, nearest first", () => {
-  const doc = createDocument()
+  const doc = createDocument("page")
   const section = insert(doc, doc.id, 0, createNode("section"))
   const column = section.children[0] || insert(doc, section.id, 0, createNode("column"))
   insert(doc, column.id, 0, createNode("assign", { data: { variable: "lines", expression: "order.order_lines" } }))

@@ -28,8 +28,5 @@ export default {
     typography(),
     border
   ],
-  label: (node) => `${t("Button")} · ${node.data.content || ""}`,
-  render: {
-    mjml: (node, { element, escapeText }) => element("mj-button", node, escapeText(node.data.content))
-  }
+  label: (node) => `${t("Button")} · ${node.data.content || ""}`
 }

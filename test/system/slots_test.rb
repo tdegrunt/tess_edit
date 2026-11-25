@@ -24,11 +24,11 @@ class SlotsTest < ApplicationSystemTestCase
     page.execute_script("document.querySelector('[data-tess-edit-slot]').marker = 'kept'")
     within_inspect { fill_in "Name", with: "Ada" }
 
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
     assert_selector "[data-tess-edit-slot]", visible: :hidden
 
-    find("[title='Select parent']").click until has_selector?(".tess-edit h2", text: "Email", wait: 0.2)
+    find("[title='Select parent']").click until has_selector?(".tess-edit h2", text: "Note", wait: 0.2)
     within_inspect { assert_field "Name", with: "Ada" }
     assert_equal "kept", page.evaluate_script("document.querySelector('[data-tess-edit-slot]').marker")
   end

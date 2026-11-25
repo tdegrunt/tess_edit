@@ -4,39 +4,39 @@
   <div class="flex items-center gap-3">
     <h1 class="text-lg font-semibold text-gray-900">TessEdit</h1>
     <p class="text-sm text-gray-500">Drag blocks onto the canvas, select them to change their settings, double-click text to edit it.</p>
-    <%= link_to params[:kit] == "note" ? "Email" : "Note", root_path(kit: (params[:kit] == "note") ? nil : "note"), class: "ml-auto text-sm text-blue-700 hover:underline" %>
-    <%= form.submit "Submit form", class: "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %>
+    <%= form.submit "Submit form", class: "ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %>
   </div>
 
-  <%# ?panels=left or ?panels=right sets the default panel layout. ?lock=1 opens
-      a layout with only its Content block, subject and preview text editable.
+  <%# The demo designs a note, its own kit (app/javascript/kits/note.js), as
+      TessEdit has none of its own.
+      ?panels=left or ?panels=right sets the default panel layout. ?lock=1 opens
+      a layout with only its Content block and the note's title editable.
       ?media=1 lets Image blocks choose and upload images (MediaController).
       ?variables=1 suggests an order template's Liquid variables (VariablesController).
       ?translations=1 shows and edits translations for Liquid's t filter (TranslationsController).
       ?values=1 shows the order's values in place of its Liquid, as a host gives them (core/values.js).
-      ?kit=note designs a note instead of an email, the demo's own kit (app/javascript/kits/note.js).
       ?kit=memo writes a memo, a kit without blocks (app/javascript/kits/memo.js).
       ?snippets=1 offers snippets to insert as a copy (app/javascript/snippets.js, SnippetsController).
       ?slots=1 puts the page's own sender fields in the root's Inspect (app/javascript/slots.js).
       ?blocks=text,image only offers those blocks.
       ?locale=nl shows the editor in Dutch (tess_edit_translations). %>
   <% locked = params[:lock].present? %>
+  <% kit = params[:kit].presence || "note" %>
   <div class="min-h-0 flex-1" data-controller="tess-edit" data-tess-edit-panels-value="<%= params[:panels] %>"
-    <% if params[:kit].present? %>data-tess-edit-kit-value="<%= params[:kit] %>"<% end %>
+    data-tess-edit-kit-value="<%= kit %>"
     <% if params[:media].present? %>data-tess-edit-media-url-value="<%= media_path %>"<% end %>
     <% if params[:variables].present? %>data-tess-edit-variables-url-value="<%= variables_path %>" data-tess-edit-filters-url-value="<%= filters_path %>" data-tess-edit-tags-url-value="<%= tags_path %>"<% end %>
     <% if params[:translations].present? %>data-tess-edit-translations-url-value="<%= translations_path %>"<% end %>
     <% if params[:values].present? %>data-tess-edit-values-value="<%= {"customer.first_name" => "Ada", "order.number" => "1042"}.to_json %>"<% end %>
-    <% if params[:snippets].present? %>data-tess-edit-options-value="<%= {snippetsUrl: snippets_path(kit: params[:kit].presence)}.to_json %>"<% end %>
-    <% if params[:kit] == "memo" %>data-tess-edit-options-value="<%= {from: "Ada"}.to_json %>"<% end %>
+    <% if params[:snippets].present? %>data-tess-edit-options-value="<%= {snippetsUrl: snippets_path(kit: kit)}.to_json %>"<% end %>
+    <% if kit == "memo" %>data-tess-edit-options-value="<%= {from: "Ada"}.to_json %>"<% end %>
     <% if params[:blocks].present? %>data-tess-edit-blocks-value="<%= params[:blocks].split(",").to_json %>"<% end %>
     <% if locked %>
       data-tess-edit-document-value="<%= Rails.root.join("config/demo_layout.json").read %>"
-      data-tess-edit-lock-value="<%= {except: ["content"], fields: ["data.subject", "data.preheader"]}.to_json %>"
+      data-tess-edit-lock-value="<%= {except: ["content"], fields: ["data.title"]}.to_json %>"
     <% end %>>
     <%= tess_edit_translations %>
     <%= hidden_field_tag :json, nil, data: { tess_edit_target: "jsonInput" } %>
-    <%= hidden_field_tag :mjml, nil, data: { tess_edit_target: "mjmlInput" } %>
     <%= hidden_field_tag :html, nil, data: { tess_edit_target: "htmlInput" } %>
     <% if params[:slots].present? %>
       <div class="space-y-2" data-tess-edit-target="slot" data-tess-edit-slot="sender" hidden>

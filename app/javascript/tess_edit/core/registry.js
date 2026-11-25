@@ -23,8 +23,8 @@
 //                                      // editor, so the rest of the block stays as it is. A plain part
 //                                      // is one line of text, a string; the others are Tiptap JSON
 //     palette: [{ key, label, icon, category, create: ({ createNode }) => node }],  // optional
-//     kits: ["email"],                 // the kits it is part of, default ["email"]; [] for none
-//                                      // yet: a kit takes it in with extendBlock, and its render hook
+//     kits: ["note"],                  // the kits it is part of, default none: a kit takes it
+//                                      // in with extendBlock, and its render hook
 //     unique: true,                    // optional: at most one per document, like Content
 //     layout: "free",                  // optional, on a container: its children are placed by
 //                                      // data.x and data.y, dragged on the canvas (ui/free_layout.js)
@@ -33,13 +33,14 @@
 //     resizeChildren: { width: "data.width" },
 //                                      // optional, on a free container: the same for all of its children,
 //                                      // or a function of the child; unit: "mm" keeps sizes as "52mm"
-//     render: { mjml: (node, ctx) => "<mj-text …>" } // one per format of its kits:
-//                                      // mjml (export/mjml.js), html (export/html.js)
+//     render: { note: (node, ctx) => "<div …>" } // one per kit it is part of, named after
+//                                      // the kit's key (or what its kit's renderer calls)
 //   })
 //
-// Roles: "body" (inside the page or a wrapper: sections, heroes), "wrapper",
-// "column" (inside a section), "content" (inside a column or hero), and
-// "row" (inside a table) and "cell" (inside a row), see blocks/table.js. A
+// Roles: "body" (inside a kit's root, or an email's wrapper: sections),
+// "column" (inside a section), "content" (inside a column, or wherever a
+// kit's own containers take it), and "row" (inside a table) and "cell"
+// (inside a row), see blocks/table.js. A
 // container accepts the roles in its `accepts`; Loop and Condition use
 // "inherit" and accept what their nearest other container accepts.
 //
@@ -54,7 +55,9 @@
 //     key: "note",                     // data-tess-edit-kit-value; blocks name it in `kits`
 //     name: "Note",                    // shown in the top bar
 //     root: "note",                    // the type of its root block, unique to the kit
-//     starter: () => doc,              // the sample document
+//     aliases: ["page"],               // optional: root types its documents had before,
+//                                      // loaded as the kit's root
+//     starter: () => doc,              // optional: the sample document
 //     devices: [{ key, icon, title, width }],  // optional: canvas widths in the top bar
 //     previewTitle: "…",               // the Preview button's title
 //     canvas: async (doc, { editor, compileUrl, signal, options, element }) => ({ html, errors }),
@@ -66,15 +69,17 @@
 //     outputs: async (doc, { compileUrl, signal, options, element }) => ({ outputs: { html: "…" }, errors }),
 //                                      // what the editor stores besides the JSON (the inputs,
 //                                      // the change event and the Code dialog); null when aborted
+//     palette: ["text", "heading"],    // optional: the order of the Blocks panel's tiles,
+//                                      // by key; tiles it leaves out follow in registration order
 //     blocks: false,                   // optional: a kit of its root alone, such as a text
 //                                      // message, has no Blocks and Layers panels
 //     notes: { html: "…" },            // optional: what each output is, in the Code dialog
-//     errors: "The email could not be compiled"  // shown before the reasons
+//     errors: "The note could not be rendered"  // shown before the reasons
 //   })
 //
-// The built-in kit is "email" (MJML, compiled to HTML on the server, see
-// kits/email.js). A host adds its own kit with its root block and blocks,
-// and brings TessEdit's blocks into it with extendBlock:
+// TessEdit has no kit of its own: a host (or a gem, such as Nuntius with its
+// email) registers one with its root block and blocks, and brings TessEdit's
+// blocks into it with extendBlock:
 //
 //   extendBlock("text", { kits: ["note"], render: { note: (node, ctx) => "<div>…</div>" } })
 //
@@ -84,15 +89,12 @@
 
 import { builtinBlocks, builtinCategories } from "tess_edit/blocks/builtin"
 import { t } from "tess_edit/core/i18n"
-import { builtinKits } from "tess_edit/kits/builtin"
 
 const definitions = new Map()
 const categoryList = new Map()
 const kitList = new Map()
 const sourceList = new Map()
 const fieldTypeList = new Map()
-
-export const DEFAULT_KIT = "email"
 
 // What the editor says when a kit's canvas can't be rendered, unless the kit says it itself (errors)
 export const KIT_ERRORS = "The %{name} could not be rendered"
@@ -102,11 +104,11 @@ export function registerKit(kit) {
   if (!key || !name) throw new Error("A kit needs a key and a name")
   if (!root) throw new Error(`Kit ${key} needs a root block type`)
   if (typeof canvas !== "function" || typeof outputs !== "function") throw new Error(`Kit ${key} needs canvas(doc, options) and outputs(doc, options)`)
-  kitList.set(key, { devices: null, notes: {}, errors: KIT_ERRORS, ...kit })
+  kitList.set(key, { devices: null, notes: {}, errors: KIT_ERRORS, aliases: [], ...kit })
   return kitList.get(key)
 }
 
-export function getKit(key = DEFAULT_KIT) {
+export function getKit(key) {
   return kitList.get(key)
 }
 
@@ -116,7 +118,7 @@ export function kits() {
 
 // The kit a document belongs to, from its root block
 export function kitOf(doc) {
-  return kits().find((kit) => kit.root === doc?.type)
+  return kits().find((kit) => kit.root === doc?.type || kit.aliases.includes(doc?.type))
 }
 
 function inKit(definition, kit) {
@@ -161,8 +163,8 @@ export function registerBlock(definition) {
   if (!name) throw new Error(`Block ${type} needs a name`)
   // A block of no kit yet (kits: []), such as a Table, gets its render hook
   // from the kit that takes it in (extendBlock)
-  const ownKits = definition.kits ?? [DEFAULT_KIT]
-  if (ownKits.length && !Object.values(render || {}).some((hook) => typeof hook === "function")) throw new Error(`Block ${type} needs render.mjml(node, ctx) or render.html(node, ctx)`)
+  const ownKits = definition.kits ?? []
+  if (ownKits.length && !Object.values(render || {}).some((hook) => typeof hook === "function")) throw new Error(`Block ${type} needs a render hook for its kits, e.g. render.${ownKits[0]}(node, ctx)`)
   if (!kits().some((kit) => kit.root === type) && !(definition.roles || []).length) throw new Error(`Block ${type} needs roles, e.g. ["content"]`)
 
   const palette = (definition.palette ?? (definition.category ? [{ key: type, label: name, icon: definition.icon, category: definition.category }] : [])).map((item) => ({
@@ -174,7 +176,7 @@ export function registerBlock(definition) {
   }))
   const inline = definition.inline ?? (definition.richText ? [{ key: definition.richText }] : [])
   if (inline.some((part) => !part?.key)) throw new Error(`Block ${type} needs a key for each inline part`)
-  definitions.set(type, { roles: [], kits: [DEFAULT_KIT], ...definition, palette, inline })
+  definitions.set(type, { roles: [], kits: [], render: {}, ...definition, palette, inline })
   return definitions.get(type)
 }
 
@@ -267,10 +269,13 @@ export function categories() {
   return [...categoryList.values()].sort((a, b) => a.order - b.order)
 }
 
-// Tiles for the Blocks panel, in registration order, of a kit's blocks when
-// one is given.
+// Tiles for the Blocks panel, of a kit's blocks when one is given: in the
+// order of the kit's `palette`, the others after them in registration order.
 export function paletteItems(kit) {
-  return [...definitions.values()].filter((definition) => inKit(definition, kit)).flatMap((definition) => definition.palette)
+  const items = [...definitions.values()].filter((definition) => inKit(definition, kit)).flatMap((definition) => definition.palette)
+  const order = kitList.get(kit)?.palette || []
+  const rank = (item) => (order.includes(item.key) ? order.indexOf(item.key) : order.length)
+  return items.map((item, index) => ({ item, index })).sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index).map(({ item }) => item)
 }
 
 export function paletteItem(key) {
@@ -282,6 +287,5 @@ export function label(node) {
   return definition?.label?.(node) || t(definition?.name) || node.type
 }
 
-builtinKits.forEach(registerKit)
 builtinCategories.forEach(registerCategory)
 builtinBlocks.forEach(registerBlock)

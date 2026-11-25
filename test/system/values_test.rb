@@ -15,7 +15,7 @@ class ValuesTest < ApplicationSystemTestCase
 
   test "text being edited shows the value until the caret goes into its Liquid" do
     within_canvas do
-      find("td[class^='tess-']", text: "Thanks for your order, Ada").double_click
+      canvas_block("Thanks for your order, Ada").double_click
       assert_selector ".ProseMirror .tess-v-filled", text: "Ada", exact_text: true
       assert_no_text "{{ customer.first_name }}"
       find(".ProseMirror .tess-v-filled", text: "Ada").click

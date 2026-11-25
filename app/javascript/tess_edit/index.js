@@ -7,15 +7,14 @@
 import EditorController from "tess_edit/controllers/editor_controller"
 
 export { EditorController }
-export { toMjml } from "tess_edit/export/mjml"
-export { compile } from "tess_edit/export/compile"
+export { COMPILE_URL, compile } from "tess_edit/export/compile"
 export { escapeAttribute, escapeText, richTextToHtml } from "tess_edit/export/richtext"
+export { tableHtml } from "tess_edit/export/table"
 export { contentNode, createDocument, createNode, findType, normalize, renumber, withContent } from "tess_edit/core/document"
 export { CONTENT_END, CONTENT_START } from "tess_edit/blocks/content"
 export { registerBlock, registerCategory, registerFieldType, registerKit, registerPaletteSource, extendBlock, getBlock, getKit, kitOf, kits, blockTypes, paletteItems, paletteSources } from "tess_edit/core/registry"
 export * as fields from "tess_edit/blocks/fields"
 export { imageField } from "tess_edit/core/media"
-export { starterDocument } from "tess_edit/core/starter"
 export { cellOf, tableOf } from "tess_edit/core/table"
 
 export function registerTessEdit(application, identifier = "tess-edit") {

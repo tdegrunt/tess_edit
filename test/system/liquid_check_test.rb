@@ -5,7 +5,7 @@ require "application_system_test_case"
 class LiquidCheckTest < ApplicationSystemTestCase
   setup do
     visit "/?variables=1"
-    within_canvas { find("td[class^='tess-']", text: "View your order").click }
+    within_canvas { canvas_block("View your order").click }
     assert_selector ".tess-edit h2", text: "Button · View your order"
   end
 
@@ -33,7 +33,7 @@ class LiquidCheckTest < ApplicationSystemTestCase
   end
 
   test "a Loop's collection, and the mark in Layers" do
-    within_canvas { find("td[class^='tess-']", text: "× {{ line.name }}").click }
+    within_canvas { canvas_block("× {{ line.name }}").click }
     find(".tess-edit button[title='Select parent']").click
     collection = setting("Collection")
     collection.set("order.ordr_lines")
@@ -47,7 +47,7 @@ class LiquidCheckTest < ApplicationSystemTestCase
 
   test "in text on the canvas a wavy line under what's wrong, the reason on hover" do
     within_canvas do
-      find("td[class^='tess-']", text: "We've received order").double_click
+      canvas_block("We've received order").double_click
       find(".ProseMirror").send_keys(:end, " {% if order.numbr %}")
       assert_selector ".ProseMirror .tess-liquid-error", text: "numbr", exact_text: true
       assert_equal "order has no numbr\n{% if %} isn't closed", find(".ProseMirror .tess-liquid-error", text: "numbr", exact_text: true)["title"]

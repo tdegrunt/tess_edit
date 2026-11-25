@@ -1,6 +1,7 @@
 module TessEdit
   # A document's own content in its layout. The layout's Content block marks
-  # its place in the MJML or HTML with two comments (in <mj-raw> tags in MJML):
+  # its place in the output with two comments, which a kit may put in a tag
+  # of its own, such as MJML's <mj-raw>:
   #
   #   <!-- tess-edit:content --> … the blocks inside the Content block … <!-- /tess-edit:content -->
   #
@@ -11,9 +12,9 @@ module TessEdit
   module Content
     START = "<!-- tess-edit:content -->"
     FINISH = "<!-- /tess-edit:content -->"
-    MJML_START = "<mj-raw>#{START}</mj-raw>"
-    MJML_FINISH = "<mj-raw>#{FINISH}</mj-raw>"
-    MARKED = /(#{Regexp.escape(MJML_START)}|#{Regexp.escape(START)})(.*?)(#{Regexp.escape(MJML_FINISH)}|#{Regexp.escape(FINISH)})/m
+    # A marker, in a tag of its own or not
+    MARKER = ->(comment) { /(?:<[\w-]+>)?#{Regexp.escape(comment)}(?:<\/[\w-]+>)?/ }
+    MARKED = /(#{MARKER.call(START)})(.*?)(#{MARKER.call(FINISH)})/m
 
     class Error < StandardError; end
 

@@ -1,4 +1,4 @@
-// Turns Tiptap/ProseMirror JSON into email-friendly HTML. Liquid ({{ … }} and
+// Turns Tiptap/ProseMirror JSON into HTML with inline styles, as emails need. Liquid ({{ … }} and
 // {% … %}) is copied verbatim so quotes and comparison operators keep working.
 
 const LIQUID = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\})/g

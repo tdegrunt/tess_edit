@@ -2,6 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { checkLiquid, checkStructure, liquidParts } from "tess_edit/core/liquid_check"
 import { Variables } from "tess_edit/core/variables"
+import "./page_kit.js"
 
 globalThis.window ||= { location: { href: "https://www.example.com/editor" } }
 
@@ -125,7 +126,7 @@ test("without the host's endpoints only the structure", async () => {
 test("a document's Liquid: its fields in their mode, its rich texts, and other text with Liquid", async () => {
   const { createDocument, createNode, insert } = await import("tess_edit/core/document")
   const { liquidTexts, richText, LiquidChecker } = await import("tess_edit/core/liquid_check")
-  const doc = createDocument()
+  const doc = createDocument("page")
   const section = insert(doc, doc.id, 0, createNode("section"))
   const column = section.children[0] || insert(doc, section.id, 0, createNode("column"))
   const loop = insert(doc, column.id, 0, createNode("loop", { data: { variable: "line", collection: "order.lins" } }))

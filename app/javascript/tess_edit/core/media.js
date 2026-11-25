@@ -3,7 +3,7 @@
 //   GET                                → { images: [{ id, url, name }] }
 //   POST multipart/form-data, "file"   → { id, url, name }, or { errors: [...] }
 //
-// `id` is the host's own reference to the image, `url` is where the email
+// `id` is the host's own reference to the image, `url` is where the document
 // loads it from. An image field (type "image") stores both: the URL in its
 // key, the id and where the image comes from in its `image` and `source` keys.
 

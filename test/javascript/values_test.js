@@ -2,6 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
 import { Values, expressionsIn, normalizeExpression, valueCalls } from "tess_edit/core/values"
+import "./page_kit.js"
 
 test("finds the output tags that aren't t filters, with their expressions as written", () => {
   const text = "Hi {{ contract.account.name }}, {{ '.greeting' | t }} {{-contract.starts_on | date: '%-d %B'-}} {% if x %}"
@@ -20,7 +21,7 @@ test("an expression is its text, its whitespace one space", () => {
 })
 
 test("collects the expressions in a document's texts and settings", () => {
-  const doc = createDocument()
+  const doc = createDocument("page")
   doc.data.subject = "{{ contract.description }}"
   const section = createNode("section")
   insert(doc, doc.id, 0, section)

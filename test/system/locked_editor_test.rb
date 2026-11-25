@@ -1,7 +1,8 @@
 require "application_system_test_case"
 
-# The demo layout at /?lock=1: a header, a Content block and a footer,
-# with only the Content block's insides and the subject and preview text open.
+# The demo layout at /?lock=1 (config/demo_layout.json): a header, a Content
+# block and a footer, with only the Content block's insides and the note's
+# title open.
 class LockedEditorTest < ApplicationSystemTestCase
   setup do
     visit "/?lock=1"
@@ -9,7 +10,7 @@ class LockedEditorTest < ApplicationSystemTestCase
   end
 
   test "a layout block can be selected but not changed" do
-    within_canvas { find("td[class^='tess-']", text: "ACME STORE").click }
+    within_canvas { canvas_block("ACME STORE").click }
 
     assert_selector "[data-tess-edit-panel='inspect']", text: "Part of the layout"
     assert_no_selector "[data-tess-edit-panel='inspect'] [title='Delete']"
@@ -22,19 +23,19 @@ class LockedEditorTest < ApplicationSystemTestCase
 
     find("body").send_keys(:delete)
     within_canvas do
-      find("td[class^='tess-']", text: "ACME STORE").double_click
+      canvas_block("ACME STORE").double_click
       assert_no_selector ".ProseMirror"
       assert_text "ACME STORE"
     end
   end
 
   test "the content can be edited, deleted and added to" do
-    within_canvas { find("td[class^='tess-']", text: "this part is the template's own content").click }
+    within_canvas { canvas_block("this part is the template's own content").click }
     assert_no_text "Part of the layout"
     assert_not setting("Height").disabled?
 
     within_canvas do
-      find("td[class^='tess-']", text: "this part is the template's own content").double_click
+      canvas_block("this part is the template's own content").double_click
       find(".ProseMirror").send_keys(:end, " Edited.")
       find(".ProseMirror").send_keys(:escape)
       assert_text "Edited."
@@ -47,26 +48,26 @@ class LockedEditorTest < ApplicationSystemTestCase
   end
 
   test "a tile clicked with a layout block selected goes into the content block" do
-    within_canvas { find("td[class^='tess-']", text: "ACME STORE").click }
+    within_canvas { canvas_block("ACME STORE").click }
     click_on "2 columns"
 
     eventually do
       content = node("blcontent")
-      assert_equal ["section", "section"], content["children"].map { |child| child["type"] }
+      assert_equal ["text", "section"], content["children"].map { |child| child["type"] }
       assert_equal 2, content["children"].last["children"].size
     end
-    assert_equal %w[section content section], document_json["children"].map { |child| child["type"] }
+    assert_equal %w[section content text], document_json["children"].map { |child| child["type"] }
   end
 
-  test "of the email only the subject and preview text can change" do
+  test "of the note only the title can change" do
     click_on "Inspect"
-    assert_selector ".tess-edit h2", text: "Email"
-    assert_not setting("Subject").disabled?
-    assert_not setting("Preview text").disabled?
-    assert setting("Width").disabled?
+    assert_selector ".tess-edit h2", text: "Note"
+    assert_not setting("Title").disabled?
+    color = find("[data-tess-edit-panel='inspect'] span", text: "Color", exact_text: true).find(:xpath, "..")
+    assert color.all("input", minimum: 1).all?(&:disabled?)
 
-    setting("Subject").fill_in(with: "Order {{ order.number }} shipped")
-    eventually { assert_equal "Order {{ order.number }} shipped", document_json.dig("data", "subject") }
+    setting("Title").fill_in(with: "Order {{ order.number }} shipped")
+    eventually { assert_equal "Order {{ order.number }} shipped", document_json.dig("data", "title") }
   end
 
   test "layout rows in Layers are locked and can't be dragged" do

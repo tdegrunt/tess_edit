@@ -2,6 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { createDocument, createNode, insert } from "tess_edit/core/document"
 import { Translations, keyCompletion, keyToken, keysIn, missingArguments, placeholders, suggestKey, textParts, toTranslation, translationCalls, translationTag, validKey } from "tess_edit/core/translations"
+import "./page_kit.js"
 
 globalThis.window ||= { location: { href: "https://www.example.com/editor" } }
 globalThis.document ||= { querySelector: () => null }
@@ -21,7 +22,7 @@ test("finds t filters on quoted keys, with their arguments' locale", () => {
 })
 
 test("collects the keys in a document's texts and settings", () => {
-  const doc = createDocument()
+  const doc = createDocument("page")
   doc.data.subject = "{{ '.subject' | t }}"
   const section = createNode("section")
   insert(doc, doc.id, 0, section)
