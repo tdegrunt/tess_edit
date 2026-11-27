@@ -191,6 +191,7 @@ en:
       new_tab: "New tab"
       no_argument_for_names_in_the_t_filter: "No argument for %{names} in the t filter"
       no_fonts_with_that_name: "No fonts with that name"
+      no_image: "No image"
       no_images_yet: "No images yet"
       no_languages_yet: "No languages yet"
       no_variables_here: "No variables here"

@@ -36,6 +36,23 @@ class MediaTest < ApplicationSystemTestCase
     assert_no_selector "[data-tess-edit-panel='inspect'] input[type='text'][value*='Welcome']"
   end
 
+  test "an uploaded image is taken out again by No image, and ⌘Z puts it back from the select" do
+    click_on "Uploaded"
+    setting("Image").select("Sample")
+    eventually { assert_equal "sample", image_node.dig("data", "image") }
+
+    setting("Image").select("No image")
+
+    eventually { assert_equal "", image_node.dig("data", "image") }
+    assert_nil image_node.dig("attributes", "src")
+    within_canvas { assert_no_selector "img[src*='text=Sample']" }
+
+    setting("Image").send_keys([(RUBY_PLATFORM.include?("darwin") ? :command : :control), "z"])
+
+    eventually { assert_equal "sample", image_node.dig("data", "image") }
+    within_canvas { assert_selector "img[src*='text=Sample']" }
+  end
+
   test "uploading an image puts it in the block" do
     click_on "Uploaded"
     find("[data-tess-edit-panel='inspect'] input[type='file']", visible: :all).attach_file(file_fixture("logo.png"), make_visible: true)

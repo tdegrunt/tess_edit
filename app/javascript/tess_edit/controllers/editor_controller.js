@@ -326,6 +326,15 @@ export default class extends Controller {
     })
   }
 
+  // Takes the image out of a block's image field, as one undo step
+  clearImage(id, field = IMAGE_FIELD) {
+    if (!this.canEditField(id, field.key)) return
+    this.commit((doc) => {
+      setValue(doc, id, field.image, "")
+      setValue(doc, id, field.key, "")
+    })
+  }
+
   // An image file dropped on a block: shown at once, then uploaded
   async dropImage(id, file, field = IMAGE_FIELD) {
     this.select(id)
@@ -1417,6 +1426,9 @@ export default class extends Controller {
   onKeydown(event) {
     const target = event.target
     const typing = target.closest?.("input, textarea, select, [contenteditable='true']")
+    // A text field undoes its own typing; a select, a checkbox or a button has
+    // no undo of its own, so ⌘Z there is the editor's
+    const ownUndo = target.closest?.("textarea, [contenteditable='true'], input:not([type=checkbox], [type=radio], [type=file], [type=button], [type=submit], [type=range], [type=color])")
     const mod = event.metaKey || event.ctrlKey
 
     if (this.menu && event.key === "Escape") {
@@ -1444,6 +1456,11 @@ export default class extends Controller {
       event.key === "0" ? this.setZoom(1) : this.zoomBy(event.key === "-" ? -1 : 1)
       return
     }
+    if (mod && !event.altKey && !ownUndo && ["z", "y"].includes(event.key.toLowerCase())) {
+      event.preventDefault()
+      event.shiftKey || event.key.toLowerCase() === "y" ? this.redo() : this.undo()
+      return
+    }
     if (typing) return
     // Space held: the canvas is dragged around (Pan, ui/canvas.js)
     if (event.code === "Space" && !mod && !event.altKey) {
@@ -1454,12 +1471,6 @@ export default class extends Controller {
     if (event.shiftKey && !mod && !event.altKey && event.code === "Digit1") {
       event.preventDefault()
       this.zoomToFit()
-    } else if (mod && event.key.toLowerCase() === "z") {
-      event.preventDefault()
-      event.shiftKey ? this.redo() : this.undo()
-    } else if (mod && event.key.toLowerCase() === "y") {
-      event.preventDefault()
-      this.redo()
     } else if (mod && event.key.toLowerCase() === "d") {
       event.preventDefault()
       if (this.selectedId !== this.doc.id) this.duplicate(this.selectedId)

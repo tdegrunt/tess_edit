@@ -78,6 +78,9 @@ export class Inspector {
   }
 
   render() {
+    // A control that's drawn again loses focus: the editor keeps it, so its
+    // keys (⌘Z) still work
+    const focused = this.element?.contains(document.activeElement)
     const { doc, selectedId } = this.editor
     const hit = find(doc, selectedId) || { node: doc }
     const node = hit.node
@@ -119,6 +122,7 @@ export class Inspector {
 
     place(this.body, [locked, hint, ...groups].filter(Boolean), new Set([...this.keptGroups.values()].map((kept) => kept.details)))
     this.showLiquidProblems()
+    if (focused && !this.element.contains(document.activeElement)) this.editor.root?.focus({ preventScroll: true })
   }
 
   // Under a field with Liquid, what's wrong with it (core/liquid_check.js),
@@ -454,12 +458,13 @@ export class Inspector {
       "select",
       {
         class: `${INPUT} min-w-0 flex-1 pr-7`,
+        // The empty choice takes the image out
         onchange: (event) => {
           const image = images.find((option) => option.id === event.target.value)
-          if (image) this.editor.chooseImage(node.id, image, field)
+          image ? this.editor.chooseImage(node.id, image, field) : this.editor.clearImage(node.id, field)
         }
       },
-      h("option", { value: "" }, t(images.length ? "Choose an image" : "No images yet")),
+      h("option", { value: "" }, t(value ? "No image" : images.length ? "Choose an image" : "No images yet")),
       images.map((image) => h("option", { value: image.id, selected: image.id === value }, image.name))
     )
     return h(

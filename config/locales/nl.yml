@@ -191,6 +191,7 @@ nl:
       new_tab: "Nieuw tabblad"
       no_argument_for_names_in_the_t_filter: "Geen argument voor %{names} in het t-filter"
       no_fonts_with_that_name: "Geen lettertypen met die naam"
+      no_image: "Geen afbeelding"
       no_images_yet: "Nog geen afbeeldingen"
       no_languages_yet: "Nog geen talen"
       no_variables_here: "Hier zijn geen variabelen"
