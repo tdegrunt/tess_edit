@@ -198,6 +198,8 @@ nl:
       not_in_a_table: "Niet in een tabel"
       nothing_matches: "Niets gevonden."
       numbered_list: "Genummerde lijst"
+      off_word: "Uit"
+      on_word: "Aan"
       open_in: "Openen in"
       open_source: "%{source} openen"
       open_where_it_s_kept: "Openen waar het staat"
