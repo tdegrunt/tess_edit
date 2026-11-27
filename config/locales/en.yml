@@ -200,6 +200,7 @@ en:
       numbered_list: "Numbered list"
       off_word: "Off"
       on_word: "On"
+      opacity: "Opacity"
       open_in: "Open in"
       open_source: "Open %{source}"
       open_where_it_s_kept: "Open where it's kept"

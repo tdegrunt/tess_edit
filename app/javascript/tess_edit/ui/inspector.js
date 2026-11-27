@@ -14,6 +14,7 @@
 // host's Stimulus controllers in it keep their state: it and its group stay
 // in Inspect, hidden while another block is selected (see place in ui/dom.js).
 
+import { formatColor, parseColor } from "tess_edit/core/color"
 import { t } from "tess_edit/core/i18n"
 import { imageSource } from "tess_edit/core/media"
 import { fieldType, getBlock, label } from "tess_edit/core/registry"
@@ -526,23 +527,50 @@ export class Inspector {
     return new FontPicker(this.editor, { options, value, input: INPUT, choose: set }).button
   }
 
+  // A color: its swatch, its value as text (any CSS color, or Liquid), and
+  // its opacity, 0% transparent (core/color.js). A value the slider can't
+  // read, such as a color's name or Liquid, leaves it off.
   color(value, set) {
+    let color = parseColor(value)
+    const change = (next) => {
+      text.value = next
+      set(next)
+      show()
+    }
     const text = h("input", {
       type: "text", class: `${INPUT} font-mono text-xs`, value, placeholder: t("Default"), oninput: (event) => {
         set(event.target.value)
-        if (/^#[0-9a-f]{6}$/i.test(event.target.value)) swatch.value = event.target.value
+        color = parseColor(event.target.value)
+        if (color) swatch.value = color.hex
+        show(event.target.value)
       }
     })
     const swatch = h("input", {
       type: "color",
       class: "h-7 w-8 shrink-0 cursor-pointer rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-0.5",
-      value: /^#[0-9a-f]{6}$/i.test(value) ? value : "#ffffff",
+      value: color?.hex || "#ffffff",
       oninput: (event) => {
-        text.value = event.target.value
-        set(event.target.value)
+        color = { hex: event.target.value, alpha: color?.alpha ?? 1 }
+        change(formatColor(color.hex, color.alpha))
       }
     })
-    return h("span", { class: "flex items-center gap-1.5" }, swatch, text)
+    const percent = h("span", { class: "w-9 shrink-0 text-right text-[11px] tabular-nums text-gray-500 dark:text-gray-400" })
+    const opacity = h("input", {
+      type: "range", min: "0", max: "100", step: "1",
+      class: "h-1.5 min-w-0 flex-1 cursor-pointer accent-blue-600 disabled:cursor-default disabled:opacity-40",
+      title: t("Opacity"), "aria-label": t("Opacity"),
+      oninput: (event) => {
+        color = { hex: color?.hex || swatch.value, alpha: Number(event.target.value) / 100 }
+        change(formatColor(color.hex, color.alpha))
+      }
+    })
+    const show = (current = text.value) => {
+      opacity.disabled = !color && current.trim() !== ""
+      opacity.value = String(Math.round((color?.alpha ?? 1) * 100))
+      percent.textContent = `${opacity.value}%`
+    }
+    show(value || "")
+    return h("span", { class: "block space-y-1.5" }, h("span", { class: "flex items-center gap-1.5" }, swatch, text), h("span", { class: "flex items-center gap-2", title: t("Opacity") }, opacity, percent))
   }
 
   spacing(value, set) {
