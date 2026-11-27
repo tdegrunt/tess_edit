@@ -187,9 +187,11 @@ export class Inspector {
     const set = (next, options = {}) => this.editor.setValue(node.id, field.key, next, options)
     // A fieldset disables every input and button of a locked field at once.
     const editable = this.editor.canEditField(node.id, field.key)
-    const control = editable
-      ? this.control(node, field, value, set)
-      : h("fieldset", { disabled: true, class: "opacity-60" }, this.control(node, field, value, set))
+    // A toggle is its checkbox next to its label, which clicks it: checked is on
+    const own = field.type === "toggle"
+      ? h("label", { class: "flex cursor-pointer items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300" }, this.control(node, field, value, set), h("span", {}, t(field.label)))
+      : this.control(node, field, value, set)
+    const control = editable ? own : h("fieldset", { disabled: true, class: "opacity-60" }, own)
     const expand = field.type === "code" && editable
       ? h("button", { type: "button", title: t("Edit %{label} in a larger window", { label: t(field.label) }), class: "rounded px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40", onclick: () => this.expand(node, field) }, t("Expand"))
       : null
@@ -216,7 +218,7 @@ export class Inspector {
     return h(
       "div",
       { class: "relative block", oninput: typeof field.hint === "function" ? showHint : null },
-      h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, t(field.label)),
+      field.type === "toggle" ? null : h("span", { class: "mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300" }, t(field.label)),
       tools,
       control,
       input ? this.translationHint(input) : null,
@@ -291,23 +293,14 @@ export class Inspector {
           )
         )
 
-      case "toggle": {
-        const state = h("span", { class: "text-xs text-gray-600 dark:text-gray-300" }, t(value === field.on ? "On" : "Off"))
-        return h(
-          "span",
-          { class: "flex items-center gap-2" },
-          h("input", {
-            type: "checkbox",
-            class: "h-4 w-4 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 dark:text-blue-400",
-            checked: value === field.on,
-            onchange: (event) => {
-              set(event.target.checked ? field.on : field.off)
-              state.textContent = t(event.target.checked ? "On" : "Off")
-            }
-          }),
-          state
-        )
-      }
+      // Only its checkbox: field() puts it next to its label
+      case "toggle":
+        return h("input", {
+          type: "checkbox",
+          class: "h-4 w-4 shrink-0 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 dark:text-blue-400",
+          checked: value === field.on,
+          onchange: (event) => set(event.target.checked ? field.on : field.off)
+        })
 
       case "spacing":
         return this.spacing(value, set)

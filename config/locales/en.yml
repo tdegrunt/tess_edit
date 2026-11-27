@@ -197,8 +197,6 @@ en:
       not_in_a_table: "Not in a table"
       nothing_matches: "Nothing matches."
       numbered_list: "Numbered list"
-      off_word: "Off"
-      on_word: "On"
       open_in: "Open in"
       open_source: "Open %{source}"
       open_where_it_s_kept: "Open where it's kept"
